@@ -1,43 +1,44 @@
 ---
-layout: archive
+layout: default
 ---
 
-{{ content }}
-
-{% assign categories_max = 0 %}
-{% for category in site.categories %}
-  {% if category[1].size > categories_max %}
-    {% assign categories_max = category[1].size %}
-  {% endif %}
-{% endfor %}
-
-<ul class="taxonomy__index">
-  {% for i in (1..categories_max) reversed %}
-    {% for category in site.categories %}
-      {% if category[1].size == i %}
-        <li>
-          <a href="#{{ category[0] | slugify }}">
-            <strong>{{ category[0] }}</strong> <span class="taxonomy__count">{{ i }}</span>
-          </a>
-        </li>
-      {% endif %}
-    {% endfor %}
-  {% endfor %}
-</ul>
-
-{% assign entries_layout = page.entries_layout | default: 'list' %}
-{% for i in (1..categories_max) reversed %}
-  {% for category in site.categories %}
-    {% if category[1].size == i %}
-      <section id="{{ category[0] | slugify | downcase }}" class="taxonomy__section">
-        <h2 class="archive__subtitle">{{ category[0] }}</h2>
-        <div class="entries-{{ entries_layout }}">
-          {% for post in category.last %}
-            {% include archive-single.html type=entries_layout %}
-          {% endfor %}
+{% assign assets_base_url = site.url %}
+{% if site.cdn.jsdelivr.enabled %}
+{% assign assets_base_url = "https://fastly.jsdelivr.net/gh/" | append: site.repository | append: '@master' %}
+{% endif %}
+<section class="collection-head small geopattern" data-pattern-id="{{ page.title | truncate: 15, ''}}">
+    <div class="container">
+        <div class="columns">
+            <div class="column two-thirds">
+                <div class="collection-title">
+                    <h1 class="collection-header">{{ page.title }}</h1>
+                </div>
+            </div>
+            <div class="column one-third mobile-hidden">
+              {% include sidebar-qrcode.html %}
+            </div>
         </div>
-        <a href="#page-title" class="back-to-top">{{ site.data.ui-text[site.locale].back_to_top | default: 'Back to Top' }} &uarr;</a>
-      </section>
-    {% endif %}
-  {% endfor %}
-{% endfor %}
+    </div>
+</section>
+<!-- / .banner -->
+<section class="container content">
+    <div class="columns">
+        <div class="column two-thirds" >
+            <article class="article-content markdown-body">
+                {{ content }}
+            </article>
+            <div class="share">
+                {% include sns-share.html %}
+            </div>
+            <div class="comment">
+                {% include comments.html %}
+            </div>
+        </div>
+        <div class="column one-third">
+            {% include sidebar-search.html %}
+            {% include sidebar-categories-nav.html %}
+            {% include sidebar-ad.html %}
+        </div>
+    </div>
+</section>
+<!-- /section.content -->
