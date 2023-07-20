@@ -1,3 +1,19 @@
+---
+layout: wiki
+title: 小米路由器开启clashx科学
+cate1:
+cate2:
+description: 开启科学
+keywords: 小米路由器, clashx
+type:
+link:
+mermaid: false
+sequence: false
+flow: false
+mathjax: false
+mindmap: false
+mindmap2: false
+---
 
 分为以下几个步骤：
 
