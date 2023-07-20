@@ -1,12 +1,9 @@
 ---
-layout: wiki
+layout: post
 title: 小米路由器开启clashx科学
-cate1:
-cate2:
-description: 开启科学
+categories: [Linux, Clashx]
+description: some word here
 keywords: 小米路由器, clashx
-type:
-link:
 mermaid: false
 sequence: false
 flow: false
