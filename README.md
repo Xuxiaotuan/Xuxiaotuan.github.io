@@ -1,2 +1,2 @@
 # Xuxiaotuan.github.io
-blog
+-- blog --
