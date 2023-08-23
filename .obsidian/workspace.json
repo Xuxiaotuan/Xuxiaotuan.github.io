@@ -1,0 +1,154 @@
+{
+  "main": {
+    "id": "0c3d47392dc215ec",
+    "type": "split",
+    "children": [
+      {
+        "id": "b9d888e1dbb18838",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "4acb84a106707eb8",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "_posts/2023-08-23-Which are more performant, CTE or temporary tables?.md",
+                "mode": "source",
+                "source": false
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "4ef3763891d7e51b",
+    "type": "split",
+    "children": [
+      {
+        "id": "b0fb2a71b8bf00ed",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "57a9b66783432e7d",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "28ee704bab7d4f50",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "08a7891fb237316a",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {}
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "20039aca722d6be8",
+    "type": "split",
+    "children": [
+      {
+        "id": "7ed674b97b9e9ddf",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "916841f8ba791407",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "_posts/2023-08-23-Which are more performant, CTE or temporary tables?.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "34833e478c6ca575",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "_posts/2023-08-23-Which are more performant, CTE or temporary tables?.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "23bf1f6743504751",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true
+              }
+            }
+          },
+          {
+            "id": "deb8403066c15204",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "_posts/2023-08-23-Which are more performant, CTE or temporary tables?.md"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false
+    }
+  },
+  "active": "4acb84a106707eb8",
+  "lastOpenFiles": [
+    "_posts/2023-07-21-route-clashx.md",
+    "_posts/2023-08-23-Which are more performant, CTE or temporary tables?.md"
+  ]
+}
