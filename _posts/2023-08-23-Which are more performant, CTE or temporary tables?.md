@@ -56,7 +56,11 @@ SELECT * FROM #tmpTable
 ```
 
 ## Example
+CTE
 ![with-cte](https://xjw-1256033222.cos.ap-guangzhou.myqcloud.com/img/202308231451734.png)
+
+temp table
+![temp tbale](https://xjw-1256033222.cos.ap-guangzhou.myqcloud.com/img/%E4%BC%81%E4%B8%9A%E5%BE%AE%E4%BF%A1%E6%88%AA%E5%9B%BE_365c61ca-cffa-435c-be03-a38c36f85c0b.png)
 ## Refer to or reading
 
 - [x] [What's the difference between a CTE and a Temp Table?](https://dba.stackexchange.com/questions/13112/whats-the-difference-between-a-cte-and-a-temp-table)
