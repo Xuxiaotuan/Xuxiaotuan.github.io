@@ -1,0 +1,72 @@
+---
+tags:
+  - streamparek
+  - zio
+label: blog
+layout: post
+title: Flink Kubernetes Module为什么使用ZIO？
+categories:
+  - streamparek
+  - zio
+description: Flink Kubernetes Module为什么使用ZIO？
+keywords: streamparek, zio
+mermaid: false
+sequence: false
+flow: false
+mathjax: false
+mindmap: false
+mindmap2: false
+---
+
+```scala
+/** Deploy a Flink cluster with the given spec. */  
+def deployCluster(id: Long, spec: FlinkDeploymentDef): IO[Throwable, TrackKey.ClusterKey] = {  
+  for {  
+    _       <- k8sCrOpr.applyDeployment(spec.copy(job = None))  
+    trackKey = TrackKey.cluster(id, spec.namespace, spec.name)  
+    _       <- obr.track(trackKey)  
+  } yield trackKey  
+}
+// Submit FlinkDeployment CR to Kubernetes  
+FlinkK8sOperator.deployCluster(deployRequest.id, flinkDeployDef).runIOAsTry match {  
+  case Success(_) =>  
+    logInfo(richMsg("Flink Cluster has been submitted successfully."))  
+  case Failure(err) =>  
+    logError(  
+      richMsg(s"Submit Flink Cluster fail in${deployRequest.executionMode.getName}_V2 mode!"),  
+      err)  
+    throw err  
+}
+
+def runIOAsTry: Try[A] = unsafeRunToEither(io).toTry
+/** unsafe run IO to Either. */  
+@inline def unsafeRunToEither[E, A](zio: IO[E, A]): Either[Throwable, A] = Unsafe.unsafe {  
+  implicit u =>  
+    Runtime.default.unsafe  
+      .run(zio.provideLayer(Runtime.removeDefaultLoggers >>> ZIOLogger.default))  
+      .toEither  
+}
+```
+可从Flink任务的提交使用上`runIOAsTry`看到，返回的是`IO[Throwable, TrackKey.ClusterKey]`
+
+正如scala一贯式的写法一样，执行这个方法，无论是正常还是错误，都需要有一个返回。只要按着规范执行，内部的错误可以通过ZIO一步步带到需要判断错误的地方，将Java的try...catch变成一个规范。
+如下是某个子方法的内容，一个方法给出正确的方法也要给出错误的方法
+```scala
+/** Apply FlinkDeployment CR. */  
+override def applyDeployment(spec: FlinkDeploymentDef): IO[Throwable, Unit] = {  
+  lazy val mirrorSpace = s"${spec.namespace}_${spec.name}"  
+  for {  
+    _  <- ZIO.fail(FlinkDeploymentCRDNotFound()).unlessZIO(existFlinkDeploymentCRD)  
+  } yield ()  
+} *> ZIO.logInfo(s"Successfully apply FlinkDeployment K8s CR: namespace=${spec.namespace}, name=${spec.name}")
+```
+而为什么用ZIO呢，不得不从ZIO的定义讲起：
+`ZIO[R, E, A]` 数据类型具有三个类型参数：
+- `R` - 环境类型。该效果需要 `R` 类型的环境。如果此类型参数为 `Any` ，则表示该效果没有任何要求，因为我们可以使用任何值（例如单位值 `()` ）来运行该效果。
+- `E` - 失败类型。当值类型为 `E` 时，效果可能会失败。某些应用程序将使用 `Throwable` 。如果这个类型参数是 `Nothing` ，则意味着效果不会失败，因为没有 `Nothing` 类型的值。
+- `A` - 成功类型。如果值为 `A` 类型，效果可能会成功。如果此类型参数为 `Unit` ，则意味着该效果不会产生有用的信息，而如果为 `Nothing` ，则意味着该效果将永远运行（或直到失败）。
+
+ZIO将规范变成了语法，遵守规则变成了强制性的动作，当外部想通过收集对应的堆栈日志，只需要捕获对应的失败类型的结果即可。
+
+
+-- 待完善
