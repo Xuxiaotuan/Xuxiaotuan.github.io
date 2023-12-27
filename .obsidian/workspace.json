@@ -14,12 +14,23 @@
               "type": "markdown",
               "state": {
                 "file": "_posts/2023-08-23-Which are more performant, CTE or temporary tables?.md",
-                "mode": "source",
+                "mode": "preview",
                 "source": false
               }
             }
+          },
+          {
+            "id": "ddb0e99975d6f6d5",
+            "type": "leaf",
+            "state": {
+              "type": "release-notes",
+              "state": {
+                "currentVersion": "1.4.13"
+              }
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -128,6 +139,16 @@
                 "file": "_posts/2023-08-23-Which are more performant, CTE or temporary tables?.md"
               }
             }
+          },
+          {
+            "id": "2be6f0aee5764401",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency"
+              }
+            }
           }
         ]
       }
@@ -146,7 +167,7 @@
       "command-palette:打开命令面板": false
     }
   },
-  "active": "4acb84a106707eb8",
+  "active": "ddb0e99975d6f6d5",
   "lastOpenFiles": [
     "_posts/2023-07-21-route-clashx.md",
     "_posts/2023-08-23-Which are more performant, CTE or temporary tables?.md"
