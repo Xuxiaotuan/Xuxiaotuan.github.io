@@ -1,32 +1,219 @@
 .home .banner,
 .home .site-header {
-    background: #4183c4;
-    color: #fff
+    background: linear-gradient(135deg, #74b9ff 0%, #0984e3 50%, #00b894 100%);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
 }
 
+.home .banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" patternUnits="userSpaceOnUse" width="100" height="100"><circle cx="20" cy="20" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="40" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="40" cy="80" r="1.5" fill="rgba(255,255,255,0.08)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+}
+
+.home .banner::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: linear-gradient(to bottom, rgba(248,249,250,0) 0%, rgba(248,249,250,0.8) 70%, #f8f9fa 100%);
+    z-index: 1;
+}
+
+/* 重新设计collection-head，移除白色背景 */
 .home .banner .collection-head {
     color: #fff;
-    background: 0 0;
-    box-shadow: none;
-    -webkit-box-shadow: none
+    background: transparent !important;
+    box-shadow: none !important;
+    -webkit-box-shadow: none !important;
+    position: relative;
+    z-index: 2;
+    padding: 3rem 0 4rem 0;
+    margin: 0 !important;
 }
 
+/* 移除collection-title的白色小框 */
+.home .collection-title {
+    display: block !important;
+    padding: 0 !important;
+    vertical-align: baseline !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* 完全移除site-header的白边和边框 */
 .home .site-header {
-    border-bottom: none
+    border-bottom: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    -webkit-box-shadow: none !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    margin: 0 !important;
+    padding-bottom: 0 !important;
 }
 
 .home .site-header h1 a {
-    color: #fff
+    color: #fff;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 .home .site-header .site-header-nav-item {
-    color: rgba(255, 255, 255, .5)
+    color: rgba(255, 255, 255, .8);
+    font-weight: 500;
+    transition: all 0.3s ease;
 }
 
 .home .site-header .site-header-nav-item:hover {
-    color: #fff
+    color: #fff;
+    transform: translateY(-1px);
 }
 
+.home .collection-header {
+    font-size: 3.5rem !important;
+    font-weight: 300 !important;
+    margin-bottom: 1rem !important;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    letter-spacing: -1px;
+    color: #fff !important;
+    background: transparent !important;
+}
+
+.home .collection-info {
+    margin-top: 1.5rem;
+}
+
+.home .collection-info .meta-info {
+    background: rgba(255,255,255,0.15);
+    padding: 8px 16px;
+    border-radius: 25px;
+    margin-right: 15px;
+    margin-bottom: 10px;
+    display: inline-block;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+    transition: all 0.3s ease;
+}
+
+.home .collection-info .meta-info:hover {
+    background: rgba(255,255,255,0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.home .collection-info .meta-info a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.home .collection-info .octicon {
+    margin-right: 8px;
+    opacity: 0.9;
+}
+
+/* 移除白色长条，改为自然过渡的背景 */
+body.home {
+    background: linear-gradient(to bottom, 
+        #f8f9fa 0%, 
+        #f0f2f5 50%, 
+        #e9ecef 100%);
+    min-height: 100vh;
+}
+
+.home .content,
+.home .container.content {
+    background: transparent;
+    margin-top: 0;
+    padding-top: 2rem;
+    border-radius: 0;
+    position: relative;
+    z-index: 3;
+    box-shadow: none;
+}
+
+/* 优化列表布局，减少左右空隙 */
+.home .columns {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.home .column.two-thirds {
+    width: 70%;
+    padding-right: 30px;
+}
+
+.home .column.one-third {
+    width: 30%;
+    padding-left: 10px;
+}
+
+/* 让文章列表更好地利用空间 */
+.home .repo-list {
+    margin: 0;
+}
+
+/* 添加优雅的动画效果 */
+.home .repo-list-item {
+    animation: fadeInUp 0.6s ease-out;
+    animation-fill-mode: both;
+}
+
+.home .repo-list-item:nth-child(1) { animation-delay: 0.1s; }
+.home .repo-list-item:nth-child(2) { animation-delay: 0.2s; }
+.home .repo-list-item:nth-child(3) { animation-delay: 0.3s; }
+.home .repo-list-item:nth-child(4) { animation-delay: 0.4s; }
+.home .repo-list-item:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 优化侧边栏 */
+.home .column.one-third > div {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: 1px solid #e1e8ed;
+    transition: all 0.3s ease;
+}
+
+.home .column.one-third > div:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+
+/* 优化分页 */
+.home .pagination {
+    margin-top: 3rem;
+    padding: 2rem 0;
+    background: rgba(255,255,255,0.8);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.3);
+}
 
 @media (max-width:50em) {
   .home .collapsed .icon-bar {
@@ -34,6 +221,27 @@
   }
 
   .home .collection-head .collection-header {
-    font-size: 1.25em;
+    font-size: 2.5rem !important;
+  }
+  
+  .home .collection-info .meta-info {
+    margin-right: 8px;
+    margin-bottom: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .home .columns {
+    padding: 0 15px;
+  }
+  
+  .home .column.two-thirds,
+  .home .column.one-third {
+    width: 100%;
+    padding: 0;
+  }
+  
+  .home .column.one-third {
+    margin-top: 2rem;
   }
 }
