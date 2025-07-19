@@ -1,11 +1,11 @@
 ---
 tags:
-  - seatunnel
+  - SeaTunnel
 label: blog
 layout: post
 title: Seatunnel reference
 categories:
-  - seatunnel
+  - SeaTunnel
 description: Seatunnel参考
 keywords: seatunnel
 mermaid: false
