@@ -1,11 +1,13 @@
 ---
+tags:
+  - SeaTunnel
 layout: post
 title: SeaTunnel 中的 Spark
 categories:
   - SeaTunnel
   - Spark
   - 数据集成
-keywords: seatunnel, spark, 数据同步, 数据源, spark datasourcev2, spark sink, spark streaming
+keywords: seatunnel, spark, 数据同步, 数据源, spark datasource v2, spark sink, spark streaming
 mermaid: true
 sequence: true
 flow: false
