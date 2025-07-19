@@ -1,6 +1,6 @@
 ---
 layout: post
-title: SeaTunnel Spark适配器技术说明文档
+title: SeaTunnel 中的 Spark
 categories:
   - SeaTunnel
   - Spark
@@ -14,7 +14,7 @@ mindmap: false
 mindmap2: false
 ---
 
-# SeaTunnel Spark适配器
+# SeaTunnel 中的 Spark
 
 ## 1. 概述
 
@@ -57,11 +57,17 @@ SeaTunnel Spark适配器采用三层架构模型，分别为：
 ```
 seatunnel-translation-spark/
 ├── seatunnel-translation-spark-2.4/          # Spark 2.4适配器
+│   ├── source/                               # 数据源适配
+│   │   ├── reader/                          # 读取器实现
+│   │   ├── partition/                       # 分区管理
+│   │   └── state/                          # 状态管理
+│   └── sink/                               # 数据接收器适配
+│       └── writer/                         # 写入器实现
 ├── seatunnel-translation-spark-3.3/          # Spark 3.3适配器
-└── seatunnel-translation-spark-common/       # 通用模块
-    ├── execution/                          # 执行调度
-    ├── serialization/                      # 数据序列化
-    └── utils/                              # 工具包
+└── seatunnel-translation-spark-common/       # 通用组件
+    ├── execution/                          # 执行引擎
+    ├── serialization/                      # 序列化组件
+    └── utils/                             # 工具类
 ```
 
 ### 2.3 数据读取生命周期（批处理）
@@ -434,7 +440,7 @@ SeaTunnel Spark适配器通过模块拆分与接口抽象机制，实现对多�
 
 未来版本如 Spark 3.5 可通过新增模块适配。
 
-8.2 差异点处理策略
+### 8.2 差异点处理策略
 
 |差异维度|Spark 2.4|Spark 3.3|SeaTunnel适配方案|
 |---|---|---|---|
