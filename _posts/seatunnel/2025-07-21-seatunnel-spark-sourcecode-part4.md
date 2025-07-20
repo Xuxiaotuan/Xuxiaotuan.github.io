@@ -1,5 +1,4 @@
-
-```
+---
 tags:
   - SeaTunnel
   - Spark
@@ -13,7 +12,7 @@ categories:
 keywords: seatunnel, spark, 源码分析, 状态管理, 容错机制, checkpoint
 mermaid: true
 sequence: true
-```
+---
 
 # SeaTunnel Spark 适配器源码深度解析（四）：状态管理与容错
 
