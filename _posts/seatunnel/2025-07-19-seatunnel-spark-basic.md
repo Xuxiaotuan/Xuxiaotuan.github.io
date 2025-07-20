@@ -2,7 +2,7 @@
 tags:
   - SeaTunnel
 layout: post
-title: SeaTunnel 中的 Spark
+title: SeaTunnel 中的 Spark 概述
 categories:
   - SeaTunnel
   - Spark
@@ -16,7 +16,7 @@ mindmap: false
 mindmap2: false
 ---
 
-# SeaTunnel 中的 Spark
+# SeaTunnel 中的 Spark  概述
 
 ## 1. 概述
 
