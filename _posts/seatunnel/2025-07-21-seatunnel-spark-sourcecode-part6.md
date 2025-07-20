@@ -1,5 +1,4 @@
-
-```
+---
 tags:
   - SeaTunnel
   - Spark
@@ -14,7 +13,7 @@ categories:
 keywords: seatunnel, spark, 扩展开发, 自定义Source, 插件热加载
 mermaid: true
 sequence: true
-```
+---
 
 # SeaTunnel Spark 适配器源码深度解析（六）：扩展开发指南
 

@@ -1,5 +1,4 @@
-
-```yaml
+---
 tags:
   - SeaTunnel
   - Spark
@@ -13,7 +12,7 @@ categories:
 keywords: seatunnel, spark, 源码分析, 数据源, 分区策略, 状态管理
 mermaid: true
 sequence: true
-```
+---
 
 # SeaTunnel Spark 适配器源码深度解析（二）：数据源适配层
 

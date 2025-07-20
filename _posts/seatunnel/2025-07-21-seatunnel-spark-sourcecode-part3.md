@@ -1,4 +1,4 @@
-```
+---
 tags:
   - SeaTunnel
   - Spark
@@ -12,7 +12,7 @@ categories:
 keywords: seatunnel, spark, 源码分析, 执行引擎, 动态资源, 优化规则
 mermaid: true
 sequence: true
-```
+---
 
 # SeaTunnel Spark 适配器源码深度解析（三）：执行引擎黑盒
 

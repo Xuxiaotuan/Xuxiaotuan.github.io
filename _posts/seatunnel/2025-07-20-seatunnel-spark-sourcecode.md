@@ -1,4 +1,4 @@
-```
+---
 tags:
   - SeaTunnel
   - Spark
@@ -12,7 +12,7 @@ categories:
 keywords: seatunnel, spark, 源码分析, 启动流程, 插件加载
 mermaid: true
 sequence: true
-```
+---
 
 # SeaTunnel Spark 适配器源码深度解析（一）：核心架构入口
 

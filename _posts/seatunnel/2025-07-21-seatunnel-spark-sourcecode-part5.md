@@ -1,5 +1,4 @@
-
-```
+---
 tags:
   - SeaTunnel
   - Spark
@@ -14,7 +13,7 @@ categories:
 keywords: seatunnel, spark, 性能优化, 内存管理, 并行度, 网络调优
 mermaid: true
 sequence: true
-```
+---
 
 # SeaTunnel Spark 适配器源码深度解析（五）：性能优化关键点
 
