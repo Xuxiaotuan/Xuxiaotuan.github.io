@@ -1,8 +1,4 @@
-你提供的排版已经非常清晰，但我可以帮你做一些优化，以提高可读性和结构性。以下是优化后的版本：
-
----
-
-```yaml
+```
 tags:
   - SeaTunnel
   - Spark
@@ -25,6 +21,7 @@ sequence: true
 > 1. 作业启动全流程的代码级实现
 > 2. 插件动态加载的黑盒机制
 > 3. 生产级调试技巧
+>
 
 ## 1. 启动流程全景图
 
@@ -67,8 +64,10 @@ public class SparkCommandArgs {
 
 **设计亮点**：
 
-* 采用「约定优于配置」原则，CLIENT模式仅需`--config`参数
-* 通过枚举类强制约束部署模式，避免字符串参数错误
+- 采用「约定优于配置」原则，CLIENT模式仅需`--config`参数
+
+- 通过枚举类强制约束部署模式，避免字符串参数错误
+
 
 ### 2.2 插件加载机制
 
@@ -89,8 +88,11 @@ public static List<Path> findPluginJars(Config config) {
 **避坑指南**：
 
 1. 依赖冲突时采用`URLClassLoader`隔离加载，每个插件使用独立ClassLoader
+
 2. 通过`ServiceLoader.load(SeaTunnelSource.class)`发现插件主类
+
 3. 插件索引文件需遵循格式：`插件名:主类全限定名`
+
 
 ## 3. 生产级调试技巧
 
@@ -105,10 +107,13 @@ public static List<Path> findPluginJars(Config config) {
 **IDEA配置步骤**：
 
 1. 创建两个Remote JVM Debug配置，分别连接Driver/Executor节点
+
 2. 关键断点位置：
 
-   * `SparkStarter.buildCommands()`：查看最终生成的spark-submit命令
-   * `PluginClassLoader.loadClass()`：观察插件类加载过程
+   - `SparkStarter.buildCommands()`：查看最终生成的spark-submit命令
+
+   - `PluginClassLoader.loadClass()`：观察插件类加载过程
+
 
 ### 3.2 依赖树分析
 
@@ -129,29 +134,25 @@ seatunnel-connector-jdbc-2.3.0.jar
 
 1. **模块化设计**：
 
-   * 启动器与核心引擎解耦，通过SPI机制扩展
-   * 插件体系支持热插拔
+   - 启动器与核心引擎解耦，通过SPI机制扩展
+
+   - 插件体系支持热插拔
+
 2. **生产就绪性**：
 
-   * 完善的参数校验和错误提示
-   * 资源隔离机制避免依赖冲突
+   - 完善的参数校验和错误提示
+
+   - 资源隔离机制避免依赖冲突
+
 3. **调试友好性**：
 
-   * 提供`--show-deps`等诊断参数
-   * 日志明确标注各阶段耗时
+   - 提供`--show-deps`等诊断参数
+
+   - 日志明确标注各阶段耗时
+
 
 > 下一篇预告：《SeaTunnel Spark 适配器源码深度解析（二）：数据源适配层》将剖析：
 >
-> * 从SeaTunnel Source到Spark DataSource的转换逻辑
-> * 批流统一的分区策略实现
-> * 状态管理机制的底层原理
-
----
-
-### 主要优化：
-
-* **结构**：对段落的结构进行了更细致的分隔和标记，使得每个部分更加清晰。
-* **格式**：提高了代码块的可读性和一致性，确保每一部分的排版更加规范。
-* **注释**：增加了更清晰的注释和说明，便于快速理解每个部分的重点内容。
-
-这个版本的优化更注重可读性和结构化，希望对读者更易理解。
+> - 从SeaTunnel Source到Spark DataSource的转换逻辑
+> - 批流统一的分区策略实现
+> - 状态管理机制的底层原理
