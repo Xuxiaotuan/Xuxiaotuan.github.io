@@ -31,13 +31,17 @@ sequenceDiagram
   participant SparkStarter  
   participant PluginClassLoader  
   participant SparkSubmit  
+  participant SparkCluster  
   
   User->>SparkStarter: 执行启动命令 (bin/start-seatunnel-spark.sh)  
   SparkStarter->>SparkStarter: 解析参数（--config, --deploy-mode）  
   SparkStarter->>PluginClassLoader: 动态加载插件JAR  
   PluginClassLoader-->>SparkStarter: 返回插件依赖树  
   SparkStarter->>SparkSubmit: 构建spark-submit命令  
-  SparkSubmit->>Spark Cluster: 提交作业  
+  SparkSubmit->>SparkCluster: 提交作业  
+  SparkCluster-->>SparkSubmit: 返回作业状态  
+  SparkSubmit-->>SparkStarter: 返回作业状态  
+  SparkStarter-->>User: 输出作业执行结果  
 ```
 
 ## 2. 关键代码拆解
@@ -52,6 +56,12 @@ public class SparkCommandArgs {
     
     @Parameter(names = "--deploy-mode", converter = DeployModeConverter.class)
     private DeployMode deployMode = DeployMode.CLIENT;
+    
+    @Parameter(names = "--master", description = "Spark master URL")
+    private String master;
+    
+    @Parameter(names = "--queue", description = "YARN queue name")
+    private String queue;
     
     // 生产环境必填参数校验
     public void validateClusterMode() {
@@ -82,6 +92,36 @@ public static List<Path> findPluginJars(Config config) {
         .stream()
         .filter(jar -> !jar.contains("org.apache.seatunnel:seatunnel-core")) // 过滤核心包
         .collect(Collectors.toList());
+}
+
+// 插件加载隔离机制
+public class PluginClassLoader extends URLClassLoader {
+    private final String pluginName;
+    
+    public PluginClassLoader(String pluginName, URL[] urls, ClassLoader parent) {
+        super(urls, parent);
+        this.pluginName = pluginName;
+    }
+    
+    @Override
+    protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+        synchronized (getClassLoadingLock(name)) {
+            // 优先从当前插件JAR加载类
+            Class<?> c = findLoadedClass(name);
+            if (c == null) {
+                try {
+                    c = findClass(name);
+                } catch (ClassNotFoundException e) {
+                    // 回退到父类加载器
+                    c = super.loadClass(name, resolve);
+                }
+            }
+            if (resolve) {
+                resolveClass(c);
+            }
+            return c;
+        }
+    }
 }
 ```
 
@@ -144,7 +184,25 @@ seatunnel-connector-jdbc-2.3.0.jar
 
    - 资源隔离机制避免依赖冲突
 
-3. **调试友好性**：
+3. **插件热插拔实现原理**：
+
+   - **插件发现机制**：
+     - 通过`META-INF/seatunnel/plugins.index`文件声明插件入口类
+     - 文件格式：`插件名:主类全限定名`（如`jdbc:org.apache.seatunnel.connectors.jdbc.JdbcSource`）
+     - 运行时扫描所有JAR包的该文件，建立插件注册表
+
+   - **动态加载流程**：
+     1. 根据用户配置的插件名，从注册表定位插件JAR路径
+     2. 创建独立的`PluginClassLoader`实例加载该JAR
+     3. 通过`ServiceLoader.load(pluginClass)`实例化插件主类
+     4. 插件卸载时直接丢弃对应的ClassLoader实例
+
+   - **依赖隔离设计**：
+     - 每个插件使用独立的ClassLoader，避免依赖冲突
+     - 父级ClassLoader仅加载核心模块（如`seatunnel-core`）
+     - 插件间禁止直接类引用，必须通过SPI接口交互
+
+4. **调试友好性**：
 
    - 提供`--show-deps`等诊断参数
 
