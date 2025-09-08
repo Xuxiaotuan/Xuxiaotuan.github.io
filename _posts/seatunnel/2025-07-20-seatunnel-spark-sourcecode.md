@@ -50,39 +50,48 @@ sequenceDiagram
 
 ```java
 // 源码位置：seatunnel-engine/spark/src/main/java/org/apache/seatunnel/spark/SparkCommandArgs.java
-public class SparkCommandArgs {
-    @Parameter(names = "--config", description = "Config file path", required = true)
-    private String configPath; // 使用JCommander进行参数绑定
-    
-    @Parameter(names = "--deploy-mode", converter = DeployModeConverter.class)
-    private DeployMode deployMode = DeployMode.CLIENT;
-    
-    @Parameter(names = "--master", description = "Spark master URL")
-    private String master;
-    
-    @Parameter(names = "--queue", description = "YARN queue name")
-    private String queue;
-    
-    // 生产环境必填参数校验
-    public void validateClusterMode() {
-        if (deployMode == DeployMode.CLUSTER && (master == null || queue == null)) {
-            throw new IllegalArgumentException("YARN master and queue must be specified in cluster mode");
-        }
-    }
+@EqualsAndHashCode(callSuper = true)
+@Data
+public class SparkCommandArgs extends AbstractCommandArgs {
+
+   @Parameter(
+           names = {"-e", "--deploy-mode"},
+           description = "Spark deploy mode, support [cluster, client]",
+           converter = SparkDeployModeConverter.class)
+   private DeployMode deployMode = DeployMode.CLIENT;
+
+   @Parameter(
+           names = {"-m", "--master"},
+           description =
+                   "Spark master, support [spark://host:port, mesos://host:port, yarn, "
+                           + "k8s://https://host:port, local], default local[*]")
+   private String master = "local[*]";
+
+   @Override
+   public Command<?> buildCommand() {
+      Common.setDeployMode(getDeployMode());
+      if (checkConfig) {
+         return new SparkConfValidateCommand(this);
+      }
+      if (encrypt) {
+         return new ConfEncryptCommand(this);
+      }
+      if (decrypt) {
+         return new ConfDecryptCommand(this);
+      }
+      return new SparkTaskExecuteCommand(this);
+   }
 }
 ```
 
 **设计亮点**：
-
 - 采用「约定优于配置」原则，CLIENT模式仅需`--config`参数
-
 - 通过枚举类强制约束部署模式，避免字符串参数错误
-
 
 ### 2.2 插件加载机制
 
 ```java
-// 源码位置：seatunnel-core/plugin-discovery/src/main/java/org/apache/seatunnel/plugin/PluginDiscovery.java
+// 源码位置：seatunnel-plugin-discovery/src/main/java/org/apache/seatunnel/plugin/discovery/AbstractPluginDiscovery.java
 public static List<Path> findPluginJars(Config config) {
     // 1. 从META-INF/seatunnel/plugins.index读取插件声明
     Enumeration<URL> indexes = ClassLoader.getSystemResources("META-INF/seatunnel/plugins.index");
@@ -122,6 +131,25 @@ public class PluginClassLoader extends URLClassLoader {
             return c;
         }
     }
+}
+```
+实现类
+```java
+@Override
+protected Factory loadPluginInstance(
+        PluginIdentifier pluginIdentifier, ClassLoader classLoader) {
+   ServiceLoader<Factory> serviceLoader =
+           ServiceLoader.load(getPluginBaseClass(), classLoader);
+   for (Factory factory : serviceLoader) {
+      if (factoryClass.isInstance(factory)) {
+         String factoryIdentifier = factory.factoryIdentifier();
+         String pluginName = pluginIdentifier.getPluginName();
+         if (StringUtils.equalsIgnoreCase(factoryIdentifier, pluginName)) {
+            return factory;
+         }
+      }
+   }
+   return null;
 }
 ```
 

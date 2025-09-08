@@ -1,8 +1,8 @@
 # ---------------- #
 #   Main Configs   #
 # ---------------- #
-baseurl:
-url: https://xuyinyin.cn
+baseurl: ""
+url: http://localhost:4000
 date_format: "ordinal"
 title: 梦洛河
 subtitle: "Xuxiaotuan"
@@ -31,7 +31,7 @@ components:
         start_date: 2020-05-03
     # My Popular Repositories
     side_bar_repo:
-        enabled: true
+        enabled: false
         limit: 5
     # 文章字数统计
     word_count:
@@ -121,7 +121,7 @@ quiet: false
 excerpt_separator: "\n\n"
 permalink: /:year/:month/:day/:title/
 plugins:
-    - jekyll-github-metadata
+#     - jekyll-github-metadata
     - rouge
 #     - jekyll-html-pipeline
     - jekyll-paginate
@@ -194,3 +194,6 @@ google:
         sidebar-detail: false
         content_header: false
         content_footer: false
+
+github:
+  is_project_page: true
