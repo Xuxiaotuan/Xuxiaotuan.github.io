@@ -1,0 +1,134 @@
+/* A quiet, content-first palette for 梦洛河. */
+:root {
+    --color-paper: oklch(97% 0.008 100);
+    --color-paper-muted: oklch(94% 0.012 100);
+    --color-rule: oklch(82% 0.015 150);
+    --color-ink: oklch(25% 0.025 155);
+    --color-muted: oklch(48% 0.018 155);
+    --color-river: oklch(31% 0.045 160);
+    --color-accent: oklch(52% 0.10 145);
+    --color-accent-ink: oklch(28% 0.055 145);
+}
+
+body,
+body.home {
+    background: var(--color-paper);
+    color: var(--color-ink);
+}
+
+.site-header {
+    border-color: var(--color-rule);
+}
+
+.site-header h1 a,
+.site-header-nav-item,
+.site-header-nav-item:hover,
+.site-header-nav-item.selected {
+    color: var(--color-ink);
+}
+
+.site-header-nav-item.selected {
+    border-bottom-color: var(--color-accent);
+}
+
+.home .banner,
+.home .site-header,
+.collection-head,
+.side-collection-image,
+.collection-card-image {
+    background: var(--color-river);
+    box-shadow: none;
+    text-shadow: none;
+}
+
+.home .banner::before,
+.home .banner::after {
+    display: none;
+}
+
+.home .site-header {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.home .site-header h1 a,
+.home .site-header .site-header-nav-item,
+.home .site-header .site-header-nav-item:hover,
+.home .collection-header,
+.home .collection-info .meta-info a {
+    color: var(--color-paper) !important;
+    text-shadow: none;
+}
+
+.home .collection-info .meta-info {
+    background: transparent;
+    border-color: oklch(92% 0.008 100 / 0.38);
+    border-radius: 2px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.home .collection-info .meta-info:hover {
+    background: oklch(92% 0.008 100 / 0.12);
+    box-shadow: none;
+    transform: none;
+}
+
+.repo-list-item {
+    background: var(--color-paper);
+    border-color: var(--color-rule);
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.repo-list-item::before {
+    background: var(--color-accent);
+}
+
+.repo-list-item:hover {
+    background: var(--color-paper-muted);
+    border-color: var(--color-rule);
+    box-shadow: none;
+    transform: none;
+}
+
+.repo-list-name,
+.repo-list-name a,
+.repo-list-name:hover a,
+.repo-list-name a:hover {
+    color: var(--color-ink);
+}
+
+.repo-list-meta .meta-info {
+    background: var(--color-paper-muted);
+    border-radius: 2px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.repo-list-meta .meta-info:hover {
+    background: var(--color-paper-muted);
+}
+
+.top-most-flag {
+    background: var(--color-accent);
+    border-radius: 2px;
+    box-shadow: none;
+}
+
+.home .column.one-third > div,
+.home .pagination {
+    background: var(--color-paper);
+    border-color: var(--color-rule);
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.home .column.one-third > div:hover {
+    box-shadow: none;
+    transform: none;
+}
