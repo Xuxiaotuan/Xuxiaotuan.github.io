@@ -2,7 +2,7 @@
 #   Main Configs   #
 # ---------------- #
 baseurl: ""
-url: http://localhost:4000
+url: https://xuyinyin.cn
 date_format: "ordinal"
 title: 梦洛河
 subtitle: "Xuxiaotuan"
