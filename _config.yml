@@ -31,7 +31,7 @@ components:
         start_date: 2020-05-03
     # My Popular Repositories
     side_bar_repo:
-        enabled: false
+        enabled: true
         limit: 5
     # 文章字数统计
     word_count:
@@ -121,7 +121,7 @@ quiet: false
 excerpt_separator: "\n\n"
 permalink: /:year/:month/:day/:title/
 plugins:
-#     - jekyll-github-metadata
+    - jekyll-github-metadata
     - rouge
 #     - jekyll-html-pipeline
     - jekyll-paginate
