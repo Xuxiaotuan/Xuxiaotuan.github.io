@@ -12,6 +12,7 @@ permalink: /open-source/
         <p class="lead">开源项目</p>
     </header>
     <div class="repo-list">
+        {% if site.github.public_repositories %}
         {% assign sorted_repos = site.github.public_repositories | sort: 'stargazers_count' | reverse %}
         {% for repo in sorted_repos %}
         <a href="{{ repo.html_url }}" target="_blank" class="one-third-column card text-center">
@@ -32,5 +33,8 @@ permalink: /open-source/
             </div>
         </a>
         {% endfor %}
+        {% else %}
+        <p class="text-center">项目列表暂不可用，请直接访问 <a href="https://github.com/Xuxiaotuan">GitHub 主页</a>。</p>
+        {% endif %}
     </div>
 </section>

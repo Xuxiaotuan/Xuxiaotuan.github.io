@@ -7,7 +7,7 @@ comments: false
 
 {% assign assets_base_url = site.url %}
 {% if site.cdn.jsdelivr.enabled %}
-{% assign assets_base_url = "https://fastly.jsdelivr.net/gh/" | append: site.repository | append: '@master' %}
+{% assign assets_base_url = "https://fastly.jsdelivr.net/gh/" | append: site.repository | append: '@' | append: site.github.build_revision %}
 {% endif %}
 <section class="banner">
     <div class="collection-head">

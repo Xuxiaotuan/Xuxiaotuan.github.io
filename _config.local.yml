@@ -1,0 +1,11 @@
+# 本地预览不请求 GitHub API；部署与 CI 仍使用 _config.yml 中的 metadata 插件。
+plugins:
+  - rouge
+  - jekyll-paginate
+  - jekyll-sitemap
+  - jekyll-feed
+  - jemoji
+
+components:
+  side_bar_repo:
+    enabled: false
