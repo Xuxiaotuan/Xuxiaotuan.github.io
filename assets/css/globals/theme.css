@@ -98,10 +98,11 @@ a:hover { color: var(--color-cobalt-deep); text-decoration: none; }
 .collection-head::after,
 .home .banner::before,
 .home .banner::after { display: none !important; }
-.collection-head { margin-top: -32px; margin-bottom: 38px; padding: 42px 0; }
+.collection-head { margin-top: -32px; margin-bottom: 30px; padding: 34px 0; }
 .collection-head.small { padding: 30px 0; }
-.home .banner { margin-top: -32px; margin-bottom: 38px; }
-.home .banner .collection-head { margin: 0; padding: 56px 0 52px; }
+.home .banner { margin-top: -32px; margin-bottom: 30px; }
+.home .banner .collection-head { margin: 0; padding: 38px 0 36px; }
+.home .banner .column.two-thirds { width: 100%; }
 
 .collection-head .collection-title,
 .home .collection-title {
@@ -150,18 +151,19 @@ a:hover { color: var(--color-cobalt-deep); text-decoration: none; }
 .content { padding-bottom: 22px; }
 .home .content,
 .home .container.content { padding-top: 0; background: transparent; box-shadow: none; }
-.home .columns { max-width: 980px; padding: 0; }
-.home .column.two-thirds { width: 68%; padding-right: 28px; }
-.home .column.one-third { width: 32%; padding-left: 0; }
+.home .columns { max-width: 1200px; padding: 0; }
+.home .column.two-thirds { width: 70%; padding-right: 34px; }
+.home .column.one-third { width: 30%; padding-left: 0; }
 .repo-list { margin-top: 0; }
 
 .repo-list-item {
     position: relative;
-    margin-bottom: 14px;
-    padding: 24px 26px !important;
-    background: var(--color-surface) !important;
-    border: 1px solid var(--color-rule) !important;
-    border-radius: 6px !important;
+    margin-bottom: 0;
+    padding: 23px 0 23px 18px !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--color-rule) !important;
+    border-radius: 0 !important;
     box-shadow: none !important;
     animation: none !important;
     transition: border-color .16s ease, background-color .16s ease;
@@ -169,7 +171,7 @@ a:hover { color: var(--color-cobalt-deep); text-decoration: none; }
 
 .repo-list-item::before { width: 3px; background: var(--color-cobalt) !important; }
 .repo-list-item:hover {
-    background: #fbfcfe !important;
+    background: transparent !important;
     border-color: var(--color-rule-strong) !important;
     box-shadow: none !important;
     transform: none !important;
@@ -204,7 +206,24 @@ a:hover { color: var(--color-cobalt-deep); text-decoration: none; }
 .repo-list-meta .meta-info:hover { background: var(--color-cobalt-tint); }
 .top-most-flag { padding: 2px 5px; background: var(--color-cobalt) !important; border-radius: 3px; box-shadow: none; font-family: var(--font-mono); font-size: 11px; }
 
-.home .column.one-third > div,
+.home .column.one-third > div {
+    margin-bottom: 22px;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.home .column.one-third > a {
+    display: inline-block;
+    margin: 0 7px 8px 0;
+    color: var(--color-muted) !important;
+    font-family: var(--font-mono);
+    font-size: 12px !important;
+}
+
 .boxed-group {
     margin-bottom: 14px;
     padding: 18px !important;
@@ -212,10 +231,7 @@ a:hover { color: var(--color-cobalt-deep); text-decoration: none; }
     border: 1px solid var(--color-rule) !important;
     border-radius: 6px !important;
     box-shadow: none !important;
-    transform: none !important;
 }
-
-.home .column.one-third > div:hover { box-shadow: none !important; transform: none !important; }
 .column.one-third > h3,
 .column.one-fourth > h3 {
     margin: 0 0 10px;
