@@ -170,30 +170,9 @@ flowchart LR
 
 ### 3.3 用两层状态承接上述计算
 
-前面拆出了值依赖、行集合依赖和输出绑定。前两类信息需要沿计划逐层传递，第三类需要在优化后保留。这就要求模型既能描述一个字段，也能描述一整个关系节点。
+前面拆出了值依赖、行集合依赖和输出绑定。它们需要沿 relational plan 逐层传递，最后再绑定到实际 sink。具体的 `FieldLineage`、`NodeLineage` 对象、算子传播规则和测试放在第二篇源码文章中；这里先保留设计上的分工：字段状态描述值来源，节点状态描述行集合影响，绑定状态描述输出归属。
 
-内部状态不是一张最终事件表，而是两层对象。`FieldLineage` 描述当前节点的一个输出位置：输入字段集合、处理标签、来源类型和必要的嵌套字段。`NodeLineage` 描述当前 RelNode 的所有输出位置，并另外保存行集合依赖和来源 dataset。
-
-```text
-NodeLineage
-├── fields[i] -> FieldLineage
-├── rowDependencies -> 输入字段集合（INDIRECT）
-├── rowTransformations -> FILTER / JOIN / GROUP_BY ...
-└── sources -> 输入 dataset 集合
-```
-
-关系沿 relational plan 自底向上传播：
-
-| 节点 | 字段状态如何产生 | 行集合状态如何产生 |
-| --- | --- | --- |
-| `TableScan` | 建立 dataset、字段名和 `DIRECT` 输入 | 无额外条件 |
-| `Project` / `Calc` | 对每个 `RexNode` 递归合并输入 | `Calc` 的 condition 加入 `FILTER` |
-| `Filter` | 复用输入字段状态 | 条件字段加入 `INDIRECT` |
-| `Join` | 左右字段按输入槽拼接 | Join 条件字段加入 `INDIRECT` |
-| `Aggregate` | 聚合参数形成值依赖，常量聚合形成 `SYSTEM` | group key、filter 和窗口边界传播为 `INDIRECT` |
-| `Union` | 相同输出位置的多个 `FieldLineage` 做并集合并 | 各分支行依赖做并集 |
-
-这张表对应的是计算规则，不是展示层的字段列表。展示层可以把一条关系渲染成箭头，但不能从箭头反推出 `DIRECT`、`INDIRECT` 和 `SYSTEM` 的语义，因此这些标签必须在 Planner 侧保留下来。
+读者在这一篇只需要记住一个判断：展示层的箭头不能替代 `DIRECT`、`INDIRECT` 和 `SYSTEM` 这些语义标签，标签必须在 Planner 侧随关系一起生成。
 
 ### 3.4 从中间状态收敛到输出关系
 
