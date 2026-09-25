@@ -1,6 +1,6 @@
 ---
 layout: post
-title: 03｜从开源字段分析到 Flink 原生交付：三条字段血缘实践路径
+title: Flink 字段血缘系列（三）：从开源分析到 Flink 原生交付
 description: 以同一条订单汇总 SQL，对比独立服务、Dinky 和 Flink Planner 原生字段血缘方案。
 keywords: Flink, OpenLineage, column lineage, 字段血缘
 categories:
@@ -15,7 +15,7 @@ mermaid: true
 sequence: true
 ---
 
-# 03｜从开源字段分析到 Flink 原生交付：三条字段血缘实践路径
+# Flink 字段血缘系列（三）：从开源分析到 Flink 原生交付
 
 前两篇讲的是我最后选择的 Flink 核心改造，但这并不是我的起点。我先使用并扩展了已有的 `flink-sql-lineage`，把 schema、SQL 和 listener 事件接起来，随后才继续探索 Planner、JobGraph 和 OpenLineage 之间的交付链路。整理这些经历时，我也把 Dinky 的平台侧血缘分析放进来比较。
 
@@ -26,6 +26,23 @@ sequence: true
 原始 `flink-sql-lineage` 是可以独立运行的字段分析系统，利用 Flink/Calcite 计划计算字段来源。我的 `flink2.1` fork 在它的基础上接入作业 listener、输入输出 schema、SQL 关联和服务端 replay。后来在 Flink 2.4 中做的改造，则把关注点转向了关系的保存与交付：让本次 Planner 产生的结果跟着作业走。
 
 这几步工作的侧重点并不一样：原项目提供分析基础，fork 连接作业事件与分析服务，Flink 核心改造则继续处理 Planner 到 Dispatcher 的关系交付。
+
+### 一个值得参考的旁支：ANTLR4 语法树分析
+
+另一个值得放在一起看的项目是 [flinksql-parse](https://github.com/dnegxuantian/flinksql-parse)。它和我的 fork 不是同一条实现路线：入口是 ANTLR4 生成的 Lexer/Parser，再由 Visitor 遍历语法树；我的方案则依赖 Flink/Calcite 完成解析、校验、类型推导和 RelNode 计划生成。
+
+它不必单独作为“第四套产品”，放在“计算依据”这一层更准确：
+
+| 计算依据 | 能直接得到什么 | 需要额外解决什么 |
+| --- | --- | --- |
+| ANTLR4 ParseTree + Visitor | 从 SQL 文本中识别表、别名、字段引用和部分表达式关系 | 作用域、字段绑定、Schema、嵌套查询和语义规则需要自己维护 |
+| Flink/Calcite RelNode + Planner | 使用本次提交已经完成的解析、校验、类型推导和优化计划 | 需要维护 Planner 内的提取规则、关系模型和跨进程交付 |
+
+这条路线把字段绑定的难点摆得很清楚。未限定列名不能只按“当前所有表”展开，必须结合 Schema 判断真正的归属；子查询要保存和恢复别名作用域；`SELECT *` 遇到不完整 Schema 时，也不能把未知字段集合当成完整展开。这些都可以反过来变成 Planner 提取器的回归场景。
+
+它的关系模型目前主要是 `targetColumn`、`sources` 和 `transformExpression`，没有直接表达 `DIRECT`、`INDIRECT`、`SYSTEM` 这些角色。因此它适合用来参考 SQL 语法树解析和测试案例，但来源集合不能直接等同于本系列定义的 column lineage 语义。这里的判断来自代码静态阅读，本轮没有运行它的构建和测试。
+
+这条旁支也提醒我把四件事分开：SQL 能否解析、字段能否绑定、依赖角色是否正确、关系能否随 Flink 作业交付。语法树项目主要回答前两步，Planner 方案继续负责后两步。
 
 ## 一、总览：三种方案分别在哪一层计算血缘
 
@@ -73,7 +90,7 @@ flowchart LR
 | `TierSummary.total_amount` | `Customers.tier` | 分组和客户过滤带来的 `INDIRECT` 依赖 |
 | `TierSummary.order_count` | `RawOrders.order_id` 与输入行集合 | 本例使用 `COUNT(order_id)`，计数受参数非空性影响；应与无字段参数的 `COUNT(*)` 区分 |
 
-我关心的不只是图上有没有这几条线，还包括每条线表达什么。只有 `RawOrders → TierSummary` 时，得到的是表级关系；列出了 `payload`、`fee`、Join 键和分组字段，还得进一步区分它们参与的是值计算、连接还是过滤。否则，仅凭字段集合相同，仍无法判断两份结果的语义是否一致。
+比较时不能只看图上有没有这几条线，还要看每条线表达什么。只有 `RawOrders → TierSummary` 时，得到的是表级关系；列出了 `payload`、`fee`、Join 键和分组字段，还得进一步区分它们参与的是值计算、连接还是过滤。仅凭字段集合相同，仍无法判断两份结果的语义是否一致。
 
 ### 2.1 追踪 `total_amount` 的值来源和条件依赖
 
@@ -119,7 +136,7 @@ FROM EnrichedOrders
 GROUP BY tier;
 ```
 
-这里特意保留了 `add_fee`：普通加法和 UDF 调用经过的分析路径不同。换成加法可以简化案例，但简化后的结果只能说明表达式依赖，不能说明 UDF 链路也已经验证。输入数据与函数定义也需要和 SQL 一起保留。
+案例保留了 `add_fee`：普通加法和 UDF 调用经过的分析路径不同。换成加法可以简化案例，但简化后的结果只能说明表达式依赖，不能说明 UDF 链路也已经验证。输入数据与函数定义也需要和 SQL 一起保留。
 
 ## 三、先使用已有项目：独立服务重建上下文，再计算字段关系
 
@@ -261,7 +278,7 @@ TierSummary: (gold,160,2), (silver,305,1)
 
 ### 字段关系不可用时，事件表达什么
 
-如果字段提取失败，事件会保留表级关系，同时把字段级状态标为 `UNAVAILABLE` 并附带 issue。对我来说，这表示本次作业的字段图不完整，而不是“没有上游表”。
+如果字段提取失败，事件会保留表级关系，同时把字段级状态标为 `UNAVAILABLE` 并附带 issue。这表示本次作业的字段图不完整，而不是“没有上游表”。
 
 ## 六、如何比较结果与选择方案
 
@@ -295,7 +312,7 @@ TierSummary: (gold,160,2), (silver,305,1)
 
 回到最初的问题，我需要的不只是图上的箭头，还要知道关系依据哪份上下文、属于哪次作业、最终交给了谁。独立服务方便集中回放和分析，Dinky 把结果放进开发与运维流程，我的 Flink 改造则着重让提交时的关系随作业交付。三者有交集，但各自承担的工作不同。
 
-针对这条 SQL，我会分别按下面的目标核对结果。这是三条路径的验收口径，不代表三套环境都已经完成了同一轮实测：
+针对这条 SQL，三条路径分别按下面的目标核对结果。这是统一的验收口径，不代表三套环境都已经完成了同一轮实测：
 
 ```text
 方案一：API 返回 total_amount 的字段关系；结果依赖 replay SQL、schema、Catalog、UDF 是否与提交时一致。
