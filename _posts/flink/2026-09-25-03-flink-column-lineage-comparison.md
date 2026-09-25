@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Flink 字段血缘系列（三）：开源分析到 Flink 原生交付
+title: Flink 字段血缘系列（三）：从开源分析到 Flink 原生解析
 description: 以同一条订单汇总 SQL，对比独立服务、Dinky 和 Flink Planner 原生字段血缘方案。
 keywords: Flink, OpenLineage, column lineage, 字段血缘
 categories:
@@ -15,7 +15,7 @@ mermaid: true
 sequence: true
 ---
 
-# Flink 字段血缘系列（三）：开源分析到 Flink 原生交付
+# Flink 字段血缘系列（三）：从开源分析到 Flink 原生解析
 
 
 前两篇讲的是我最后选择的 Flink 核心改造，但这并不是我的起点。我先使用并扩展了已有的 `flink-sql-lineage`，把 schema、SQL 和 listener 事件接起来，随后才继续探索 Planner、JobGraph 和 OpenLineage 之间的交付链路。整理这些经历时，我也把 Dinky 的平台侧血缘分析放进来比较。
