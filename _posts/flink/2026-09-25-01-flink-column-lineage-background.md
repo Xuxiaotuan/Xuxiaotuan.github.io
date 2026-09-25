@@ -65,12 +65,10 @@ flowchart LR
 
 下面的状态是我在 2026 年 9 月 25 日查到的公开信息，范围限于这几个直接相关的提案、任务和 PR。
 
-| 工作 | 关注点 | 本次核查状态 |
-| --- | --- | --- |
-| [FLIP-314](https://cwiki.apache.org/confluence/spaces/FLINK/pages/255070913/FLIP-314+Support+Customized+Job+Lineage+Listener) | 自定义 Job Lineage Listener、表级图和作业事件 | 提案已接受，页面标注 Release 1.19 |
-| [FLINK-31275](https://issues.apache.org/jira/browse/FLINK-31275) | Job Lineage 相关任务集合 | 父任务仍为 Open，子任务状态不一 |
-| [PR #26089](https://github.com/apache/flink/pull/26089) | 暴露 QueryOperation，交给 listener 分析 | Closed，未合并 |
-| [PR #28002](https://github.com/apache/flink/pull/28002) | Dispatcher 侧 listener 和跨进程交付 | 核查时为 Open |
+- **[FLIP-314](https://cwiki.apache.org/confluence/spaces/FLINK/pages/255070913/FLIP-314+Support+Customized+Job+Lineage+Listener)**：自定义 Job Lineage Listener、表级图和作业事件；提案已接受，页面标注 Release 1.19。
+- **[FLINK-31275](https://issues.apache.org/jira/browse/FLINK-31275)**：Job Lineage 相关任务集合；父任务仍为 Open，子任务状态不一。
+- **[PR #26089](https://github.com/apache/flink/pull/26089)**：暴露 QueryOperation，交给 listener 分析；核查时为 Closed，未合并。
+- **[PR #28002](https://github.com/apache/flink/pull/28002)**：Dispatcher 侧 listener 和跨进程交付；核查时为 Open.
 
 ### FLIP-314：先有统一的表级事件出口
 
@@ -112,10 +110,8 @@ SQL 文本不足以重建一次提交的语义。Catalog、临时视图、UDF、
 
 在 Planner 内提取并交付关系，则把复杂度集中在 Flink 核心：
 
-| 选择 | 收益 | 成本转移到哪里 |
-| --- | --- | --- |
-| listener 自行分析 QueryOperation | 消费者可定制 | 消费侧维护查询表示到字段关系的转换，以及与 Flink 版本的兼容；多个消费者可以共享实现 |
-| Planner 交付解释后的关系 | 复用一次名称解析、类型推导和计划语义 | Flink 核心维护提取规则、版本化协议和兼容性 |
+- **listener 自行分析 QueryOperation**：消费者可定制；成本由消费侧承担，包括查询表示到字段关系的转换，以及与 Flink 版本的兼容。
+- **Planner 交付解释后的关系**：复用一次名称解析、类型推导和计划语义；成本由 Flink 核心承担，包括提取规则、版本化协议和兼容性。
 
 我选择了第二种。代价也很明确：提取规则和传输协议需要在 Flink 一侧维护。当前还没有测量 Planner 的增量耗时和 lineage payload 大小，功能测试也回答不了这两个性能问题。
 
@@ -182,14 +178,12 @@ flowchart LR
 
 计算完成后，需要将中间状态整理成面向 sink 的输出契约。前面的 `FieldLineage` 和 `NodeLineage` 服务于递归计算；下面这些信息则服务于绑定、传输和消费：
 
-| 字段 | 含义 |
-| --- | --- |
-| 输出 dataset/field | 关系最终落在哪个 sink 字段 |
-| 输入 dataset/field | 来源的完整身份和字段名 |
-| origin | 输出值的来源类别：`INPUT_FIELDS`、`CONSTANT`、`SYSTEM` |
-| dependency type | 某个输入字段的影响方式：`DIRECT` 或 `INDIRECT` |
-| transformation | 表达式、过滤、Join、聚合、分组等标签 |
-| status/diagnostic | 关系完整、不可用及原因 |
+- **输出 dataset/field**：关系最终落在哪个 sink 字段。
+- **输入 dataset/field**：来源的完整身份和字段名。
+- **origin**：输出值的来源类别：`INPUT_FIELDS`、`CONSTANT`、`SYSTEM`。
+- **dependency type**：某个输入字段的影响方式：`DIRECT` 或 `INDIRECT`。
+- **transformation**：表达式、过滤、Join、聚合、分组等标签。
+- **status/diagnostic**：关系完整、不可用及原因。
 
 设计有三个约束：
 

@@ -111,18 +111,16 @@ extract(sinkRoot)
 
 `extractNode` 的分派规则如下：
 
-| RelNode | 主要语义 | 结果中保留的依赖 |
-| --- | --- | --- |
-| TableScan | 建立 dataset 与字段身份 | 对应源字段，通常为 DIRECT |
-| Project | 递归分析每个表达式 | 表达式输入和操作标签 |
-| Calc | 合并 projection 与 condition | projection 输入加 FILTER |
-| Filter | 不改变字段值 | 保留原有值依赖；条件引用字段作为 INDIRECT 行依赖传播 |
-| Join | 左右输入按条件合并 | 投影字段、Join 条件和两侧 dataset |
-| Aggregate | 聚合参数、group key、filter | 参数 DIRECT，分组/过滤 INDIRECT |
-| Window | 窗口参数和时间字段 | 行集合与窗口边界依赖 |
-| Union | 合并同位置输入 | 各分支同位置的值来源合并 |
-| Intersect/Minus | 依据成员资格筛选集合 | 保留值来源，并传播影响成员资格的行依赖 |
-| Values | 无上游 dataset | CONSTANT / SYSTEM |
+- **TableScan**：建立 dataset 与字段身份；保留对应源字段，通常为 `DIRECT`。
+- **Project**：递归分析每个表达式；保留表达式输入和操作标签。
+- **Calc**：合并 projection 与 condition；保留 projection 输入并增加 `FILTER`。
+- **Filter**：不改变字段值；条件引用字段作为 `INDIRECT` 行依赖传播。
+- **Join**：按条件合并左右输入；保留投影字段、Join 条件和两侧 dataset。
+- **Aggregate**：处理聚合参数、group key 和 filter；参数是 `DIRECT`，分组和过滤是 `INDIRECT`。
+- **Window**：处理窗口参数和时间字段；保留行集合与窗口边界依赖。
+- **Union**：合并同位置输入；合并各分支同位置的值来源。
+- **Intersect/Minus**：依据成员资格筛选集合；传播影响成员资格的行依赖。
+- **Values**：没有上游 dataset；来源标为 `CONSTANT` 或 `SYSTEM`。
 
 入口先展开 scan，再递归计算节点，最后按 sink 输出字段位置组装关系：
 
@@ -211,14 +209,12 @@ UDF 的调用节点可以保留其参数字段和 `UDF` transformation。这里�
 
 以下是第一篇 SQL 的算法推演。字段集合是模型状态，不是某次事件的原始 JSON。
 
-| 阶段 | 输出字段状态 | 为什么 |
-| --- | --- | --- |
-| `TableScan(orders)` | `price→orders.price(DIRECT)`；`quantity→orders.quantity(DIRECT)`；`customer_id→orders.customer_id(DIRECT)`；`region→orders.region(DIRECT)` | scan 建立 dataset 和字段槽位 |
-| `price * quantity` | 两个输入均保留，增加 `EXPRESSION` | RexNode 递归访问两个 input ref |
-| `WHERE region='CN'` | 输出字段继续保留；`region` 加 `FILTER`/`INDIRECT` | 条件改变参与计算的行集合 |
-| `GROUP BY customer_id` | `customer_id` 作为分组依赖传播到聚合输出 | 分组改变行到结果组的归属 |
-| `SUM(...)` | `price`、`quantity` 保留 `DIRECT`；增加 `AGGREGATION` | 聚合参数决定数值 |
-| sink bind | `gross_amount` 绑定到实际 sink 字段位置 | 不能停留在优化前的临时投影 |
+1. **`TableScan(orders)`**：建立 dataset 和字段槽位，得到 `price→orders.price(DIRECT)`、`quantity→orders.quantity(DIRECT)`、`customer_id→orders.customer_id(DIRECT)` 和 `region→orders.region(DIRECT)`。
+2. **`price * quantity`**：保留两个输入，增加 `EXPRESSION`；来源于 `RexNode` 对两个 input ref 的递归访问。
+3. **`WHERE region='CN'`**：输出字段继续保留，`region` 增加 `FILTER` 和 `INDIRECT`；条件改变参与计算的行集合。
+4. **`GROUP BY customer_id`**：将 `customer_id` 作为分组依赖传播到聚合输出；分组改变行到结果组的归属。
+5. **`SUM(...)`**：`price`、`quantity` 保留 `DIRECT`，增加 `AGGREGATION`；聚合参数决定数值。
+6. **sink bind**：把 `gross_amount` 绑定到实际 sink 字段位置，不能停留在优化前的临时投影。
 
 `COUNT(*)` 的规则更特殊。当前已有 planner 测试 `testExtractsAggregateGroupByAndCountStar` 覆盖 `GROUP BY` 场景：count 的 origin 是 `SYSTEM`，同时保留分组字段的间接依赖。`testAggregateConstantArgumentsRetainExactRowDependencies` 还覆盖了常量参数和带过滤的 count，说明过滤字段仍会被保留。
 
