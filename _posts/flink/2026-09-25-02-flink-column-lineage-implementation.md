@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Flink 字段血缘的实现：从 RelNode 到可传输关系
+title: 02｜Flink 字段血缘的实现：从 RelNode 到可传输关系
 description: 沿 Flink Planner 的真实调用链，解析 column lineage 的提取、绑定、传输和 OpenLineage 事件生成。
 keywords: Flink, OpenLineage, column lineage, 字段血缘
 categories:
@@ -15,7 +15,7 @@ mermaid: true
 sequence: true
 ---
 
-# Flink 字段血缘的实现：从 RelNode 到可传输关系
+# 02｜Flink 字段血缘的实现：从 RelNode 到可传输关系
 
 第一篇记录了我为什么选择把字段关系放进 Planner。这一篇把设计落到代码上：从提取器开始，沿着 sink 绑定、提交载荷，一直看到 OpenLineage 事件。源码以 Flink 提交 `b5580495e00b16e81563f779737dd3359ee1f988` 为参照，链接也固定在这一版本。
 

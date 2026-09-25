@@ -1,6 +1,6 @@
 ---
 layout: post
-title: 从表级血缘到字段血缘：Flink 社区进展与原生实现方案
+title: 01｜从表级血缘到字段血缘：Flink 社区进展与原生实现方案
 description: 从 FLIP-314 和 Job Lineage 出发，分析 Flink 原生 column lineage 的设计与跨进程交付方案。
 keywords: Flink, OpenLineage, column lineage, 字段血缘
 categories:
@@ -15,7 +15,7 @@ mermaid: true
 sequence: true
 ---
 
-# 从表级血缘到字段血缘：Flink 社区进展与原生实现方案
+# 01｜从表级血缘到字段血缘：Flink 社区进展与原生实现方案
 
 我一开始只想把 OpenLineage 的表级事件接通，后来很快发现它回答不了最常见的追问：一个指标字段到底是怎么算出来的？真正影响指标治理的问题通常更细——哪些输入字段参与了计算，过滤条件和分组键是否也算依赖，恢复执行后这些关系还在不在。
 
