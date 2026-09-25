@@ -17,15 +17,15 @@ sequence: true
 
 # Flink 字段血缘的实现：从 RelNode 到可传输关系
 
-第一篇解释了为什么把关系放进 Planner。这一篇跟着代码走一遍：关系怎样从 RelNode 递归出来，怎样绑到 sink，最后怎样进入提交载荷。源码以 Flink 分支 `b5580495e00b16e81563f779737dd3359ee1f988` 为参照；行号会随提交变化，链接固定到文件和方法名。
+第一篇记录了我为什么选择把字段关系放进 Planner。这一篇把设计落到代码上：从提取器开始，沿着 sink 绑定、提交载荷，一直看到 OpenLineage 事件。源码以 Flink 提交 `b5580495e00b16e81563f779737dd3359ee1f988` 为参照，链接也固定在这一版本。
 
-本文沿一条关系的生命周期阅读源码：先定位 Planner 中的接入点，再进入字段依赖的递归计算；随后看优化后的 sink 绑定，最后看关系如何写进 JobGraph 并被 OpenLineage 消费。聚合和 sink reuse 的测试放在对应实现之后，便于对照代码判断结果。
+整条实现可以分成四段：接入 Planner、递归计算字段依赖、绑定优化后的 sink、把关系交给远端 listener。下面按这个顺序展开，聚合和 sink reuse 的测试紧跟对应实现，用具体断言说明这些规则为什么这样写。
 
 ### 这一实现站在什么基础上
 
-`HamaWhiteGG/flink-sql-lineage` 已经提供了基于 Flink/Calcite 计划分析字段来源的工程基础；你的 fork 又增加了 listener、schema/SQL 关联和 replay Planner 的接入方式。本篇不把原项目已有能力抹掉，也不在没有逐文件 diff 的情况下断言每个类是“复用”还是“重写”。阅读源码时只区分三件事：已有的计划分析思路，fork 中的作业事件接入，以及 Flink 核心侧新增的绑定、传输和恢复边界。
+我最初参考的是 `HamaWhiteGG/flink-sql-lineage` 利用 Flink/Calcite 计划分析字段来源的路线，随后在自己的 fork 中接入 listener、schema/SQL 关联和服务端 replay。这一篇聚焦后来在 Flink 核心侧做的实现：提取器怎样组织字段依赖，以及这些关系怎样经过优化绑定、保存和传输到达事件出口。
 
-参考：[原始项目](https://github.com/HamaWhiteGG/flink-sql-lineage)、[你的 fork](https://github.com/Xuxiaotuan/flink-sql-lineage/tree/flink2.1)。
+参考：[原始项目](https://github.com/HamaWhiteGG/flink-sql-lineage)、[我的 fork](https://github.com/Xuxiaotuan/flink-sql-lineage/tree/flink2.1)。
 
 ## 一、总览：一条字段关系经过哪些组件
 
@@ -53,13 +53,13 @@ flowchart LR
 
 ## 二、提取阶段：从关系节点算出字段依赖
 
-从调用链进入提取器，首先需要理解它在递归过程中保存什么。下面先看状态模型，再看入口与算子处理，最后用聚合 SQL 将这些规则连起来。
+进入提取器后，我先从递归过程中保存的状态讲起，再展开入口和各类算子的处理，最后用聚合 SQL 把这些规则串起来。
 
 ### 2.1 内部模型与合并规则
 
 一个输出字段可以有多条输入字段关系。输入字段由 dataset、字段名和依赖类型共同标识；同一字段以 `DIRECT` 和 `INDIRECT` 两种角色出现时，不能只按 dataset/字段名去重。
 
-可以把一个字段的状态写成：
+单个字段的中间状态可以概括为：
 
 ```text
 FieldLineage = {
@@ -95,7 +95,7 @@ private void merge(FieldLineage other) {
 }
 ```
 
-源码位置：[FieldLineage.merge](https://github.com/Xuxiaotuan/flink/blob/b5580495e00b16e81563f779737dd3359ee1f988/flink-table/flink-table-planner/src/main/java/org/apache/flink/table/planner/lineage/PlannerColumnLineageExtractor.java#L870-L882)。注意 `dependencyType` 在 `PlannerColumnLineageInput` 中参与输入去重，不能被 `origin` 替代。
+源码位置：[FieldLineage.merge](https://github.com/Xuxiaotuan/flink/blob/b5580495e00b16e81563f779737dd3359ee1f988/flink-table/flink-table-planner/src/main/java/org/apache/flink/table/planner/lineage/PlannerColumnLineageExtractor.java#L870-L882)。这里的 `dependencyType` 在 `PlannerColumnLineageInput` 中参与输入去重，不能被 `origin` 替代。
 
 ### 2.2 Extractor 的入口与关系算子分派
 

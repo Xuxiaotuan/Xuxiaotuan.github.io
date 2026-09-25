@@ -17,15 +17,15 @@ sequence: true
 
 # 从开源字段分析到 Flink 原生交付：三条字段血缘实践路径
 
-同一个 `TierSummary.total_amount`，我先使用已有的 Flink/Calcite 字段分析项目得到关系，再在自己的 fork 中把 schema、SQL 和 listener 事件接起来，最后继续探索怎样让关系进入 Flink Planner、JobGraph 和 OpenLineage 事件。Dinky 是这条实践路径中的另一个平台化入口，而不是凭空出现的第三个竞争方案。
+前两篇讲的是我最后选择的 Flink 核心改造，但这并不是我的起点。我先使用并扩展了已有的 `flink-sql-lineage`，把 schema、SQL 和 listener 事件接起来，随后才继续探索 Planner、JobGraph 和 OpenLineage 之间的交付链路。整理这些经历时，我也把 Dinky 的平台侧血缘分析放进来比较。
 
-本文先交代已有开源起点和我的 fork，再用订单汇总 SQL 确定要追踪的字段关系；接着按实践顺序说明独立分析服务、Dinky 和 Flink 原生链路分别怎样接入、产生什么结果；最后比较它们在语义上下文、字段依赖和作业交付上的差异。各路径都按“输入从哪里来、怎样触发、结果是什么、怎样解释”展开。
+这一篇用订单汇总中的 `TierSummary.total_amount` 贯穿比较：先交代原项目和我的 fork，再分别看独立服务、Dinky 和 Flink 内部方案的设计与结果，最后讨论各自适合解决什么问题。已有的测试记录和暂时只有设计依据的部分，我会分开说明。
 
 ## 这三条路径不是从同一个起点开始
 
-原始 `flink-sql-lineage` 是可以独立运行的字段分析系统，核心价值是利用 Flink/Calcite 计划计算字段来源。你的 `flink2.1` fork 在此基础上增加了作业 listener、输入输出 schema、SQL 关联和服务端 replay。本文最后讨论的 Flink 2.4 核心改造，则继续追问如何把关系作为本次作业的提交信息保存和交付。
+原始 `flink-sql-lineage` 是可以独立运行的字段分析系统，利用 Flink/Calcite 计划计算字段来源。我的 `flink2.1` fork 在它的基础上接入作业 listener、输入输出 schema、SQL 关联和服务端 replay。后来在 Flink 2.4 中做的改造，则把关注点转向了关系的保存与交付：让本次 Planner 产生的结果跟着作业走。
 
-这三层关系不能混成一句“我实现了字段血缘”：原项目提供分析基础，fork 提供事件驱动的接入方式，Flink 核心探索解决 Planner 到 Dispatcher 的交付问题。
+这几步工作的侧重点并不一样：原项目提供分析基础，fork 连接作业事件与分析服务，Flink 核心改造则继续处理 Planner 到 Dispatcher 的关系交付。
 
 ## 一、总览：三种方案分别在哪一层计算血缘
 
@@ -46,7 +46,7 @@ flowchart TB
 | Dinky | Studio 校验或任务分析阶段 | 平台保存的作业、执行环境和 Planner | Dinky 任务详情/API | 结果依赖平台版本、JAR 和执行环境 |
 | Flink + OpenLineage | 提交作业的 Planner 阶段 | 本次提交实际使用的 RelNode/RexNode 和优化后的 sink | JobGraph、Dispatcher、OpenLineage 事件 | 需要 Flink 核心传输和 listener 协议支持 |
 
-后文围绕这三个位置展开。这里的“原生”描述提取和交付发生的位置，字段依赖本身仍通过计划静态推导，并不逐条追踪运行中的数据记录。
+比较的起点就是这三个计算位置。这里的“原生”描述提取和交付发生的位置；字段依赖本身仍由计划静态推导，并不逐条追踪运行中的数据记录。
 
 ## 二、用同一条业务链路确定比较对象
 
@@ -73,7 +73,7 @@ flowchart LR
 | `TierSummary.total_amount` | `Customers.tier` | 分组和客户过滤带来的 `INDIRECT` 依赖 |
 | `TierSummary.order_count` | `RawOrders.order_id` 与输入行集合 | 本例使用 `COUNT(order_id)`，计数受参数非空性影响；应与无字段参数的 `COUNT(*)` 区分 |
 
-后面的比较都以这组语义为准。某个工具如果只给出 `RawOrders → TierSummary`，它完成的是表级关系；如果把 `payload`、`fee`、Join 键和分组字段列出，但没有说明依赖角色，本文就无法据此判断它与 Planner 原生结果是否等价。
+我关心的不只是图上有没有这几条线，还包括每条线表达什么。只有 `RawOrders → TierSummary` 时，得到的是表级关系；列出了 `payload`、`fee`、Join 键和分组字段，还得进一步区分它们参与的是值计算、连接还是过滤。否则，仅凭字段集合相同，仍无法判断两份结果的语义是否一致。
 
 ### 2.1 追踪 `total_amount` 的值来源和条件依赖
 
@@ -119,7 +119,7 @@ FROM EnrichedOrders
 GROUP BY tier;
 ```
 
-输入数据和 UDF 定义必须随路线记录。不能把 `add_fee` 悄悄替换成普通加法后，仍然声称验证了 UDF 链路。
+这里特意保留了 `add_fee`：普通加法和 UDF 调用经过的分析路径不同。换成加法可以简化案例，但简化后的结果只能说明表达式依赖，不能说明 UDF 链路也已经验证。输入数据与函数定义也需要和 SQL 一起保留。
 
 ## 三、先使用已有项目：独立服务重建上下文，再计算字段关系
 
@@ -163,9 +163,9 @@ sequenceDiagram
 
 其中最难保持一致的是上下文。即使 SQL 文本没变，函数 JAR 或 Catalog 发生变化，也可能得到另一份计划；缺少函数注册时，分析甚至无法完成。该方案适合集中管理分析任务，但需要保存足够的信息，才能将结果归属到某次作业提交。
 
-这些步骤对应 [LineageCollectServiceImpl](https://github.com/Xuxiaotuan/flink-sql-lineage/blob/flink2.1/lineage-server/lineage-server-application/src/main/java/com/hw/lineage/server/application/service/impl/LineageCollectServiceImpl.java)。仓库提供了分析入口；本系列尚未保存这条复杂案例的一份完整 API 返回，前面的字段集合是比较目标，不能当作该服务的实测输出。
+这段接入逻辑在 [LineageCollectServiceImpl](https://github.com/Xuxiaotuan/flink-sql-lineage/blob/flink2.1/lineage-server/lineage-server-application/src/main/java/com/hw/lineage/server/application/service/impl/LineageCollectServiceImpl.java) 中。我目前没有保留这条复杂案例的完整 API 返回，因此上面列出的字段集合是核对目标，还不是这条案例的实测结果。
 
-一次实践调用至少需要把三类输入同时交给服务：
+这个接入入口把作业身份、schema 和 SQL 一起交给服务：
 
 ```shell
 curl -X POST http://127.0.0.1:8194/lineage-events/flink2.1 \
@@ -173,7 +173,7 @@ curl -X POST http://127.0.0.1:8194/lineage-events/flink2.1 \
   --data @listener-event.json
 ```
 
-`listener-event.json` 中的 `sql` 是完整多语句脚本，`inputs`/`outputs` 是本次作业上报的 schema。结果读取时定位 `TierSummary.total_amount`，再检查 `payload`、`fee`、Join 键和 `tier` 是否分别落在值依赖、条件依赖和分组依赖中。当前文章没有保存这次复杂案例的真实返回体，所以这里展示的是使用入口和结果解释方法。
+`listener-event.json` 中的 `sql` 是完整多语句脚本，`inputs`/`outputs` 是本次作业上报的 schema。结果读取时定位 `TierSummary.total_amount`，再检查 `payload`、`fee`、Join 键和 `tier` 是否分别落在值依赖、条件依赖和分组依赖中。这段请求展示的是接入方式；字段关系仍需以服务返回为准。
 
 ## 四、Dinky：在平台任务上下文中分析血缘
 
@@ -183,11 +183,11 @@ Dinky 是 Flink 开发与运维平台，字段血缘属于平台任务分析能�
 
 Dinky 把 SQL、执行环境、connector 和 UDF 放在同一个平台上下文里，再由平台的 Planner 分析任务。相比独立服务，它少了一层手工 collector 和 SQL 关联；相比原生 Flink，它仍然是平台侧分析结果，不是随 JobGraph 传到 Dispatcher 的 lineage payload。
 
-对本案例，需要检查 Dinky 是否将 `TierSummary.total_amount` 展开到 `RawOrders.payload`、`RawOrders.fee`、Join 键和 `Customers.tier`。实际显示粒度取决于部署版本和依赖是否完整，尤其是 `add_fee`、JSON 函数和 connector JAR。当前项目没有保存一份同一 fixture 的 Dinky 页面或 API 返回，因此这里给出的是方案设计与预期结果，不把它写成已完成的现场验收。
+把这条 SQL 放到 Dinky 的分析入口，我关心的仍然是 `TierSummary.total_amount` 是否展开到 `RawOrders.payload`、`RawOrders.fee`、Join 键和 `Customers.tier`。其中，`add_fee`、JSON 函数和 connector JAR 都依赖具体的执行环境。我目前没有保存同一案例的 Dinky 页面或完整 API 返回，所以下面先讨论它的设计和结果核对方式。
 
 ### 平台管理了上下文，但仍需核对关系语义
 
-Dinky 保存任务 SQL 和执行环境，使用者可以在任务详情查看表级、字段级图。这里的优势是分析结果与开发任务放在一起，定位修改过的 SQL、函数配置和依赖比独立收集事件更直接。
+Dinky 把任务 SQL、执行环境和血缘展示放在同一个平台里。在我看来，这种组织方式的价值是能从任务直接追到 SQL、函数配置和依赖，不必另外关联 listener 事件。
 
 不过，页面上出现“字段血缘”并不能说明它采用了与本系列相同的依赖分类。比较 `total_amount` 时，需要分别检查值来源、Join 条件、过滤条件和分组字段，不能仅凭连线数量判断准确性。比如去掉 `add_fee` 的 `fee` 参数后，值依赖应该随之改变；客户等级仍参与分组，则不能跟着一起删掉。
 
@@ -200,7 +200,7 @@ flowchart LR
     T -. SQL 版本更新 .-> A
 ```
 
-[Dinky 1.1 任务详情文档](https://www.dinky.org.cn/docs/1.1/user_guide/devops_center/job_details/)提供了血缘展示入口；该入口本身不能证明上述复杂 SQL 的所有间接依赖均已覆盖。本文暂不对 Dinky 的这组字段集合下实测结论。
+[Dinky 1.1 任务详情文档](https://www.dinky.org.cn/docs/1.1/user_guide/devops_center/job_details/)说明了血缘展示入口。至于这条 SQL 的间接依赖能否完整展示，还需要对照实际返回逐项确认。
 
 对应的实践入口是：在 Studio 中提交同一组 `CREATE TABLE`、函数注册和查询 SQL，完成语法检查后打开任务详情的 SQL 血缘；如果使用 API，则读取任务的 lineage 数据：
 
@@ -208,23 +208,23 @@ flowchart LR
 curl 'http://localhost:8888/openapi/getTaskLineage?id=<task-id>'
 ```
 
-结果解释与独立服务相同：先定位 `total_amount`，再核对 `fee` 是否随 `add_fee(amount, fee)` 出现，核对 `tier` 是否因为过滤和分组保留。本文没有保存 Dinky 对这组复杂 fixture 的页面截图或完整 API 返回，因此只把入口和核对方法作为实践记录。
+核对结果时，我会先定位 `total_amount`，检查 `fee` 是否随 `add_fee(amount, fee)` 出现，再看 `tier` 是否保留了过滤和分组的影响。这和独立服务需要核对的问题相同，只是结果入口变成了平台任务。
 
 ## 五、原生 Flink：在提交链路生成并交付关系
 
-这条路径是本系列的自研方案。它把字段关系计算放进 Flink Planner：Extractor 在 RelNode/RexNode 上生成字段和值集合，PlanBinder 把关系绑定到优化后的 sink，版本化 payload 写进 JobGraph，Dispatcher 恢复后由 OpenLineage listener 生成 `columnLineage` facet。
+走到这里，我把字段关系计算放进了 Flink Planner：Extractor 在 RelNode/RexNode 上生成字段和值集合，PlanBinder 把关系绑定到优化后的 sink，版本化 payload 写进 JobGraph，Dispatcher 恢复后由 OpenLineage listener 生成 `columnLineage` facet。
 
 ### 设计与结果
 
 这条链路使用的是本次提交经过的 Planner 上下文，因此不需要把原始 SQL、临时 View、函数注册和 connector schema 再拼一遍。它先在优化前观察字段依赖，再在优化后把关系绑定到实际输出；并同时保留字段值依赖（`DIRECT`）和过滤、Join、分组带来的行集合依赖（`INDIRECT`）。本案例使用 `COUNT(order_id)`，所以 `order_id` 是聚合参数来源；无普通字段参数的 `COUNT(*)` 则通过 `SYSTEM` 和行依赖表达。
 
-在本案例中，`START` 事件的 `columnLineage` 可以把 `TierSummary.total_amount` 连接到 `RawOrders.payload`、`RawOrders.fee`、两个 Join 键以及 `Customers.tier`，并带上 `FILTER`、`JOIN`、`GROUP_BY`、`AGGREGATION` 等处理标签。它还可以沿 JobGraph 到远端 Dispatcher；本文前两种方案描述的结果出口是独立服务 API/Web 或平台任务页面，没有采用这条 JobGraph 载荷路径。是否存在其他运行端交付集成，不在本文范围内判断。
+在本案例中，`START` 事件的 `columnLineage` 可以把 `TierSummary.total_amount` 连接到 `RawOrders.payload`、`RawOrders.fee`、两个 Join 键以及 `Customers.tier`，并带上 `FILTER`、`JOIN`、`GROUP_BY`、`AGGREGATION` 等处理标签。它还可以沿 JobGraph 到远端 Dispatcher；前两种路径在这里讨论的结果出口是独立服务 API/Web 或平台任务页面，没有采用这条 JobGraph 载荷路径。其他运行端交付集成不在这次比较范围内。
 
-方案的边界也必须按实现说清楚：OpenLineage JAR 本身不会给未修改的 Flink 增加 Planner 字段关系；复杂 RelNode、connector-specific Catalog 元数据和未覆盖的 SQL 语义仍需要单独定义或标记不可用。
+使用这条路径仍然需要配套的 Flink 改造，单独加入 OpenLineage JAR 不会给官方 Flink 增加 Planner 字段关系。复杂 RelNode、connector-specific Catalog 元数据和未覆盖的 SQL 语义，也仍要分别处理；无法提取时，事件会报告不可用。
 
 ### 事件中的字段关系
 
-本项目这组事件记录将字段关系放在 OpenLineage `START` 的 `columnLineage` facet 中。另一个发行包验收案例采用 `Orders.amount + Orders.fee`，输出到 `Summary.total_amount`；它省去了 JSON 和 UDF，因此要与前面的复杂案例分开解释。该案例的关系摘录如下：
+这组事件记录将字段关系放在 OpenLineage `START` 的 `columnLineage` facet 中。另一个发行包验收案例采用 `Orders.amount + Orders.fee`，输出到 `Summary.total_amount`；它省去了 JSON 和 UDF，因此要与前面的复杂案例分开解释。该案例的关系摘录如下：
 
 ```text
 输出：`default_catalog`.`lineage_acceptance`.`Summary`.total_amount（脚本验收目标）
@@ -255,13 +255,13 @@ OrderDetail: (1,gold,105), (4,silver,305), (6,gold,55)
 TierSummary: (gold,160,2), (silver,305,1)
 ```
 
-这些数值来自长会话 MiniCluster 测试及历史事件记录。[ColumnLineageLongSessionE2ETest](https://github.com/Xuxiaotuan/OpenLineage/blob/352a1e633219c6fcd5008aaf92def4c91331b17c/integration/flink/flink2/src/test/java/io/openlineage/flink/listener/ColumnLineageLongSessionE2ETest.java)将直接执行、保存计划恢复和字段提取失败放在同一组测试中。历史报告记录 5 个测试、0 个失败、0 个错误；对应事件是 2026-09-07 的产物，未记录两个仓库的提交 SHA，因此只能作为历史验证记录，不能冒充本文固定版本的新一轮运行。
+这些数值来自长会话 MiniCluster 测试及历史事件记录。[ColumnLineageLongSessionE2ETest](https://github.com/Xuxiaotuan/OpenLineage/blob/352a1e633219c6fcd5008aaf92def4c91331b17c/integration/flink/flink2/src/test/java/io/openlineage/flink/listener/ColumnLineageLongSessionE2ETest.java)将直接执行、保存计划恢复和字段提取失败放在同一组测试中。历史报告记录 5 个测试、0 个失败、0 个错误；对应事件是 2026-09-07 的产物，未记录两个仓库的提交 SHA，因此在这里保留为历史验证记录，不代表本次固定版本的新一轮运行结果。
 
 另一个双 sink 案例使用互不相关的 `IndependentA → IndependentX` 和 `IndependentB → IndependentY`，检查是否出现交叉边。它与上述结果互补：前者检查恢复后关系是否保留，后者检查多输出之间是否发生串边。
 
 ### 字段关系不可用时，事件表达什么
 
-如果字段提取失败，事件会保留表级关系，同时把字段级状态标为 `UNAVAILABLE` 并附带 issue。使用者应把它当作“本次作业字段图不完整”，而不是把空字段集合当成“没有上游表”。
+如果字段提取失败，事件会保留表级关系，同时把字段级状态标为 `UNAVAILABLE` 并附带 issue。对我来说，这表示本次作业的字段图不完整，而不是“没有上游表”。
 
 ## 六、如何比较结果与选择方案
 
@@ -278,7 +278,7 @@ TierSummary: (gold,160,2), (silver,305,1)
 | 修改 SQL 后怎样更新 | 再次提交 payload/replay | 保存新版本并重新分析 | 提交新作业并产生新事件 |
 | 最容易出错的关联 | SQL 与 listener schema/jobId 不匹配 | 环境或依赖不完整 | JAR/版本/远端 listener 不匹配 |
 
-三者不是互相排斥的竞品：Dinky 可以作为开发入口，独立服务可以做跨作业分析，原生事件可以把最终提交计划的关系交给外部系统。把 Dinky 提交到定制 Flink 并统一消费原生事件是可能的集成方向，但当前没有完成该组合的现场验证，不能写成已经兼容。
+三者不是互相排斥的竞品：Dinky 可以作为开发入口，独立服务可以做跨作业分析，原生事件可以把最终提交计划的关系交给外部系统。把 Dinky 提交到定制 Flink 并统一消费原生事件是可能的集成方向，不过我还没有验证这个组合，兼容性目前仍待确认。
 
 ### 6.2 同一字段的语义与证据
 
@@ -290,12 +290,12 @@ TierSummary: (gold,160,2), (silver,305,1)
 | `payload`、`fee` 的值依赖 | 在 SQL、schema、函数上下文完全一致时可得到 | 依赖平台函数和 connector 配置 | 直接从 `RexNode`/RelNode 计划得到 |
 | Join 键、过滤字段、分组字段 | 需要 replay 规则主动传播 | 由平台实现决定 | 作为 `INDIRECT` 行集合依赖传播 |
 | `COUNT(order_id)` / `COUNT(*)` | 取决于 replay 是否保留参数和系统来源 | 取决于平台展示模型 | 参数计数保留字段来源；无参数计数使用 `SYSTEM` + 行依赖 |
-| 本文描述的结果出口 | 独立服务 API/Web | 平台任务详情/API | JobGraph payload 与 OpenLineage 事件 |
+| 这里比较的结果出口 | 独立服务 API/Web | 平台任务详情/API | JobGraph payload 与 OpenLineage 事件 |
 | 结果的主要风险 | SQL、schema、Catalog 或 UDF 关联错误 | 平台版本和依赖缺失 | Flink 计划算子或协议覆盖不足 |
 
-因此三套方案的“图”不能只比较箭头数量。独立服务解决的是离线回放和跨作业查询，Dinky 解决的是开发与运维平台中的任务分析，Planner 原生方案解决的是提交时语义和远端事件的一致交付。它们可以组合，但职责不同；本文只比较已经展示的输入、分析过程和结果出口。
+回到最初的问题，我需要的不只是图上的箭头，还要知道关系依据哪份上下文、属于哪次作业、最终交给了谁。独立服务方便集中回放和分析，Dinky 把结果放进开发与运维流程，我的 Flink 改造则着重让提交时的关系随作业交付。三者有交集，但各自承担的工作不同。
 
-对本文案例，最小的验收结果可以写成下面这样：
+针对这条 SQL，我会分别按下面的目标核对结果。这是三条路径的验收口径，不代表三套环境都已经完成了同一轮实测：
 
 ```text
 方案一：API 返回 total_amount 的字段关系；结果依赖 replay SQL、schema、Catalog、UDF 是否与提交时一致。
@@ -303,7 +303,7 @@ TierSummary: (gold,160,2), (silver,305,1)
 方案三：OpenLineage START.columnLineage.fields 包含 payload、fee、Join 键和 tier 的关系，并保留 DIRECT/INDIRECT、SYSTEM、transformation 标签。
 ```
 
-这个对比说明本项目把 column lineage 作为 Flink 计划的一部分生成、绑定、传输和恢复；前两种方案则分别提供回放分析和平台化查看的实践入口。读者可以根据需要选择计算位置，而不是把三者当成同一类产品能力。
+这也是我从独立分析继续走向 Flink 内部的原因。已有项目解决了字段关系怎样计算的问题；在把它接进作业链路的过程中，我又想减少提交后重建上下文的工作，让关系能和计划一起保存、传输和恢复。Dinky 展示了另一种组织方式：把分析结果留在开发平台里。这几条路径不需要互相替代，关键还是我希望在哪个环节拿到什么样的结果。
 
 ## 参考入口
 
