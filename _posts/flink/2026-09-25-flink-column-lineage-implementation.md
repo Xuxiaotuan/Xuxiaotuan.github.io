@@ -21,6 +21,12 @@ sequence: true
 
 本文沿一条关系的生命周期阅读源码：先定位 Planner 中的接入点，再进入字段依赖的递归计算；随后看优化后的 sink 绑定，最后看关系如何写进 JobGraph 并被 OpenLineage 消费。聚合和 sink reuse 的测试放在对应实现之后，便于对照代码判断结果。
 
+### 这一实现站在什么基础上
+
+`HamaWhiteGG/flink-sql-lineage` 已经提供了基于 Flink/Calcite 计划分析字段来源的工程基础；你的 fork 又增加了 listener、schema/SQL 关联和 replay Planner 的接入方式。本篇不把原项目已有能力抹掉，也不在没有逐文件 diff 的情况下断言每个类是“复用”还是“重写”。阅读源码时只区分三件事：已有的计划分析思路，fork 中的作业事件接入，以及 Flink 核心侧新增的绑定、传输和恢复边界。
+
+参考：[原始项目](https://github.com/HamaWhiteGG/flink-sql-lineage)、[你的 fork](https://github.com/Xuxiaotuan/flink-sql-lineage/tree/flink2.1)。
+
 ## 一、总览：一条字段关系经过哪些组件
 
 字段观察不是独立的 SQL 解析器，也不是把 `RelNode` 直接交给 listener。提交阶段的顺序是：

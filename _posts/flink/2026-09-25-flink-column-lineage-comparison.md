@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Flink 字段血缘的三种实现：静态解析、平台分析与 Planner 原生方案
+title: 从开源字段分析到 Flink 原生交付：三条字段血缘实践路径
 description: 以同一条订单汇总 SQL，对比独立服务、Dinky 和 Flink Planner 原生字段血缘方案。
 keywords: Flink, OpenLineage, column lineage, 字段血缘
 categories:
@@ -15,11 +15,17 @@ mermaid: true
 sequence: true
 ---
 
-# Flink 字段血缘的三种实现：静态解析、平台分析与 Planner 原生方案
+# 从开源字段分析到 Flink 原生交付：三条字段血缘实践路径
 
-同一个 `TierSummary.total_amount`，可以在 SQL 提交前重新解析，也可以交给开发平台的分析器，还可以由 Flink Planner 在真正提交作业时直接生成关系。三种方案看起来都能画出箭头，但它们使用的语义来源、能看到的计划阶段和最终结果并不相同。
+同一个 `TierSummary.total_amount`，我先使用已有的 Flink/Calcite 字段分析项目得到关系，再在自己的 fork 中把 schema、SQL 和 listener 事件接起来，最后继续探索怎样让关系进入 Flink Planner、JobGraph 和 OpenLineage 事件。Dinky 是这条实践路径中的另一个平台化入口，而不是凭空出现的第三个竞争方案。
 
-本文先给出比较总览，并用订单汇总 SQL 确定要追踪的字段关系；接着分别分析独立服务、Dinky 和原生 Flink 的设计与产出；最后比较三者在语义上下文、字段依赖和作业交付上的差异。各方案都按“输入从哪里来、怎样分析、结果能说明什么”展开。
+本文先交代已有开源起点和我的 fork，再用订单汇总 SQL 确定要追踪的字段关系；接着按实践顺序说明独立分析服务、Dinky 和 Flink 原生链路分别怎样接入、产生什么结果；最后比较它们在语义上下文、字段依赖和作业交付上的差异。各路径都按“输入从哪里来、怎样触发、结果是什么、怎样解释”展开。
+
+## 这三条路径不是从同一个起点开始
+
+原始 `flink-sql-lineage` 是可以独立运行的字段分析系统，核心价值是利用 Flink/Calcite 计划计算字段来源。你的 `flink2.1` fork 在此基础上增加了作业 listener、输入输出 schema、SQL 关联和服务端 replay。本文最后讨论的 Flink 2.4 核心改造，则继续追问如何把关系作为本次作业的提交信息保存和交付。
+
+这三层关系不能混成一句“我实现了字段血缘”：原项目提供分析基础，fork 提供事件驱动的接入方式，Flink 核心探索解决 Planner 到 Dispatcher 的交付问题。
 
 ## 一、总览：三种方案分别在哪一层计算血缘
 
@@ -115,7 +121,7 @@ GROUP BY tier;
 
 输入数据和 UDF 定义必须随路线记录。不能把 `add_fee` 悄悄替换成普通加法后，仍然声称验证了 UDF 链路。
 
-## 三、独立服务：重建上下文，再计算字段关系
+## 三、先使用已有项目：独立服务重建上下文，再计算字段关系
 
 这个方案把字段血缘当成独立分析任务。Flink listener 上报 schema 和作业身份，发布系统补齐完整 SQL，collector 在服务端注册临时表后重新运行 Flink 2.1 Planner。它的核心设计是“运行事实 + SQL 版本”拼成一次可重放的分析输入。
 
