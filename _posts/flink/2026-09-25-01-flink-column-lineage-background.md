@@ -14,14 +14,21 @@ tags:
 mermaid: true
 sequence: true
 ---
-
 # Flink 字段血缘系列（一）：从表级血缘到字段血缘
 
-我一开始只想把 OpenLineage 的表级事件接通，后来很快发现它回答不了最常见的追问：一个指标字段到底是怎么算出来的？真正影响指标治理的问题通常更细——哪些输入字段参与了计算，过滤条件和分组键是否也算依赖，恢复执行后这些关系还在不在。
+OpenLineage 的表级事件只能说明数据从哪张表流向哪张表，无法回答指标字段是怎样计算出来的。要回答这个问题，还必须区分参与值计算的字段、影响输入行集合的过滤条件和分组键，以及计划恢复后这些关系是否仍然存在。
 
-这次我在自己的 Flink 2.4 分支上做了一次尝试：在原有表级 Job Lineage 基础上增加 Planner 生成的 column lineage，再把关系交给远端 listener。后面说的“原生”，指的是关系在 Flink 规划与提交链路内生成和交付，不是说官方发行版已经提供了这项能力。
+本文讨论 Flink 2.4 分支上的一次实现尝试：在表级 Job Lineage 的基础上，由 Planner 生成 column lineage，再把关系交给远端 listener。这里的“原生”只表示关系在 Flink 的规划和提交链路中生成、传递，不表示官方发行版已经提供这项能力。
 
-第一篇先从一条聚合 SQL 说起，再回顾社区已有的工作，然后展开我的设计：字段依赖怎样计算，怎样绑定到 sink，又怎样随作业交付。保存计划和提取失败的处理放在最后。具体源码留到第二篇，几条实现路径的比较放到第三篇。
+本文从一条聚合 SQL 开始，先回顾已有工作，再说明字段依赖的计算、sink 绑定和作业交付。保存计划与提取失败单独讨论。具体源码放在第二篇，方案比较放在第三篇。
+
+## 已有开源起点：字段血缘并不是从零开始
+
+字段血缘并不是从零开始的问题。`HamaWhiteGG/flink-sql-lineage` 已经验证了一条路线：让 Flink SQL 经过解析和校验形成 `RelNode`，再结合 Calcite 的列来源分析得到字段关系，并提供转换关系和可视化能力。ApacheCon Asia 2023 也公开讨论过基于 Flink/Calcite 计划、保持 Flink 和 Calcite 源码零侵入的实现方向。
+
+这说明字段关系可以从 Planner 计划中计算出来。随后在 fork 中接入 listener，关联 schema 和 SQL，并在服务端重放分析。由此引出下一步问题：既然提交阶段已经完成一次 Planner，能否让这次生成的关系随计划保存、随作业提交，而不是在提交后重新构造分析上下文？
+
+参考：[flink-sql-lineage](https://github.com/HamaWhiteGG/flink-sql-lineage)、[ApacheCon Asia 2023 分享](https://apachecon.com/acasia2023/zh/sessions/streaming-1110.html)。
 
 ## 一、从一条聚合 SQL 看字段血缘要解决什么
 
@@ -59,16 +66,16 @@ flowchart LR
 
 字段血缘至少需要保留输出字段、输入 dataset 和字段、依赖角色以及处理过程。`DIRECT` 表示输入字段参与输出值的求值；`INDIRECT` 表示输入字段通过过滤、连接、分组等条件影响输出行的产生或归属。这里的“直接”不是指只经过一层运算。`COUNT(*)` 没有普通输入字段参数，但仍有输入表的行集合依赖，不能把空字段集合解释为“没有来源”。
 
-这次我先保留字段依赖及处理类别，暂时不还原完整的计算公式。
+本文先保留字段依赖及处理类别，不展开完整的计算公式。
 
 ## 二、社区已经做到哪里
 
-下面的状态是我在 2026 年 9 月 25 日查到的公开信息，范围限于这几个直接相关的提案、任务和 PR。
+下面的状态依据 2026 年 9 月 25 日查到的公开信息，范围限于几个直接相关的提案、任务和 PR。
 
 - **[FLIP-314](https://cwiki.apache.org/confluence/spaces/FLINK/pages/255070913/FLIP-314+Support+Customized+Job+Lineage+Listener)**：自定义 Job Lineage Listener、表级图和作业事件；提案已接受，页面标注 Release 1.19。
 - **[FLINK-31275](https://issues.apache.org/jira/browse/FLINK-31275)**：Job Lineage 相关任务集合；父任务仍为 Open，子任务状态不一。
 - **[PR #26089](https://github.com/apache/flink/pull/26089)**：暴露 QueryOperation，交给 listener 分析；核查时为 Closed，未合并。
-- **[PR #28002](https://github.com/apache/flink/pull/28002)**：Dispatcher 侧 listener 和跨进程交付；核查时为 Open.
+- **[PR #28002](https://github.com/apache/flink/pull/28002)**：Dispatcher 侧 listener 和跨进程交付；核查时为 Open。
 
 ### FLIP-314：先有统一的表级事件出口
 
@@ -96,13 +103,13 @@ PR #26089 代表“暴露查询表示，再由消费者分析”：listener 获�
 
 PR #28002 主要讨论 listener 创建位置和 Dispatcher 生命周期。它解决“由哪个进程创建和消费事件”，但不等同于已经定义了完整 column lineage 语义。
 
-我的侧重点仍然是 column lineage：**在 Planner 内把字段关系算出来，把结果而不是 Planner 私有对象交给 listener。** 已有项目和上游讨论给了我不少参考；这份实现目前仍是个人分支上的探索。
+本文的重点是 column lineage：**在 Planner 内计算字段关系，把结果而不是 Planner 私有对象交给 listener。** 已有项目和上游讨论构成了实现基础；当前代码仍属于个人分支上的探索。
 
 ## 三、方案设计：从 Planner 计算到远端交付
 
 有了社区提供的事件出口，我接下来要决定的是：字段关系在哪一层生成？这个选择会直接影响数据模型、优化后的绑定方式，以及跨进程传输的内容。
 
-### 提取职责为什么放在 Planner
+### 3.1 提取职责为什么放在 Planner
 
 SQL 文本不足以重建一次提交的语义。Catalog、临时视图、UDF、类型推导和版本都会改变计划；提交之后再解析，必须再次建立完全相同的上下文。
 
@@ -113,9 +120,9 @@ SQL 文本不足以重建一次提交的语义。Catalog、临时视图、UDF、
 - **listener 自行分析 QueryOperation**：消费者可定制；成本由消费侧承担，包括查询表示到字段关系的转换，以及与 Flink 版本的兼容。
 - **Planner 交付解释后的关系**：复用一次名称解析、类型推导和计划语义；成本由 Flink 核心承担，包括提取规则、版本化协议和兼容性。
 
-我选择了第二种。代价也很明确：提取规则和传输协议需要在 Flink 一侧维护。当前还没有测量 Planner 的增量耗时和 lineage payload 大小，功能测试也回答不了这两个性能问题。
+这里选择第二种方式。代价也很明确：提取规则和传输协议需要在 Flink 一侧维护。当前尚未测量 Planner 的增量耗时和 lineage payload 大小，功能测试不能回答这两个性能问题。
 
-### 3.1 先看关系从哪里产生、交给谁
+### 3.2 先看关系从哪里产生、交给谁
 
 ```mermaid
 flowchart TB
@@ -144,11 +151,11 @@ Planner 负责解释 RelNode/RexNode 并形成关系；绑定阶段把逻辑关�
 
 连接器元数据是另一层问题。通用字段关系可以跨进程恢复，不代表远端拥有完整的 `CatalogBaseTable` 或 connector-specific metadata。集成侧可以构造满足事件需要的兼容元数据，但不能把它描述成原始 Catalog 对象的完整恢复。
 
-### 3.2 我先把“字段来源”拆成三个可计算的问题
+### 3.3 把“字段来源”拆成三个可计算的问题
 
 设计 column lineage 时，最先遇到的不是传输格式，而是语义边界。如果只把 SQL 中出现过的列名收集出来，下面三种关系会被混在一起：字段参与了输出值计算、字段影响了结果行是否存在、字段只是表达式里的常量或系统值。实现因此把一次关系计算拆成三个阶段。
 
-第一阶段计算值依赖。对 `price * quantity`，`price` 和 `quantity` 都是输出值的输入；对 `CAST(price AS DECIMAL)`，输入仍是 `price`，但增加 `CAST` 处理标签；对 `1`，没有输入字段，来源是 `CONSTANT`。这里的输入字段来自 `RexInputRef`，不是重新扫描 SQL 文本。原项目已经展示了从计划提取字段来源的可行性；我继续要解决的是如何把这份结果纳入 Flink 作业生命周期。
+第一阶段计算值依赖。对 `price * quantity`，`price` 和 `quantity` 都是输出值的输入；对 `CAST(price AS DECIMAL)`，输入仍是 `price`，但增加 `CAST` 处理标签；对 `1`，没有输入字段，来源是 `CONSTANT`。输入字段来自 `RexInputRef`，不是重新扫描 SQL 文本。原项目已经验证了从计划提取字段来源的可行性；这里要解决的是如何把结果纳入 Flink 作业生命周期。
 
 第二阶段计算行集合依赖。`WHERE region = 'CN'` 不改变 `gross_amount` 的算术表达式，却改变哪些订单可以进入聚合；`GROUP BY customer_id` 不一定出现在 `SUM` 的参数中，却改变了输入行归属于哪个输出组。实现把这些依赖保存为节点级集合，最后补到每一个输出字段上，并将输入标成 `INDIRECT`。
 
@@ -168,13 +175,13 @@ flowchart LR
 
 这个拆分解释了几个容易误读的结果：`COUNT(*)` 的 `origin` 是 `SYSTEM`，但它仍然会带有分组或过滤字段的 `INDIRECT` 依赖；`SUM(1)` 不是来自某个输入列，而是系统聚合对输入行集合的结果；同一个字段可能同时以 `DIRECT` 和 `INDIRECT` 出现，因为它既参与值计算，又参与过滤或分组。
 
-### 3.3 用两层状态承接上述计算
+### 3.4 用两层状态承接上述计算
 
 前面拆出了值依赖、行集合依赖和输出绑定。它们需要沿 relational plan 逐层传递，最后再绑定到实际 sink。具体的 `FieldLineage`、`NodeLineage` 对象、算子传播规则和测试放在第二篇源码文章中；这里先保留设计上的分工：字段状态描述值来源，节点状态描述行集合影响，绑定状态描述输出归属。
 
-这也是我把语义标签放在 Planner 侧生成的原因：展示层可以画出箭头，却无法单靠箭头补回 `DIRECT`、`INDIRECT` 和 `SYSTEM` 的区别。
+因此，语义标签应在 Planner 侧生成。展示层可以绘制箭头，却无法仅凭箭头恢复 `DIRECT`、`INDIRECT` 和 `SYSTEM` 的区别。
 
-### 3.4 从中间状态收敛到输出关系
+### 3.5 从中间状态收敛到输出关系
 
 计算完成后，需要将中间状态整理成面向 sink 的输出契约。前面的 `FieldLineage` 和 `NodeLineage` 服务于递归计算；下面这些信息则服务于绑定、传输和消费：
 
@@ -191,7 +198,7 @@ flowchart LR
 2. 直接提交和 Compiled Plan restore 都必须能交付同一份关系事实。
 3. 血缘提取失败要报告不可用，不得伪造完整关系，也不得把观测失败升级成 Flink 执行失败。
 
-### 3.5 计算不完整时，怎样表达结果
+### 3.6 计算不完整时，怎样表达结果
 
 有了关系模型，还需要回答另一种情况：某个节点无法分析，或者关系无法绑回 sink，此时下游应该收到什么？
 
@@ -212,7 +219,7 @@ flowchart TB
 
 这样做有两个工程结果。第一，OpenLineage 可以区分“没有输入字段的系统聚合”和“字段关系没有生成”；第二，血缘观测失败不会改变 Flink 的执行结果，但事件仍然携带诊断，便于后续补规则。失败隔离不是把问题吞掉，而是把问题放在正确的状态层。
 
-### 3.6 把关系送到远端 listener
+### 3.7 把关系送到远端 listener
 
 前面的步骤确定了关系内容、输出身份和可用状态。接下来要让这些信息跨过提交端与运行端之间的进程边界。
 
@@ -238,6 +245,6 @@ RexNode / Table API    columnRelations             ->  START / COMPLETE
 
 ### 4.2 当前覆盖范围
 
-当前原型围绕投影、表达式、过滤、Join、聚合、窗口、集合操作、多 sink 和 Compiled Plan 展开。复杂 Correlate、UDTF、递归、模式匹配以及连接器隐含的外部访问，需要逐项定义语义；不能由“Planner 内提取”推导出所有 SQL 都已覆盖。
+当前代码和测试围绕投影、表达式、过滤、Join、聚合、窗口、集合操作、多 sink 和 Compiled Plan 展开。这里说的是实现与测试覆盖的范围，不等于每一种 SQL 都已经完成端到端验收。复杂 Correlate、UDTF、递归、模式匹配以及连接器隐含的外部访问，需要逐项定义语义；不能由“Planner 内提取”推导出所有 SQL 都已覆盖。
 
 第二篇沿这条链路进入提取器、绑定器和传输层源码，解释每一步如何实现。第三篇把它与独立解析服务、Dinky 放到同一个业务案例中，比较三者的分析上下文、输出关系和适用场景。

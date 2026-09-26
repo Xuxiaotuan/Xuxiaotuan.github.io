@@ -14,16 +14,15 @@ tags:
 mermaid: true
 sequence: true
 ---
-
 # Flink 字段血缘系列（二）：从 RelNode 到可传输关系
 
-第一篇记录了我为什么选择把字段关系放进 Planner。这一篇把设计落到代码上：从提取器开始，沿着 sink 绑定、提交载荷，一直看到 OpenLineage 事件。源码以 Flink 提交 `b5580495e00b16e81563f779737dd3359ee1f988` 为参照，链接也固定在这一版本。
+第一篇说明了为什么把字段关系放进 Planner。本文沿代码展开这条链路：从提取器开始，经过 sink 绑定和提交载荷，最后到达 OpenLineage 事件。源码以 Flink 提交 `b5580495e00b16e81563f779737dd3359ee1f988` 为参照，链接固定在这一版本。
 
-整条实现可以分成四段：接入 Planner、递归计算字段依赖、绑定优化后的 sink、把关系交给远端 listener。下面按这个顺序展开，聚合和 sink reuse 的测试紧跟对应实现，用具体断言说明这些规则为什么这样写。
+整条实现可以分成四段：接入 Planner、递归计算字段依赖、绑定优化后的 sink，以及把关系交给远端 listener。下文按这个顺序展开。聚合和 sink reuse 的测试紧跟对应实现，用断言说明这些规则如何落地。
 
 ### 这一实现站在什么基础上
 
-我最初参考的是 `HamaWhiteGG/flink-sql-lineage` 利用 Flink/Calcite 计划分析字段来源的路线，随后在自己的 fork 中接入 listener、schema/SQL 关联和服务端 replay。这一篇聚焦后来在 Flink 核心侧做的实现：提取器怎样组织字段依赖，以及这些关系怎样经过优化绑定、保存和传输到达事件出口。
+实现起点是 `HamaWhiteGG/flink-sql-lineage` 的 Flink/Calcite 计划分析路线，随后在 fork 中接入 listener、schema/SQL 关联和服务端 replay。本文聚焦 Flink 核心侧的实现：提取器如何组织字段依赖，以及这些关系如何经过优化绑定、保存和传输到达事件出口。
 
 参考：[原始项目](https://github.com/HamaWhiteGG/flink-sql-lineage)、[我的 fork](https://github.com/Xuxiaotuan/flink-sql-lineage/tree/flink2.1)。
 
@@ -53,7 +52,7 @@ flowchart LR
 
 ## 二、提取阶段：从关系节点算出字段依赖
 
-进入提取器后，我先从递归过程中保存的状态讲起，再展开入口和各类算子的处理，最后用聚合 SQL 把这些规则串起来。
+进入提取器后，先看递归过程中保存的状态，再看入口和各类算子的处理，最后用聚合 SQL 把这些规则串起来。
 
 ### 2.1 内部模型与合并规则
 
@@ -413,6 +412,44 @@ streamGraph.getJobConfiguration().setString(
 ```
 
 源码位置：[StreamGraphGenerator](https://github.com/Xuxiaotuan/flink/blob/b5580495e00b16e81563f779737dd3359ee1f988/flink-runtime/src/main/java/org/apache/flink/streaming/api/graph/StreamGraphGenerator.java#L303-L312)。这一步把 binder 产出的 graph 放入作业配置，随后随着 JobGraph 提交。
+
+Compiled Plan 的关键不是把 Planner 对象原样塞进 JSON，而是把 sink specification 中已经绑定好的、可序列化的 lineage 一起保存。`DynamicTableSinkSpec` 为它单独保留了 `columnLineage` 字段，并在反序列化时使用可选 deserializer：
+
+```java
+public static final String FIELD_NAME_COLUMN_LINEAGE = "columnLineage";
+
+@JsonProperty(FIELD_NAME_COLUMN_LINEAGE)
+@JsonDeserialize(using = OptionalColumnLineageDeserializer.class)
+private PlannerSinkColumnLineage columnLineage;
+
+public PlannerSinkColumnLineage getColumnLineage() {
+    return columnLineage;
+}
+```
+
+源码位置：[DynamicTableSinkSpec](https://github.com/Xuxiaotuan/flink/blob/b5580495e00b16e81563f779737dd3359ee1f988/flink-table/flink-table-planner/src/main/java/org/apache/flink/table/planner/plan/nodes/exec/spec/DynamicTableSinkSpec.java)。这里保存的是 `PlannerSinkColumnLineage`：sink key、期望输出字段、期望输入 source、裁剪 source 和关系列表；它不保存 `RelNode`、`RexNode` 或完整 `CatalogBaseTable`。因此，Compiled Plan restore 依赖的是已经绑定好的关系事实，而不是在 Dispatcher 再跑一次 Planner。
+
+恢复后的 sink 创建运行时字段关系时，`CommonExecSink.createColumnLineage` 会做三层校验：
+
+```java
+if (!sinkIdentity().equals(plannerLineage.getSinkKey())) {
+    throw lineageFailure("<unknown>", "compiled column lineage sink key does not match");
+}
+if (!actualOutputFields.equals(plannerLineage.getExpectedOutputFields())) {
+    throw lineageFailure("<unknown>", "compiled column lineage output fields do not match");
+}
+for (PlannerColumnLineageInput input : plannerRelation.getInputs()) {
+    LineageDataset dataset = sourceDatasets.get(datasetKey(input.getDataset()));
+    if (!(dataset instanceof TableLineageDataset)
+            || !((TableLineageDataset) dataset)
+                    .fieldNames()
+                    .contains(input.getFieldName())) {
+        throw lineageFailure(input.getFieldName(), "source field cannot be verified");
+    }
+}
+```
+
+源码位置：[CommonExecSink.createColumnLineage](https://github.com/Xuxiaotuan/flink/blob/b5580495e00b16e81563f779737dd3359ee1f988/flink-table/flink-table-planner/src/main/java/org/apache/flink/table/planner/plan/nodes/exec/common/CommonExecSink.java)。校验通过后，代码才把 Planner 侧的 `DIRECT`、`INDIRECT` 和 `SYSTEM` 映射成运行时 `ColumnLineageRelation`；校验失败则报告 lineage failure，不能把错位的字段关系当成有效结果。
 
 Dispatcher 侧从相同配置键读取并恢复：
 
