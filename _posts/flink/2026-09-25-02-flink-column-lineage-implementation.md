@@ -20,7 +20,7 @@ sequence: true
 
 整条实现可以分成四段：接入 Planner、递归计算字段依赖、绑定优化后的 sink，以及把关系交给远端 listener。下文按这个顺序展开。聚合和 sink reuse 的测试紧跟对应实现，用断言说明这些规则如何落地。
 
-### 这一实现站在什么基础上
+## 这套实现站在什么基础上
 
 实现起点是 `HamaWhiteGG/flink-sql-lineage` 的 Flink/Calcite 计划分析路线，随后在 fork 中接入 listener、schema/SQL 关联和服务端 replay。本文聚焦 Flink 核心侧的实现：提取器如何组织字段依赖，以及这些关系如何经过优化绑定、保存和传输到达事件出口。
 
@@ -54,13 +54,14 @@ flowchart LR
 
 ```text
 PlannerBase / root observation
-  └─ PlannerColumnLineageExtractor.extract(RelNode)
+  └─ PlannerColumnLineageExtractor.extract(
+         sinkKey, outputFields, relNode)
        ├─ extractNode(RelNode)
        │    ├─ TableScan / Values
        │    ├─ Project / Calc / Filter
        │    ├─ Join / Union / Intersect / Minus
        │    └─ Aggregate / Window
-       ├─ extractRexNode(RexNode)
+       ├─ lineageFromExpression(RexNode, NodeLineage)
        └─ FieldLineage.merge(...)
             ↓
 PlannerColumnLineagePlanBinder.bindPhysicalRoots(...)
@@ -151,9 +152,9 @@ extract(sinkRoot)
 - **Filter**：不改变字段值；条件引用字段作为 `INDIRECT` 行依赖传播。
 - **Join**：按条件合并左右输入；保留投影字段、Join 条件和两侧 dataset。
 - **Aggregate**：处理聚合参数、group key 和 filter；参数是 `DIRECT`，分组和过滤是 `INDIRECT`。
-- **Window**：处理窗口参数和时间字段；保留行集合与窗口边界依赖。
+- **Window**：处理窗口聚合参数、partition key 和 order key；窗口边界的完整语义尚未单独编码。
 - **Union**：合并同位置输入；合并各分支同位置的值来源。
-- **Intersect/Minus**：依据成员资格筛选集合；传播影响成员资格的行依赖。
+- **Intersect/Minus**：依据成员资格筛选集合；`Intersect` 合并多侧字段来源，`Minus` 的输出值主要来自左侧，同时传播影响成员资格的行依赖。
 - **Values**：没有上游 dataset；来源标为 `CONSTANT` 或 `SYSTEM`。
 
 入口先展开 scan，再递归计算节点，最后按 sink 输出字段位置组装关系：
@@ -252,9 +253,9 @@ UDF 的调用节点可以保留其参数字段和 `UDF` transformation。这里�
 | `Filter` | 不改变输出值来源 | 条件字段影响保留行 | 过滤字段不应因为未出现在输出中而消失 |
 | `Join` | 两侧投影或表达式字段 | Join 条件两侧字段为 `INDIRECT` | 非等值 Join、Join 后字段裁剪 |
 | `Aggregate` | `SUM(col)`、`COUNT(col)` 等参数 | 输入行集合、分组字段 | `COUNT(*)`、`SUM(1)` 的 `SYSTEM` 语义 |
-| `Window` | 窗口聚合参数 | 窗口时间字段和分组字段 | 时间边界和窗口属性是否作为系统依赖 |
+| `Window` | 窗口聚合参数 | partition key 和 order key | 窗口边界是否作为额外系统依赖，当前未单独编码 |
 | `Union` | 按输出位置合并各输入字段 | 各输入行集合 | 字段顺序而不是 dataset 名称决定对应关系 |
-| `Intersect/Minus` | 输出字段通常来自左侧位置 | 两侧成员集合影响输出行 | Set membership 不能简化成普通 Join |
+| `Intersect/Minus` | `Intersect` 合并多侧字段；`Minus` 主要保留左侧字段 | 所有输入的成员集合影响输出行 | Set membership 不能简化成普通 Join |
 
 这张表对应测试中的具体断言，而不是对所有 SQL 语法的承诺。比如，`COUNT(*)` 的正确结果不是空输入列表，而是 `origin=SYSTEM` 加上节点级行集合依赖；`Filter` 的正确结果也不是把条件字段提升成输出字段，而是在输出字段的 `INDIRECT` 集合中保留它。
 
@@ -547,7 +548,9 @@ DispatcherLineageEventUtils.notifyJobCreated(
 
 OpenLineage 集成读取恢复后的 dataset、字段和 dependency type，生成 `columnLineage` facet。事件里的每条关系属于输出字段；表级 `inputs`/`outputs` 和字段级 `columnLineage.fields` 是两个层次。
 
-当前实现能保证通用 dataset、namespace、字段和 column relations 的传输。connector-specific 的 `CatalogBaseTable` 元数据由集成侧按需要重建，不能反向证明 Flink 已经跨进程恢复完整 connector 对象。
+当前实现能保证通用 dataset、namespace、字段和 column relations 的传输。`DIRECT`/`INDIRECT` 会进入输入字段的 transformation type，关系的 transformation 列表会合并成 `transformationDescription`。Flink runtime 中的 `origin` 仍然存在，但当前 OpenLineage 标准 `columnLineage` facet 没有独立的 origin 字段；因此不能把 `CONSTANT`、`SYSTEM` 在 Flink 内部的区分写成已经完整传到标准事件。
+
+connector-specific 的 `CatalogBaseTable` 元数据由集成侧按需要重建，不能反向证明 Flink 已经跨进程恢复完整 connector 对象。
 
 ### 4.4 失败模型与执行隔离
 

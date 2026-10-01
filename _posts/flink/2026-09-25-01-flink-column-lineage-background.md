@@ -16,7 +16,7 @@ sequence: true
 ---
 # Flink 字段血缘系列（一）：从表级血缘到字段血缘
 
-OpenLineage 的表级事件只能说明数据从哪张表流向哪张表，无法回答指标字段是怎样计算出来的。要回答这个问题，还必须区分参与值计算的字段、影响输入行集合的过滤条件和分组键，以及计划恢复后这些关系是否仍然存在。
+仅凭 OpenLineage 的表级 lineage relation，只能确认 dataset 之间的流向，无法回答指标字段是怎样计算出来的。要回答这个问题，还必须区分参与值计算的字段、影响输入行集合的过滤条件和分组键，以及计划恢复后这些关系是否仍然存在。
 
 本文讨论 Flink 2.4 分支上的一次实现尝试：在表级 Job Lineage 的基础上，由 Planner 生成 column lineage，再把关系交给远端 listener。这里的“原生”只表示关系在 Flink 的规划和提交链路中生成、传递，不表示官方发行版已经提供这项能力。
 
@@ -200,7 +200,7 @@ flowchart LR
 
 ### 3.5.1 统一的数据契约
 
-为了让 Planner、JobGraph 和 OpenLineage listener 对同一条关系使用相同的语义，需要先固定一个与 Planner 类型无关的契约。它不是 `RelNode` 的序列化版本，而是已经绑定到输出字段的稳定事实：
+为了让 Planner、JobGraph 和 OpenLineage listener 对同一条关系使用相同的语义，需要先固定一个与 Planner 类型无关的逻辑契约。下面的 JSON 是语义模型，不是 JobGraph 中的实际 wire format，也不是 OpenLineage facet 的原样结构。它描述的是已经绑定到输出字段的稳定事实：
 
 ```json
 {
@@ -248,6 +248,32 @@ flowchart LR
 
 这样，Planner 内部的 `FieldLineage`、传输载荷里的 `columnRelations` 和 OpenLineage 的 `columnLineage.fields` 才能逐层对应，而不是每一层各自重新解释一次字段关系。
 
+### 3.5.2 逻辑契约如何落到两种实际格式
+
+逻辑契约进入 Flink runtime 后，会被编码成 `LineageGraphTransport` 的字段。当前实现使用单数的 `transformation` 字符串，并把状态放在 observation 顶层：
+
+```json
+{
+  "formatVersion": 1,
+  "columnRelations": [
+    {
+      "outputDataset": 1,
+      "outputField": "gross_amount",
+      "origin": "INPUT_FIELDS",
+      "transformation": "EXPRESSION,AGGREGATION,FILTER",
+      "inputs": [
+        {"dataset": 2, "field": "price", "dependencyType": "DIRECT"},
+        {"dataset": 2, "field": "region", "dependencyType": "INDIRECT"}
+      ]
+    }
+  ],
+  "columnStatus": "AVAILABLE",
+  "issues": []
+}
+```
+
+OpenLineage adapter 再把 runtime relation 映射成 `columnLineage.fields`：输入字段和 `DIRECT`/`INDIRECT` 会进入标准 facet，`transformation` 会进入 `transformationDescription`。当前标准 facet 没有单独的 `origin` 字段，因此 `INPUT_FIELDS`、`CONSTANT`、`SYSTEM` 在 Flink 内部和 runtime payload 中可以保留，但不应宣称已经完整出现在 OpenLineage 标准事件中。若下游必须区分这三类来源，需要扩展 facet 或增加独立的来源字段。
+
 ### 3.6 计算不完整时，怎样表达结果
 
 有了关系模型，还需要回答另一种情况：某个节点无法分析，或者关系无法绑回 sink，此时下游应该收到什么？
@@ -267,7 +293,7 @@ flowchart TB
     E --> X[不中断 Flink 执行]
 ```
 
-这样做有两个工程结果。第一，OpenLineage 可以区分“没有输入字段的系统聚合”和“字段关系没有生成”；第二，血缘观测失败不会改变 Flink 的执行结果，但事件仍然携带诊断，便于后续补规则。失败隔离不是把问题吞掉，而是把问题放在正确的状态层。
+这样做有两个工程结果。第一，Flink 内部 observation 可以区分“没有输入字段的系统聚合”和“字段关系没有生成”；但标准 OpenLineage facet 当前不一定保留完整的 `origin` 信息。第二，血缘观测失败不会改变 Flink 的执行结果，但事件仍然携带诊断，便于后续补规则。失败隔离不是把问题吞掉，而是把问题放在正确的状态层。
 
 ### 3.7 把关系送到远端 listener
 

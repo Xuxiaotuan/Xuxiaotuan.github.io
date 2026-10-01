@@ -210,7 +210,7 @@ flowchart LR
     T -. SQL 版本更新 .-> A
 ```
 
-[Dinky 1.1 任务详情文档](https://www.dinky.org.cn/docs/1.1/user_guide/devops_center/job_details/)说明了血缘展示入口。至于这条 SQL 的间接依赖能否完整展示，还需要对照实际返回逐项确认。
+[Dinky 1.1 任务详情文档](https://www.dinky.org.cn/docs/1.1/user_guide/devops_center/job_details/)说明了血缘展示入口；接口形式可参考 [Dinky Get Task Lineage OpenAPI](https://www.dinky.org.cn/docs/1.0/openapi/GetTaskLineage/)。至于这条 SQL 的间接依赖能否完整展示，还需要对照实际返回逐项确认，不能用 1.0 接口文档直接证明 1.1 的返回结构完全相同。
 
 对应的实践入口是：在 Studio 中提交同一组 `CREATE TABLE`、函数注册和查询 SQL，完成语法检查后打开任务详情的 SQL 血缘；如果使用 API，则读取任务的 lineage 数据：
 
@@ -321,16 +321,35 @@ node flink2/src/test/scripts/sql-client-lineage/run.cjs \
 
 这个脚本实际使用的是 `Orders(amount, fee)` 到 `Summary.total_amount` 的简化案例；上面的 `RawOrders.payload + add_fee` 是用来解释复杂字段语义的案例。两者不能合并成一次运行结果，但可以用同一套字段角色规则阅读。
 
-### 从零复现这条 Flink 路径
+### 本地复现这条 Flink 路径的要点
 
-要把“有代码”和“能看到事件”区分开，至少要保存下面这些输入和产物：
+下面的步骤对应仓库中已有的 SQL Client acceptance script。它可以复现简化的双 sink 事件，但不等于已经完成外部 Session Cluster 验收。先固定两个仓库的分支和 commit，再执行：
 
-1. 固定 Flink 2.4 分支和 OpenLineage integration/flink/flink2 的 commit，使用同一套 JDK 和构建产物。
-2. 构建定制 Flink distribution 和 OpenLineage adapter，把 adapter 放入该 distribution 的 `lib` 目录；不能只使用未修改的官方 Flink 包期待出现 Planner column lineage。
-3. 准备 SQL Client fixture，先运行简化的 `Orders → RevenueSink/TierSink` StatementSet，再运行保存计划恢复场景。
-4. 配置 `openlineage.transport.type=file` 和 transport 路径，执行上面的脚本，保留原始 JSONL，不要只截图字段图。
-5. 从原始事件中分别找到 `START`、`RUNNING` 和 `COMPLETE`，按输出 dataset 定位 `columnLineage.fields`，再核对字段、依赖类型和 transformation。
-6. 对 direct、compiled restore、双 sink 和 lineage failure 分别保存事件文件、作业结果和执行日志。只有作业成功而没有字段断言，不能算字段血缘验收。
+```shell
+# 1. 构建定制 Flink 发行包（Flink 仓库根目录）
+./mvnw -pl flink-dist -am package \
+  -DskipTests -Dfast -Pskip-webui-build \
+  -Djar.forceCreation=true -T2
+
+# 2. 构建 OpenLineage Flink 2 adapter（OpenLineage/integration/flink）
+./gradlew verifyFlink2ColumnLineageJar
+
+# 3. 执行 SQL Client acceptance script
+node flink2/src/test/scripts/sql-client-lineage/run.cjs \
+  /absolute/path/to/flink/flink-dist/target/flink-2.4-SNAPSHOT-bin/flink-2.4-SNAPSHOT \
+  build/libs/openlineage-flink-1.54.0-SNAPSHOT.jar
+```
+
+脚本要求 Node.js 18 及以上、配套 Flink 支持的 Java 版本（当前脚本按 Java 17 编写）。脚本会复制发行包到临时目录，把 adapter 放入 `lib`，保留 SQL、日志、CSV 结果、事件和保存计划；它不启动持久化集群，也不能替代外部网络提交。
+
+复现时至少要保存下面这些证据：
+
+1. 两个仓库的 commit、JDK、Node.js 和构建产物路径。
+2. `START`、`RUNNING`、`COMPLETE` 原始 JSONL，而不是只保存截图。
+3. direct、compiled restore、双 sink 和 lineage failure 各自的作业结果与事件文件。
+4. 输出字段、输入字段、`DIRECT`/`INDIRECT` 和 transformation 的逐项断言。
+
+只有作业成功而没有字段断言，不能算字段血缘验收。
 
 本地路径、jar 版本和事件文件名会随构建目录变化；文章中的命令给出入口，实际复现时应把绝对路径和 commit 写入验证记录。
 
@@ -357,16 +376,16 @@ TierSummary: (gold,160,2), (silver,305,1)
 
 ### 6.1 验证结果与边界矩阵
 
-当前证据需要分成“代码覆盖”“测试断言”“历史端到端记录”和“尚未完成的运行验证”，不能把它们合并成一个通过状态：
+当前证据需要分成“代码覆盖”“测试断言”“历史端到端记录”和“尚未完成的运行验证”，不能把它们合并成一个通过状态。为了让证据可以回查，下面使用固定编号：`E1` 为 Planner 传播测试，`E2` 为 runtime payload 测试，`E3` 为 StatementSet 事件测试，`E4` 为 long-session direct/restore 测试，`E5` 为复杂案例核对目标。
 
 | 验证对象 | 当前证据 | 可以支持的结论 | 不能支持的结论 |
 | --- | --- | --- | --- |
-| Planner 字段传播 | `ColumnLineagePropagationTest` 包含 41 个测试方法 | 已覆盖多种算子传播、字段裁剪、sink reuse 和 direct/compiled 语义 | 不能据此宣称所有 Flink SQL 都支持 |
-| runtime payload | `LineageGraphTransportTest` 包含 4 个测试 | 版本化载荷、dataset registry 和恢复校验有专门测试 | 不能替代真实外部网络提交 |
-| StatementSet 双 sink | `ColumnLineageStatementSetE2ETest` 断言两个输出的 `columnLineage` JSON | 两个 sink 的字段关系可以分别交付且不串边 | 不能证明复杂 UDF/connector 场景也通过 |
-| 保存计划恢复 | `ColumnLineageLongSessionE2ETest` 包含 direct、restore 和失败隔离路径 | 设计上覆盖保存恢复与不可用状态 | 当前文章引用的是历史记录，不能写成本轮固定版本重跑结果 |
+| E1：Planner 字段传播 | `ColumnLineagePropagationTest` 包含 41 个测试方法 | 已覆盖多种算子传播、字段裁剪、sink reuse 和 direct/compiled 语义 | 不能据此宣称所有 Flink SQL 都支持 |
+| E2：runtime payload | `LineageGraphTransportTest` 包含 4 个测试 | 版本化载荷、dataset registry 和恢复校验有专门测试 | 不能替代真实外部网络提交 |
+| E3：StatementSet 双 sink | `ColumnLineageStatementSetE2ETest` 断言两个输出的 `columnLineage` JSON | 两个 sink 的字段关系可以分别交付且不串边 | 不能证明复杂 UDF/connector 场景也通过 |
+| E4：保存计划恢复 | `ColumnLineageLongSessionE2ETest` 包含 direct、restore 和失败隔离路径 | 源码和历史记录覆盖保存恢复与不可用状态 | 当前文章引用的是历史记录，不能写成本轮固定版本重跑结果 |
 | OpenLineage 事件 | 测试断言能定位 `START` 输出的 `columnLineage.fields` | 事件结构、字段和 transformation 可核对 | 不能从事件结构推导 connector-specific 元数据完整恢复 |
-| `RawOrders + add_fee + Customers` 复杂案例 | 已定义统一 SQL 和核对目标 | 可以比较三种方案的语义目标 | 尚未保留三种方案同轮完整 API/页面/事件快照 |
+| E5：`RawOrders + add_fee + Customers` 复杂案例 | 已定义统一 SQL 和核对目标 | 可以比较三种方案的语义目标 | 尚未保留三种方案同轮完整 API/页面/事件快照 |
 | 外部 Session Cluster | 本文未给出独立部署的完整产物链 | 仍需单独验证网络提交、远端恢复和事件到达 | 不能用 MiniCluster 证据代替外部集群证据 |
 
 因此，第三篇当前最准确的定位是“统一案例下的技术路径和证据比较”，而不是三套系统已经完成同口径的性能或功能排名。
