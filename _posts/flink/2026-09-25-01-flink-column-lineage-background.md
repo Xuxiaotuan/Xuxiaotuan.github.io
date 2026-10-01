@@ -198,6 +198,56 @@ flowchart LR
 2. 直接提交和 Compiled Plan restore 都必须能交付同一份关系事实。
 3. 血缘提取失败要报告不可用，不得伪造完整关系，也不得把观测失败升级成 Flink 执行失败。
 
+### 3.5.1 统一的数据契约
+
+为了让 Planner、JobGraph 和 OpenLineage listener 对同一条关系使用相同的语义，需要先固定一个与 Planner 类型无关的契约。它不是 `RelNode` 的序列化版本，而是已经绑定到输出字段的稳定事实：
+
+```json
+{
+  "output": {
+    "dataset": "catalog.db.customer_summary",
+    "field": "gross_amount"
+  },
+  "inputs": [
+    {
+      "dataset": "catalog.db.orders",
+      "field": "price",
+      "dependencyType": "DIRECT"
+    },
+    {
+      "dataset": "catalog.db.orders",
+      "field": "region",
+      "dependencyType": "INDIRECT"
+    }
+  ],
+  "origin": "INPUT_FIELDS",
+  "transformations": ["EXPRESSION", "AGGREGATION", "FILTER"],
+  "status": "AVAILABLE",
+  "diagnostics": []
+}
+```
+
+契约中的字段含义固定如下：
+
+| 字段 | 含义 |
+| --- | --- |
+| `output` | 关系归属的 sink dataset 和输出字段；它决定一条关系最终挂到哪里。 |
+| `inputs` | 输入 dataset、输入字段及其影响方式；同一个输入字段可以同时拥有 `DIRECT` 和 `INDIRECT`。 |
+| `origin` | 输出值的来源类别。`INPUT_FIELDS` 表示由输入字段计算，`CONSTANT` 表示常量，`SYSTEM` 表示 `COUNT(*)` 等系统语义。 |
+| `transformations` | 表达式、过滤、Join、分组、聚合等处理标签，不把标签当成输入字段。 |
+| `status` | `AVAILABLE` 或 `UNAVAILABLE`；它描述字段关系是否完整，不等价于表级血缘是否存在。 |
+| `diagnostics` | 提取、绑定、序列化或恢复阶段的可诊断原因。 |
+
+这个契约还要保持几条不变量：
+
+1. 每条关系只能对应一个输出 dataset 和一个输出字段。
+2. `SYSTEM` 不是“没有依赖”，而是没有普通输入值字段；过滤、分组和 Join 产生的行集合依赖仍需保留。
+3. 字段关系不可用时，不能把输入字段集合写成空集合后标记为成功。
+4. direct execution 和 Compiled Plan restore 只要使用同一份计划事实，规范化后的关系集合应相等。
+5. sink key、输出字段顺序和输入字段存在性是绑定条件；校验失败时进入 `UNAVAILABLE`，不能按 dataset 名称猜测归属。
+
+这样，Planner 内部的 `FieldLineage`、传输载荷里的 `columnRelations` 和 OpenLineage 的 `columnLineage.fields` 才能逐层对应，而不是每一层各自重新解释一次字段关系。
+
 ### 3.6 计算不完整时，怎样表达结果
 
 有了关系模型，还需要回答另一种情况：某个节点无法分析，或者关系无法绑回 sink，此时下游应该收到什么？
@@ -246,5 +296,21 @@ RexNode / Table API    columnRelations             ->  START / COMPLETE
 ### 4.2 当前覆盖范围
 
 当前代码和测试围绕投影、表达式、过滤、Join、聚合、窗口、集合操作、多 sink 和 Compiled Plan 展开。这里说的是实现与测试覆盖的范围，不等于每一种 SQL 都已经完成端到端验收。复杂 Correlate、UDTF、递归、模式匹配以及连接器隐含的外部访问，需要逐项定义语义；不能由“Planner 内提取”推导出所有 SQL 都已覆盖。
+
+### 4.3 验证结果与边界矩阵
+
+为了避免把源码覆盖、单元测试和远程运行混成一个“已支持”，当前结论按证据层级拆开：
+
+| 能力 | 当前结论 | 证据层级 | 仍需注意 |
+| --- | --- | --- | --- |
+| Planner 计算字段关系 | 已实现 `RelNode/RexNode` 到字段关系的路径 | 源码与 Planner 测试 | 未覆盖的特殊 RelNode 仍需逐项补规则 |
+| 多字段表达式、过滤、Join、聚合 | 已有传播与语义断言 | `ColumnLineagePropagationTest` | 测试通过不等于所有 connector 都有相同语义 |
+| StatementSet 多 sink | 已有互不串边和 sink reuse 场景 | Planner/E2E 测试 | 要同时检查最终事件中的两个输出 |
+| 版本化传输与恢复 | 已实现 payload、版本和字段存在性校验 | `LineageGraphTransportTest` 与恢复代码 | 真实外部 Session Cluster 需要单独记录环境和事件 |
+| OpenLineage `columnLineage` | 已有 adapter 映射路径 | 集成测试/事件断言 | connector-specific metadata 不是 Flink 通用契约 |
+| 血缘失败隔离 | 失败转为 unavailable observation，执行继续 | Dispatcher 兜底代码与测试 | 需要保留 issue，不能静默降级 |
+| 特殊 SQL 与外部 connector | 未宣称全面支持 | 未完成或未覆盖 | Correlate、UDTF、递归、模式匹配等需要单独定义语义 |
+
+因此，本方案的准确表述是“在已覆盖的 Planner 语义和传输路径上生成并交付字段血缘”，而不是“所有 Flink SQL 都自动获得完整字段血缘”。
 
 第二篇沿这条链路进入提取器、绑定器和传输层源码，解释每一步如何实现。第三篇把它与独立解析服务、Dinky 放到同一个业务案例中，比较三者的分析上下文、输出关系和适用场景。

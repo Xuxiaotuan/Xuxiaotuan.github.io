@@ -48,6 +48,41 @@ flowchart LR
 - [PlannerColumnLineageExtractor.java](https://github.com/Xuxiaotuan/flink/blob/b5580495e00b16e81563f779737dd3359ee1f988/flink-table/flink-table-planner/src/main/java/org/apache/flink/table/planner/lineage/PlannerColumnLineageExtractor.java)
 - [PlannerColumnLineagePlanBinder.java](https://github.com/Xuxiaotuan/flink/blob/b5580495e00b16e81563f779737dd3359ee1f988/flink-table/flink-table-planner/src/main/java/org/apache/flink/table/planner/lineage/PlannerColumnLineagePlanBinder.java)
 
+### 1.1 从观察 root 到 OpenLineage 事件的调用链
+
+下面这条链路是本文后面各段代码的定位索引。字段关系没有走一条与 Flink 执行计划平行的 SQL 解析路径，而是挂在同一次 Planner 提交过程中：
+
+```text
+PlannerBase / root observation
+  └─ PlannerColumnLineageExtractor.extract(RelNode)
+       ├─ extractNode(RelNode)
+       │    ├─ TableScan / Values
+       │    ├─ Project / Calc / Filter
+       │    ├─ Join / Union / Intersect / Minus
+       │    └─ Aggregate / Window
+       ├─ extractRexNode(RexNode)
+       └─ FieldLineage.merge(...)
+            ↓
+PlannerColumnLineagePlanBinder.bindPhysicalRoots(...)
+  ├─ transferRoots(...)
+  ├─ reuseSinks(...)
+  └─ bind sinkKey + output schema + source fields
+            ↓
+CommonExecSink.createColumnLineage(...)
+  └─ DynamicTableSinkSpec.columnLineage
+            ↓
+StreamGraphGenerator
+  └─ LineageGraphTransport.serialize(observation)
+            ↓
+JobGraph / Dispatcher
+  └─ LineageGraphTransport.deserialize(payload)
+            ↓
+OpenLineageJobStatusChangedListener
+  └─ START / COMPLETE 的 columnLineage facet
+```
+
+这里有三个边界：Extractor 负责计算，不负责猜 sink；Binder 负责把逻辑关系绑定到优化后的输出，不重新解析 SQL；Dispatcher 只恢复 runtime-neutral payload，不重新运行 Planner。任何一步失败，都应该进入带诊断的 unavailable 状态，而不是修改 Flink 的执行计划。
+
 下面的代码摘录均来自上述固定提交；为适合正文，省略了非关键分支、局部变量声明和完整异常消息，语义对应关系不变。
 
 ## 二、提取阶段：从关系节点算出字段依赖
@@ -204,7 +239,26 @@ public FieldLineage visitCall(RexCall call) {
 
 UDF 的调用节点可以保留其参数字段和 `UDF` transformation。这里的 `UDF` 是提取器按 `SqlKind.OTHER_FUNCTION` 归类出的 transformation 标签；它与业务上“用户自定义函数”的范围是否完全一致，还要结合完整的函数识别规则理解。无法从 Flink 计划知道函数内部是否读取外部系统，因此不把函数内部副作用扩展成虚构的表关系。
 
-### 2.4 用 `gross_amount` 串起状态变化与测试
+### 2.4 算子语义矩阵
+
+字段关系的难点不是“能不能遍历算子”，而是每个算子要同时回答值依赖和行集合依赖。下面的矩阵是当前实现和测试使用的语义边界：
+
+| 算子 | 值依赖 | 行集合依赖 | 需要单独检查的边界 |
+| --- | --- | --- | --- |
+| `TableScan` | 输出字段直接来自源字段 | 源表行集合 | 字段名、namespace 和字段存在性 |
+| `Values` | 常量来源，通常为 `CONSTANT` 或 `SYSTEM` | 只有在系统语义需要时保留 | 不能伪造一个输入表字段 |
+| `Project` | `RexInputRef`、表达式、`CAST`、UDF 参数 | 通常无新增行集合依赖 | 常量表达式和嵌套表达式 |
+| `Calc` | Projection 与 condition 分开合并 | condition 中未输出的字段为 `INDIRECT` | 同一字段同时 `DIRECT + INDIRECT` |
+| `Filter` | 不改变输出值来源 | 条件字段影响保留行 | 过滤字段不应因为未出现在输出中而消失 |
+| `Join` | 两侧投影或表达式字段 | Join 条件两侧字段为 `INDIRECT` | 非等值 Join、Join 后字段裁剪 |
+| `Aggregate` | `SUM(col)`、`COUNT(col)` 等参数 | 输入行集合、分组字段 | `COUNT(*)`、`SUM(1)` 的 `SYSTEM` 语义 |
+| `Window` | 窗口聚合参数 | 窗口时间字段和分组字段 | 时间边界和窗口属性是否作为系统依赖 |
+| `Union` | 按输出位置合并各输入字段 | 各输入行集合 | 字段顺序而不是 dataset 名称决定对应关系 |
+| `Intersect/Minus` | 输出字段通常来自左侧位置 | 两侧成员集合影响输出行 | Set membership 不能简化成普通 Join |
+
+这张表对应测试中的具体断言，而不是对所有 SQL 语法的承诺。比如，`COUNT(*)` 的正确结果不是空输入列表，而是 `origin=SYSTEM` 加上节点级行集合依赖；`Filter` 的正确结果也不是把条件字段提升成输出字段，而是在输出字段的 `INDIRECT` 集合中保留它。
+
+### 2.5 用 `gross_amount` 串起状态变化与测试
 
 以下是第一篇 SQL 的算法推演。字段集合是模型状态，不是某次事件的原始 JSON。
 
@@ -494,3 +548,18 @@ DispatcherLineageEventUtils.notifyJobCreated(
 OpenLineage 集成读取恢复后的 dataset、字段和 dependency type，生成 `columnLineage` facet。事件里的每条关系属于输出字段；表级 `inputs`/`outputs` 和字段级 `columnLineage.fields` 是两个层次。
 
 当前实现能保证通用 dataset、namespace、字段和 column relations 的传输。connector-specific 的 `CatalogBaseTable` 元数据由集成侧按需要重建，不能反向证明 Flink 已经跨进程恢复完整 connector 对象。
+
+### 4.4 失败模型与执行隔离
+
+血缘链路中的失败需要按发生位置区分。下面的表格是实现的失败契约：
+
+| 失败位置 | Flink 执行 | 事件中的血缘状态 | 必须保留的诊断 |
+| --- | --- | --- | --- |
+| Extractor 遇到未覆盖算子 | 继续 | 字段关系 `UNAVAILABLE`，表级关系可独立保留 | 算子类型、输出字段和异常原因 |
+| Binder root/sink 对不上 | 继续 | 对应 sink 的字段关系不可用 | root 数量、sink key、输出 schema |
+| Compiled Plan 字段校验失败 | 继续 | 不发布错位的字段关系 | sink key、字段名和缺失 source |
+| payload 版本或 JSON 校验失败 | 继续 | Dispatcher 发布 unavailable observation | format version、引用 dataset 和校验错误 |
+| connector metadata 无法重建 | 继续 | 使用通用 dataset/field 关系，标记 metadata 不完整 | connector 类型和缺少的元数据 |
+| listener/transport 发送失败 | 继续 | 外部事件不可用，但不改变作业状态 | transport 异常和事件阶段 |
+
+这里的“继续”只表示不改变 Flink 的执行语义，不表示错误被吞掉。`UNAVAILABLE` 和 diagnostics 是下游知道结果不完整的唯一依据；如果把它们清空，消费者无法区分“系统聚合没有普通输入字段”和“字段关系计算失败”。

@@ -248,6 +248,69 @@ curl 'http://localhost:8888/openapi/getTaskLineage?id=<task-id>'
 
 这是一段输出字段关系摘录；完整事件还包含 dataset namespace、schema、表级边以及其他输出字段。
 
+#### 从集成测试断言还原的事件结构
+
+下面这段 JSON 来自 [ColumnLineageStatementSetE2ETest](https://github.com/Xuxiaotuan/OpenLineage/blob/352a1e633219c6fcd5008aaf92def4c91331b17c/integration/flink/flink2/src/test/java/io/openlineage/flink/listener/ColumnLineageStatementSetE2ETest.java) 对两个 sink 的 `START` 事件进行规范化后的断言。测试去掉了 `_producer` 和 `_schemaURL`，这里只保留字段关系主体：
+
+```json
+[
+  {
+    "namespace": "flink://catalog/default_catalog",
+    "name": "`default_catalog`.`default_database`.`RevenueSink`",
+    "columnLineage": {
+      "fields": {
+        "region": {
+          "transformationDescription": "GROUP_BY,JOIN,FILTER",
+          "inputFields": [
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Orders`", "field": "region", "transformations": [{"type": "DIRECT"}, {"type": "INDIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Orders`", "field": "customer_id", "transformations": [{"type": "INDIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Customers`", "field": "customer_id", "transformations": [{"type": "INDIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Customers`", "field": "tier", "transformations": [{"type": "INDIRECT"}]}
+          ]
+        },
+        "revenue": {
+          "transformationDescription": "EXPRESSION,AGGREGATION,JOIN,FILTER,GROUP_BY",
+          "inputFields": [
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Orders`", "field": "amount", "transformations": [{"type": "DIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Orders`", "field": "customer_id", "transformations": [{"type": "INDIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Customers`", "field": "customer_id", "transformations": [{"type": "INDIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Customers`", "field": "tier", "transformations": [{"type": "INDIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Orders`", "field": "region", "transformations": [{"type": "INDIRECT"}]}
+          ]
+        }
+      }
+    }
+  },
+  {
+    "namespace": "flink://catalog/default_catalog",
+    "name": "`default_catalog`.`default_database`.`TierSink`",
+    "columnLineage": {
+      "fields": {
+        "tier": {
+          "transformationDescription": "GROUP_BY,JOIN",
+          "inputFields": [
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Customers`", "field": "tier", "transformations": [{"type": "DIRECT"}, {"type": "INDIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Orders`", "field": "customer_id", "transformations": [{"type": "INDIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Customers`", "field": "customer_id", "transformations": [{"type": "INDIRECT"}]}
+          ]
+        },
+        "order_count": {
+          "transformationDescription": "AGGREGATION,JOIN,GROUP_BY",
+          "inputFields": [
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Orders`", "field": "order_id", "transformations": [{"type": "DIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Orders`", "field": "customer_id", "transformations": [{"type": "INDIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Customers`", "field": "customer_id", "transformations": [{"type": "INDIRECT"}]},
+            {"namespace": "values://FromElementsFunction", "name": "`default_catalog`.`default_database`.`Customers`", "field": "tier", "transformations": [{"type": "INDIRECT"}]}
+          ]
+        }
+      }
+    }
+  }
+]
+```
+
+这段事件能直接看出：`Orders.region` 同时拥有 `DIRECT` 和 `INDIRECT` 两个角色；Join 键没有因为未出现在输出字段中而消失；两个 sink 的关系分别挂在各自的 dataset 下，没有被 StatementSet 合并成一张图。这是简化案例的真实断言，不是前面 `RawOrders.payload + add_fee` 复杂案例的运行快照。
+
 本地发行包的实践入口是把配套 adapter 放入 Flink `lib`，执行 SQL Client fixture，再从文件 transport 中定位 `START` 事件：
 
 ```shell
@@ -257,6 +320,19 @@ node flink2/src/test/scripts/sql-client-lineage/run.cjs \
 ```
 
 这个脚本实际使用的是 `Orders(amount, fee)` 到 `Summary.total_amount` 的简化案例；上面的 `RawOrders.payload + add_fee` 是用来解释复杂字段语义的案例。两者不能合并成一次运行结果，但可以用同一套字段角色规则阅读。
+
+### 从零复现这条 Flink 路径
+
+要把“有代码”和“能看到事件”区分开，至少要保存下面这些输入和产物：
+
+1. 固定 Flink 2.4 分支和 OpenLineage integration/flink/flink2 的 commit，使用同一套 JDK 和构建产物。
+2. 构建定制 Flink distribution 和 OpenLineage adapter，把 adapter 放入该 distribution 的 `lib` 目录；不能只使用未修改的官方 Flink 包期待出现 Planner column lineage。
+3. 准备 SQL Client fixture，先运行简化的 `Orders → RevenueSink/TierSink` StatementSet，再运行保存计划恢复场景。
+4. 配置 `openlineage.transport.type=file` 和 transport 路径，执行上面的脚本，保留原始 JSONL，不要只截图字段图。
+5. 从原始事件中分别找到 `START`、`RUNNING` 和 `COMPLETE`，按输出 dataset 定位 `columnLineage.fields`，再核对字段、依赖类型和 transformation。
+6. 对 direct、compiled restore、双 sink 和 lineage failure 分别保存事件文件、作业结果和执行日志。只有作业成功而没有字段断言，不能算字段血缘验收。
+
+本地路径、jar 版本和事件文件名会随构建目录变化；文章中的命令给出入口，实际复现时应把绝对路径和 commit 写入验证记录。
 
 ### 保存计划后，关系是否还在
 
@@ -279,7 +355,23 @@ TierSummary: (gold,160,2), (silver,305,1)
 
 前三节分别说明了关系的生成方式。最后把分析上下文、结果归属和使用成本放在一起看，先比较接入，再比较字段语义。
 
-### 6.1 接入与维护成本
+### 6.1 验证结果与边界矩阵
+
+当前证据需要分成“代码覆盖”“测试断言”“历史端到端记录”和“尚未完成的运行验证”，不能把它们合并成一个通过状态：
+
+| 验证对象 | 当前证据 | 可以支持的结论 | 不能支持的结论 |
+| --- | --- | --- | --- |
+| Planner 字段传播 | `ColumnLineagePropagationTest` 包含 41 个测试方法 | 已覆盖多种算子传播、字段裁剪、sink reuse 和 direct/compiled 语义 | 不能据此宣称所有 Flink SQL 都支持 |
+| runtime payload | `LineageGraphTransportTest` 包含 4 个测试 | 版本化载荷、dataset registry 和恢复校验有专门测试 | 不能替代真实外部网络提交 |
+| StatementSet 双 sink | `ColumnLineageStatementSetE2ETest` 断言两个输出的 `columnLineage` JSON | 两个 sink 的字段关系可以分别交付且不串边 | 不能证明复杂 UDF/connector 场景也通过 |
+| 保存计划恢复 | `ColumnLineageLongSessionE2ETest` 包含 direct、restore 和失败隔离路径 | 设计上覆盖保存恢复与不可用状态 | 当前文章引用的是历史记录，不能写成本轮固定版本重跑结果 |
+| OpenLineage 事件 | 测试断言能定位 `START` 输出的 `columnLineage.fields` | 事件结构、字段和 transformation 可核对 | 不能从事件结构推导 connector-specific 元数据完整恢复 |
+| `RawOrders + add_fee + Customers` 复杂案例 | 已定义统一 SQL 和核对目标 | 可以比较三种方案的语义目标 | 尚未保留三种方案同轮完整 API/页面/事件快照 |
+| 外部 Session Cluster | 本文未给出独立部署的完整产物链 | 仍需单独验证网络提交、远端恢复和事件到达 | 不能用 MiniCluster 证据代替外部集群证据 |
+
+因此，第三篇当前最准确的定位是“统一案例下的技术路径和证据比较”，而不是三套系统已经完成同口径的性能或功能排名。
+
+### 6.2 接入与维护成本
 
 - **从哪里发起**：`flink-sql-lineage` 是 collector/API 或回放脚本；Dinky 是 Studio/任务详情；改造后的 Flink 是作业提交。
 - **必须准备什么**：独立服务需要 SQL、schema、Catalog 和 Planner 版本；Dinky 需要作业、执行环境、connector 和 UDF；Flink 需要定制 Flink、OpenLineage JAR、listener 和 transport。
@@ -290,7 +382,7 @@ TierSummary: (gold,160,2), (silver,305,1)
 
 三者不是互相排斥的竞品：Dinky 可以作为开发入口，独立服务可以做跨作业分析，原生事件可以把最终提交计划的关系交给外部系统。将 Dinky 提交到定制 Flink 并统一消费原生事件，是一个可能的集成方向；这个组合尚未验证，兼容性仍待确认。
 
-### 6.2 同一字段的语义与证据
+### 6.3 同一字段的语义与证据
 
 把 `TierSummary.total_amount` 放在一起比较，差异更直观：
 
