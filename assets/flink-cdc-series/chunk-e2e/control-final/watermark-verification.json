@@ -1,0 +1,30 @@
+{
+  "source": "production MySqlSnapshotSplitReadTask INFO compared to hook JDBC observation",
+  "watermarks": [
+    {
+      "kind": "low",
+      "split": "cdc_chunk_e2e.items:0",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=23164, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-86, row=0, event=0}",
+      "post_hook_matches": true
+    },
+    {
+      "kind": "low",
+      "split": "cdc_chunk_e2e.items:1",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=24106, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-89, row=0, event=0}",
+      "post_hook_matches": true
+    },
+    {
+      "kind": "high",
+      "split": "cdc_chunk_e2e.items:0",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=23164, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-86, row=0, event=0}",
+      "post_hook_matches": true
+    },
+    {
+      "kind": "high",
+      "split": "cdc_chunk_e2e.items:1",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=24106, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-89, row=0, event=0}",
+      "post_hook_matches": true
+    }
+  ],
+  "actual_update_offset_comparison": "H_A < E_102 < L_B == H_B asserted by Java BinlogOffset using raw real UPDATE; see timeline.txt"
+}

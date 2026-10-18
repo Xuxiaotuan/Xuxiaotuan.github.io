@@ -27,11 +27,12 @@ permalink: /flink-cdc-series/
 | 主题 | 源码或论文支持的内容 | 已执行的证据 | 不能由这些证据推出的结论 |
 | --- | --- | --- | --- |
 | 第一篇：一致性边界 | 位点、快照归一、事务事件与外部结果的区别 | 18 项 Java 测试；3 组独立真实 MySQL 验证，包括读取视图、提交边界、重复写入模型 | 没有运行 CDC 到外部 Sink 作业；数据库模型不构成 CDC 端到端证明 |
-| 第二篇：增量快照 | 对照 DBLog 讨论 LOW/HIGH、回填、从最小 HIGH 追赶及分片过滤 | 原 8 项工具单测 + 5 项 Reader 测试；新增迁移/对照 2 项真实 MySQL Reader 用例，迁移组确认缺行；手工 metadata、顺序读取 | 不覆盖真实并行分配、故障恢复与外部 Sink 的组合；论文算法与具体实现的前提不能混用 |
+| 第二篇：增量快照 | 对照 DBLog 讨论 LOW/HIGH、回填、从最小 HIGH 追赶及分片过滤 | 原 8 项工具单测 + 5 项 Reader 测试；新增迁移/对照 2 项真实 MySQL Reader 用例，迁移组确认缺行；手工 metadata、顺序读取 | 该行只统计 Reader 层；新增真实 Sink 作业另列；仍不覆盖并行分配与故障恢复组合，论文与实现前提不能混用 |
 | 第三篇上、下：状态与恢复 | Reader/Enumerator 状态、Split 归属、完成确认、Checkpoint 门槛及恢复 | 合计 51 项对象/序列化测试 + 2 个真实 MySQL MiniCluster 故障作业；下游为受管内存 ListState | 两篇不重复计数；所测事务恢复点在整笔事务之前，未验证事务内部 event/row Checkpoint；没有真实外部 Sink 或物理进程 kill |
 | 第四篇：Schema 捕获与传播 | DDL 解码、Schema 事件、Coordinator、flush 确认、状态恢复 | 原始 33 项对象/解析器/算子测试 + 2 个模拟源/内存目标作业 + 5 个真实 MySQL Source 作业 | 原始 40 项中没有真实外部 Sink；内存目标重复 ADD 不证明真实 DDL 幂等；Source 动态 Struct 不等于 SQL 动态迁移 |
 | 第五篇：外部提交与恢复 | Paimon flush、replace、DDL 分支、precommit snapshot 发布 | 原始 43 项组件测试、2 个真实 MySQL → Paimon 作业、6 组 Catalog 检查；Checkpoint 场景当前表对账及两个快照的重复 changelog | p=1、bucket=1、主键表和 filesystem 的结果不能推广到所有入口、存储后端或故障位置；主键表正确不等于历史无重复 |
 | 本次补充：缓冲与完整字段核对 | BucketAssign 物理 Schema、旧缓冲状态移交、恢复后的字段转换 | 新增正常/故障两种缓冲场景；原 Schema 场景重跑补齐全量对账；分别 10 行 × 3 列、10 行 × 3 列、10 行 × 4 列，均通过 | 重跑不算新增独立覆盖；未重跑全部历史组件测试；未另查新增场景的 changelog，也未验证复杂 DDL 或其他并行配置 |
+| 新增跨篇：Chunk key 迁移到真实目标 | before-key/HIGH 过滤与 Sink 当前表完整性的边界 | 另行执行 2 个 MySQL → Flink MiniCluster → Paimon 场景；真实两 Chunk 切分/分配；迁移组 20→19 缺 id102，对照 20×3 一致；四时点全量对账含新 JVM | p=1、无故障、固定 Schema、filesystem；不是 Reader Map 重建，也未验证并发、恢复、DDL 或 changelog 唯一性；第二、五篇共用这两项证据，不重复计数 |
 
 表中的“测试”“数据库探针”“MiniCluster 作业”和“Catalog 直接调用”是不同证据单位，不能相加成一个端到端通过数。整条推理还依赖各篇明确的条件：例如第二篇的稳定主键与 Chunk key、扫描期间 Schema 不变、默认开启回填，不能被第四篇研究过运行期 Schema 演进这一事实自动解除。
 
@@ -66,7 +67,18 @@ permalink: /flink-cdc-series/
 - [迁移组：确认 id=102 遗漏](/assets/flink-cdc-series/article-02-movement/movingFromUnscannedBToFinishedAIsMissingFromReconstruction.txt)
 - [稳定键对照：当前结果完整](/assets/flink-cdc-series/article-02-movement/stableChunkKeyControlReconstructsAllRows.txt)
 
-两项为真实 MySQL Reader 行为刻画实验；迁移项断言通过意味着遗漏被确认，不是数据一致或连接器修复。没有运行完整 Flink 作业或真实 Sink。
+这两项仅为真实 MySQL Reader 行为刻画实验；迁移项断言通过意味着遗漏被确认，不是数据一致或连接器修复。完整作业是下面另行执行的一组证据。
+
+<h3 id="evidence-chunk-e2e">第2、5篇补充：完整作业中的跨 Chunk 迁移</h3>
+
+[实验说明与复现条件](/assets/flink-cdc-series/chunk-e2e/README.txt) · [独立结果摘要](/assets/flink-cdc-series/chunk-e2e/result-summary.json) · [完整作业探针](/assets/flink-cdc-series/chunk-e2e/ChunkMovementJob.java)
+
+- [迁移组四阶段全量对账：持续缺少 id102](/assets/flink-cdc-series/chunk-e2e/move-final/reconciliation.txt)
+- [稳定键对照：20 行 × 3 列一致](/assets/flink-cdc-series/chunk-e2e/control-final/reconciliation.txt)
+- [生产 LOW/HIGH 与钩子观测核对](/assets/flink-cdc-series/chunk-e2e/move-final/watermark-verification.json)
+- [迁移组源端完整数据](/assets/flink-cdc-series/chunk-e2e/move-final/mysql-final.tsv) · [新 JVM 目标回读](/assets/flink-cdc-series/chunk-e2e/move-final/fresh-jvm-paimon.tsv)
+
+两个独立完整作业均使用真实 MySQL、p=1 MiniCluster 和真实 filesystem Paimon；迁移组缺行，对照组一致。断言成功与数据正确分别报告；新 JVM 回读和重复执行不算新场景。两篇共用这组结果，未覆盖故障恢复或并发 DDL。
 
 <h3 id="evidence-3">第3篇</h3>
 

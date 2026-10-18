@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-18",
+  "evidence_level": "Real MySQL -> complete single-JVM Flink MiniCluster job -> real filesystem Paimon; independent full-table readback",
+  "distinct_scenarios": 2,
+  "reader_experiment_is_separate": true,
+  "historical_tests_rerun": false,
+  "production_connector_fixed": false,
+  "scenarios": [
+    {
+      "scenario": "move-final",
+      "job_id": "2fb934a974f4e5b51f66fe0cbf851cb7",
+      "job_assertions": "PASS",
+      "fresh_jvm_assertions": "PASS",
+      "completed_checkpoints": [
+        1,
+        2,
+        3
+      ],
+      "source_rows": 20,
+      "sink_rows": 19,
+      "missing_keys": [
+        102
+      ],
+      "extra_keys": [],
+      "field_differences_on_present_rows": [],
+      "duplicate_primary_keys": false,
+      "data_equal": false,
+      "reconciliation_phases": [
+        "after-checkpoint",
+        "after-extra-checkpoint",
+        "after-cancel",
+        "fresh-jvm"
+      ]
+    },
+    {
+      "scenario": "control-final",
+      "job_id": "2742393d1e2d3bbf3d55332b298ca409",
+      "job_assertions": "PASS",
+      "fresh_jvm_assertions": "PASS",
+      "completed_checkpoints": [
+        1,
+        2,
+        3
+      ],
+      "source_rows": 20,
+      "sink_rows": 20,
+      "missing_keys": [],
+      "extra_keys": [],
+      "field_differences_on_present_rows": [],
+      "duplicate_primary_keys": false,
+      "data_equal": true,
+      "reconciliation_phases": [
+        "after-checkpoint",
+        "after-extra-checkpoint",
+        "after-cancel",
+        "fresh-jvm"
+      ]
+    }
+  ]
+}

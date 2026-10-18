@@ -1,0 +1,33 @@
+{
+  "cdc": "3.7.0",
+  "cdc_commit": "045e8da45df4b1017849b04e2d8bfe8f0ed7936d",
+  "flink": "1.20.3",
+  "paimon": "2.0.0",
+  "java": "openjdk version \"11.0.29\" 2025-10-21\nOpenJDK Runtime Environment Temurin-11.0.29+7 (build 11.0.29+7)\nOpenJDK 64-Bit Server VM Temurin-11.0.29+7 (build 11.0.29+7, mixed mode)\n",
+  "mysql": "8.4.11 ROW FULL ON REPEATABLE-READ",
+  "container_id": "c0a60f016d478f6148d8fed27395a31196cb734882458cbce7caee97ed7f30e7",
+  "image_id": "sha256:cc52b8b5900d106bc482241091cfa7496d830280868e19aca8a24e8e7086568e",
+  "image_digests": [
+    "mysql@sha256:24989179f58856db763f418010c1169fecc944e3ec1ea7e921572d83eb070f70"
+  ],
+  "host_port": 32783,
+  "parallelism": 1,
+  "taskmanagers": 1,
+  "slots": 8,
+  "bucket": 1,
+  "catalog": "filesystem",
+  "schema_behavior": "EVOLVE",
+  "restart_strategy": "noRestart",
+  "checkpoint": "manual three successful checkpoints; interval 600000ms",
+  "chunk_size": 10,
+  "chunk_key": "c (not primary key)",
+  "actual_splits": [
+    "(-infinity,105)",
+    "[105,+infinity)"
+  ],
+  "initial_rows": 20,
+  "initial_c_range": [
+    95,
+    114
+  ]
+}

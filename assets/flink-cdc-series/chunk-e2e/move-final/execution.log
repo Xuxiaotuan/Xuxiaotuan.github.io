@@ -1,0 +1,119 @@
+2026-10-18T16:51:25,018 WARN  org.apache.flink.runtime.util.HadoopUtils - Could not find Hadoop configuration via any of the supported methods (Flink configuration, environment variables).
+2026-10-18T16:51:25,025 WARN  org.apache.flink.runtime.util.HadoopUtils - Could not find Hadoop configuration via any of the supported methods (Flink configuration, environment variables).
+WARNING: An illegal reflective access operation has occurred
+WARNING: Illegal reflective access by org.apache.hadoop.security.authentication.util.KerberosUtil (file:/home/author/.m2/repository/org/apache/hadoop/hadoop-auth/2.8.5/hadoop-auth-2.8.5.jar) to method sun.security.krb5.Config.getInstance()
+WARNING: Please consider reporting this to the maintainers of org.apache.hadoop.security.authentication.util.KerberosUtil
+WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
+WARNING: All illegal access operations will be denied in a future release
+2026-10-18T16:51:25,184 WARN  org.apache.hadoop.util.NativeCodeLoader - Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+2026-10-18T16:51:25,225 WARN  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager - No tokens obtained so skipping notifications
+2026-10-18T16:51:25,581 WARN  org.apache.flink.runtime.webmonitor.WebMonitorUtils - Log file environment variable 'log.file' is not set.
+2026-10-18T16:51:25,581 WARN  org.apache.flink.runtime.webmonitor.WebMonitorUtils - JobManager log files are unavailable in the web dashboard. Log file location not found in environment variable 'log.file' or configuration key 'web.log.path'.
+2026-10-18T16:51:25,817 WARN  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager - No tokens obtained so skipping notifications
+2026-10-18T16:51:25,818 WARN  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager - Tokens update task not started because either no tokens obtained or none of the tokens specified its renewal date
+2026-10-18T16:51:25,881 WARN  org.apache.flink.cdc.composer.utils.FactoryDiscoveryUtils - The factory class "org.apache.flink.cdc.connectors.mysql.factory.MySqlDataSourceFactory" is contained by directory "file:/work/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-mysql/target/classes/" instead of JAR. This might happen in integration test. Will ignore the directory.
+2026-10-18T16:51:25,981 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+2026-10-18T16:51:26,037 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+2026-10-18T16:51:26,165 WARN  org.apache.flink.cdc.composer.utils.FactoryDiscoveryUtils - The factory class "org.apache.flink.cdc.connectors.paimon.sink.PaimonDataSinkFactory" is contained by directory "file:/work/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/target/classes/" instead of JAR. This might happen in integration test. Will ignore the directory.
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.mysql.source.MySqlSource file:/work/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.mysql.debezium.reader.SnapshotSplitReader file:/work/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.mysql.debezium.reader.BinlogSplitReader file:/work/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.mysql.source.utils.RecordUtils file:/work/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriter file:/work/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/target/classes/
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.paimon.sink.v2.PreCommitOperator file:/work/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/target/classes/
+CHUNK_E2E JOB_ID 2fb934a974f4e5b51f66fe0cbf851cb7
+2026-10-18T16:51:26,457 WARN  org.apache.flink.metrics.MetricGroup - The operator name Source: MySQL fixed chunks -> Source observation only -> SchemaOperator -> PrePartition exceeded the 80 characters length limit and was truncated.
+2026-10-18T16:51:26,463 WARN  org.apache.flink.metrics.MetricGroup - The operator name Source: MySQL fixed chunks -> Source observation only -> SchemaOperator -> PrePartition exceeded the 80 characters length limit and was truncated.
+2026-10-18T16:51:26,790 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotSplitAssigner - Start splitting table cdc_chunk_e2e.items into chunks...
+2026-10-18T16:51:26,971 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T16:51:26,972 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T16:51:26,972 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T16:51:27,040 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T16:51:27,046 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T16:51:27,137 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlChunkSplitter - The distribution factor of table cdc_chunk_e2e.items is 1.0 according to the min split key 95, max split key 114 and approximate row count 20
+2026-10-18T16:51:27,137 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlChunkSplitter - The actual distribution factor for table cdc_chunk_e2e.items is 1.0, the lower bound of evenly distribution factor is 0.05, the upper bound of evenly distribution factor is 1000.0
+2026-10-18T16:51:27,137 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlChunkSplitter - Use evenly-sized chunk optimization for table cdc_chunk_e2e.items, the approximate row count is 20, the chunk size is 10, the dynamic chunk size is 10
+2026-10-18T16:51:27,138 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotSplitAssigner - Split table cdc_chunk_e2e.items into 2 chunks, time cost: 348ms.
+2026-10-18T16:51:27,189 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+CHUNK_E2E PRE_LOW MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:0', splitKeyType=[`c` INT NOT NULL], splitStart=null, splitEnd=[105], highWatermark=null}
+2026-10-18T16:51:27,230 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 1 - Determining low watermark {ts_sec=0, file=binlog.000003, pos=15184, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-58, row=0, event=0} for split MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:0', splitKeyType=[`c` INT NOT NULL], splitStart=null, splitEnd=[105], highWatermark=null}
+CHUNK_E2E POST_LOW cdc_chunk_e2e.items:0 offset={ts_sec=0, file=binlog.000003, pos=15184, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-58, row=0, event=0}
+2026-10-18T16:51:27,232 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 2 - Snapshotting data
+2026-10-18T16:51:27,232 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Exporting data from split 'cdc_chunk_e2e.items:0' of table cdc_chunk_e2e.items
+2026-10-18T16:51:27,233 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - For split 'cdc_chunk_e2e.items:0' of table cdc_chunk_e2e.items using select statement: 'SELECT * FROM `cdc_chunk_e2e`.`items` WHERE `c` <= ? AND NOT (`c` = ?)'
+2026-10-18T16:51:27,244 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Finished exporting 10 records for split 'cdc_chunk_e2e.items:0', total duration '00:00:00.012'
+2026-10-18T16:51:27,245 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 3 - Determining high watermark {ts_sec=0, file=binlog.000003, pos=15184, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-58, row=0, event=0} for split MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:0', splitKeyType=[`c` INT NOT NULL], splitStart=null, splitEnd=[105], highWatermark=null}
+CHUNK_E2E POST_HIGH cdc_chunk_e2e.items:0 offset={ts_sec=0, file=binlog.000003, pos=15184, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-58, row=0, event=0}
+2026-10-18T16:51:27,939 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T16:51:28,419 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+CHUNK_E2E PRE_LOW MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}
+CHUNK_E2E MUTATIONS_COMMITTED before B LOW
+2026-10-18T16:51:28,436 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 1 - Determining low watermark {ts_sec=0, file=binlog.000003, pos=16126, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-61, row=0, event=0} for split MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}
+CHUNK_E2E POST_LOW cdc_chunk_e2e.items:1 offset={ts_sec=0, file=binlog.000003, pos=16126, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-61, row=0, event=0}
+2026-10-18T16:51:28,437 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 2 - Snapshotting data
+2026-10-18T16:51:28,437 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Exporting data from split 'cdc_chunk_e2e.items:1' of table cdc_chunk_e2e.items
+2026-10-18T16:51:28,437 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - For split 'cdc_chunk_e2e.items:1' of table cdc_chunk_e2e.items using select statement: 'SELECT * FROM `cdc_chunk_e2e`.`items` WHERE `c` >= ?'
+2026-10-18T16:51:28,438 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Finished exporting 9 records for split 'cdc_chunk_e2e.items:1', total duration '00:00:00.001'
+2026-10-18T16:51:28,439 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 3 - Determining high watermark {ts_sec=0, file=binlog.000003, pos=16126, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-61, row=0, event=0} for split MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}
+CHUNK_E2E POST_HIGH cdc_chunk_e2e.items:1 offset={ts_sec=0, file=binlog.000003, pos=16126, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-61, row=0, event=0}
+2026-10-18T16:51:28,560 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T16:51:29,440 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotSplitAssigner - Snapshot split assigner received all splits finished and the job parallelism is 1, snapshot split assigner is turn into finished status.
+2026-10-18T16:51:29,461 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+2026-10-18T16:51:29,490 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+10月 18, 2026 4:51:29 下午 com.github.shyiko.mysql.binlog.BinaryLogClient connect
+信息: Connected to 127.0.0.1:32783 at 7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-58 (sid:8700, cid:35)
+2026-10-18T16:51:29,712 WARN  org.apache.flink.metrics.MetricGroup - Name collision: Group already contains a Metric with the name 'pendingCommittables'. Metric will not be reported.[, taskmanager, d1e4ff1d-4f43-4217-8bd7-74925840f4d3, chunk-key-move, Sink Committer: Real Paimon, 0]
+CHUNK_E2E GLOBAL_CHECKPOINT_FUTURE_COMPLETED callbacks=[]
+CHUNK_E2E CHECKPOINT_CALLBACK 1
+2026-10-18T16:51:30,567 WARN  org.apache.flink.metrics.MetricGroup - Name collision: Group already contains a Metric with the name 'pendingCommittables'. Metric will not be reported.[, taskmanager, d1e4ff1d-4f43-4217-8bd7-74925840f4d3, chunk-key-move, Sink Committer: Real Paimon, 0]
+CHUNK_E2E GLOBAL_CHECKPOINT_FUTURE_COMPLETED callbacks=[1]
+CHUNK_E2E CHECKPOINT_CALLBACK 2
+2026-10-18T16:51:30,607 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+phase=after-checkpoint
+snapshot=2
+columns=[id,c,amount]
+source_rows=20
+target_rows=19
+missing=[102]
+extra=[]
+field_differences=[]
+data_equal=false
+
+2026-10-18T16:51:30,730 WARN  org.apache.flink.metrics.MetricGroup - Name collision: Group already contains a Metric with the name 'pendingCommittables'. Metric will not be reported.[, taskmanager, d1e4ff1d-4f43-4217-8bd7-74925840f4d3, chunk-key-move, Sink Committer: Real Paimon, 0]
+CHUNK_E2E GLOBAL_CHECKPOINT_FUTURE_COMPLETED callbacks=[1, 2]
+CHUNK_E2E CHECKPOINT_CALLBACK 3
+2026-10-18T16:51:30,742 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+phase=after-extra-checkpoint
+snapshot=3
+columns=[id,c,amount]
+source_rows=20
+target_rows=19
+missing=[102]
+extra=[]
+field_differences=[]
+data_equal=false
+
+2026-10-18T16:51:30,758 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+phase=after-cancel
+snapshot=3
+columns=[id,c,amount]
+source_rows=20
+target_rows=19
+missing=[102]
+extra=[]
+field_differences=[]
+data_equal=false
+
+2026-10-18T16:51:30,775 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+2026-10-18T16:51:30,794 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+10月 18, 2026 4:51:30 下午 com.github.shyiko.mysql.binlog.BinaryLogClient connect
+信息: Connected to 127.0.0.1:32783 at 7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-58 (sid:8800, cid:38)
+10月 18, 2026 4:51:31 下午 com.github.shyiko.mysql.binlog.BinaryLogClient$5 run
+信息: threadExecutor is shut down, terminating keepalive thread
+10月 18, 2026 4:51:31 下午 com.github.shyiko.mysql.binlog.BinaryLogClient$5 run
+信息: threadExecutor is shut down, terminating keepalive thread
+CHUNK_E2E BOUNDARY_ASSERTIONS_PASS H_A={ts_sec=0, file=binlog.000003, pos=15184, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-58, row=0, event=0} E_102={transaction_id=null, ts_sec=1792313488, file=binlog.000003, pos=15263, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-58, row=1, event=2, server_id=8675321} L_B={ts_sec=0, file=binlog.000003, pos=16126, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-61, row=0, event=0} H_B={ts_sec=0, file=binlog.000003, pos=16126, kind=SPECIFIC, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-61, row=0, event=0}
+CHUNK_E2E AUDIT_RAW SourceRecord{sourcePartition={server=mysql_binlog_source}, sourceOffset={transaction_id=null, ts_sec=1792313488, file=binlog.000003, pos=15263, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-58, row=1, server_id=8675321, event=2}} ConnectRecord{topic='mysql_binlog_source.cdc_chunk_e2e.items', kafkaPartition=null, key=Struct{id=102}, keySchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Key:STRUCT}, value=Struct{before=Struct{id=102,c=110,amount=20},after=Struct{id=102,c=100,amount=20},source=Struct{version=1.9.8.Final,connector=mysql,name=mysql_binlog_source,ts_ms=1792313488000,db=cdc_chunk_e2e,table=items,server_id=8675321,gtid=7998b88a-cad0-11f1-aa84-1eba8e3a190c:59,file=binlog.000003,pos=15405,row=0,thread=24},op=u,ts_ms=1792313490817}, valueSchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Envelope:STRUCT}, timestamp=null, headers=ConnectHeaders(headers=)}
+CHUNK_E2E AUDIT_RAW SourceRecord{sourcePartition={server=mysql_binlog_source}, sourceOffset={transaction_id=null, ts_sec=1792313488, file=binlog.000003, pos=15577, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-59, row=1, server_id=8675321, event=2}} ConnectRecord{topic='mysql_binlog_source.cdc_chunk_e2e.items', kafkaPartition=null, key=Struct{id=101}, keySchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Key:STRUCT}, value=Struct{before=Struct{id=101,c=100,amount=10},after=Struct{id=101,c=100,amount=11},source=Struct{version=1.9.8.Final,connector=mysql,name=mysql_binlog_source,ts_ms=1792313488000,db=cdc_chunk_e2e,table=items,server_id=8675321,gtid=7998b88a-cad0-11f1-aa84-1eba8e3a190c:60,file=binlog.000003,pos=15719,row=0,thread=24},op=u,ts_ms=1792313490818}, valueSchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Envelope:STRUCT}, timestamp=null, headers=ConnectHeaders(headers=)}
+CHUNK_E2E AUDIT_RAW SourceRecord{sourcePartition={server=mysql_binlog_source}, sourceOffset={transaction_id=null, ts_sec=1792313488, file=binlog.000003, pos=15891, gtids=7998b88a-cad0-11f1-aa84-1eba8e3a190c:1-60, row=1, server_id=8675321, event=2}} ConnectRecord{topic='mysql_binlog_source.cdc_chunk_e2e.items', kafkaPartition=null, key=Struct{id=103}, keySchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Key:STRUCT}, value=Struct{before=Struct{id=103,c=114,amount=30},after=Struct{id=103,c=114,amount=31},source=Struct{version=1.9.8.Final,connector=mysql,name=mysql_binlog_source,ts_ms=1792313488000,db=cdc_chunk_e2e,table=items,server_id=8675321,gtid=7998b88a-cad0-11f1-aa84-1eba8e3a190c:61,file=binlog.000003,pos=16033,row=0,thread=24},op=u,ts_ms=1792313490818}, valueSchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Envelope:STRUCT}, timestamp=null, headers=ConnectHeaders(headers=)}
+CHUNK_E2E CHARACTERIZATION_ASSERTIONS_PASS data_equal=false

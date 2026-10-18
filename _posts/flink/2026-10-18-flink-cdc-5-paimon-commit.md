@@ -25,9 +25,9 @@ mermaid: true
 
 这里还有一个版本限定：同一提交的 Paimon Pipeline Connector 文档明确声明不支持 exactly-once，采用 at-least-once 与主键表幂等写入。接下来的源码和实验，是解释这句话对应的实际机制，而不是把 Paimon、Flink 或所有 Sink 的语义一并下结论。[同版本 Paimon Connector 使用说明](https://github.com/apache/flink-cdc/blob/045e8da45df4b1017849b04e2d8bfe8f0ed7936d/docs/content/docs/connectors/pipeline-connectors/paimon.md#L149)。
 
-本文使用独占 MySQL 容器、真实 Flink MiniCluster 和 filesystem Paimon Catalog。初始表为 `cdc_article5.items(id INT PRIMARY KEY, amount INT NOT NULL)`，共 10 行；并行度 1、bucket=1、Schema 模式 EVOLVE，开启 `changelog-producer=input`。生产 translator 串起 Source、SchemaOperator、分区与 Sink，边界处加入观察和一次性故障探针。目标生成真实数据文件、Schema、manifest 与 snapshot，由独立 reader 读取。
+原 Schema/提交实验使用独占 MySQL 容器、真实 Flink MiniCluster 和 filesystem Paimon Catalog。初始表为 `cdc_article5.items(id INT PRIMARY KEY, amount INT NOT NULL)`，共 10 行；并行度 1、bucket=1、Schema 模式 EVOLVE，开启 `changelog-producer=input`。生产 translator 串起 Source、SchemaOperator、分区与 Sink，边界处加入观察和一次性故障探针。目标生成真实数据文件、Schema、manifest 与 snapshot，由独立 reader 读取。
 
-这验证的是同 JVM MiniCluster 的真实源、真实文件目标与任务恢复；没有覆盖 CLI YAML 解析、集群分发或物理进程崩溃。补充缓冲实验的观测方式见[附录 A](#appendix-buffer)。
+这验证的是同 JVM MiniCluster 的真实源、真实文件目标与任务恢复；没有覆盖 CLI YAML 解析、集群分发或物理进程崩溃。补充缓冲实验的观测方式见[附录 A](#appendix-buffer)；另新增的 20 行跨 Chunk 迁移作业见[附录 G](#appendix-chunk-e2e)，与原恢复场景分开记录。
 
 ## 一、writer 缓冲：flush 确认不等于排空
 
@@ -131,9 +131,15 @@ UPDATE_AFTER  101,20              UPDATE_AFTER  101,20
 
 **推断边界**：在所测主键、完整行值与顺序条件下，重复 `put(k,v)` 可以得到相同的最终状态；直接累加 changelog 或据此触发外部动作并不天然满足这种幂等性。本实验没有运行这些下游消费者，不能把这种风险写成已观测到的业务损失。
 
+### Source 已遗漏的行：正常提交不能补全输入
+
+**新增端到端结果**：第二篇的 B→A 修改 Chunk key 场景已另行放入完整 MySQL → Flink MiniCluster → Paimon 作业。实际生成 A<105、B≥105，在 A HIGH 之后、B LOW 之前将 id=102 的 c 从 110 改为 100；源表 20 行，真实目标在 C2、C3 完成后均为 19 行。取消作业及新 JVM 回读仍缺少 id=102，其余行三列一致。稳定键对照则 20 行 × 3 列全部一致。
+
+这组无故障实验表明：**所测链路的 Checkpoint 正常完成、Paimon snapshot 已发布，与源目标全量一致是不同判断。** Source 输出中没有该行，主键合并不能凭空生成它。前文恢复实验中“当前表收敛”的结果依赖那些场景实际送达的记录，不能扩展到撤去稳定 Chunk key 前提的输入。此处未注入恢复故障，也未测试之后再更新缺失行；完整时序与证据见[附录 G](#appendix-chunk-e2e)。
+
 ## 结论与未验证边界
 
-本文验证了三个相互独立的性质：所测故障恢复后当前主键表一致；原 Checkpoint 故障场景的 changelog 出现重复批次；该场景的目标 snapshot 在全局 Checkpoint 完成前已经可见。Schema 与缓冲场景的完整对账只补齐当前表证据，未另扫它们的 changelog。
+原 Schema/提交与恢复实验验证了三个相互独立的性质：所测故障恢复后当前主键表一致；原 Checkpoint 故障场景的 changelog 出现重复批次；该场景的目标 snapshot 在全局 Checkpoint 完成前已经可见。Schema 与缓冲场景的完整对账只补齐当前表证据，未另扫它们的 changelog。新增跨 Chunk 迁移作业则得到不同结果：正常提交后当前表仍缺行；它与原恢复组分别成立，不能用某组正确覆盖另一组失败。
 
 原始及补充实验均未覆盖多并行度与多 Chunk 异构 HIGH 的真实 Sink 故障组合、多表事务及跨表原子提交、S3/HDFS/Hive Catalog、非主键或其他 merge engine、物理 JM/TM kill、Savepoint/版本迁移、所有 DDL 和所有故障位置。审校实验补齐的是单并行度、单 bucket、主键表、所测 ADD 的缓冲窗口与当前表对账；未增加 changelog 唯一性验证。尤其不能把本篇 Pipeline Connector 的结论直接推广到 Paimon 原生 Flink SQL Sink 或其他写入入口。那些路径需要重新跟踪实际提交调用和故障行为。
 
@@ -281,11 +287,12 @@ snapshot 元数据也要慎读：本例 snapshot-4 的 totalRecordCount 为 17�
 | 主题 | 源码或论文支持的内容 | 已执行的证据 | 不能由这些证据推出的结论 |
 | --- | --- | --- | --- |
 | 第一篇：一致性边界 | 位点、快照归一、事务事件与外部结果的区别 | 18 项 Java 测试；3 组独立真实 MySQL 验证，包括读取视图、提交边界、重复写入模型 | 没有运行 CDC 到外部 Sink 作业；数据库模型不构成 CDC 端到端证明 |
-| 第二篇：增量快照 | 对照 DBLog 讨论 LOW/HIGH、回填、从最小 HIGH 追赶及分片过滤 | 原 8 项工具单测 + 5 项 Reader 测试；新增迁移/对照 2 项真实 MySQL Reader 用例，迁移组确认缺行；手工 metadata、顺序读取 | 不覆盖真实并行分配、故障恢复与外部 Sink 的组合；论文算法与具体实现的前提不能混用 |
+| 第二篇：增量快照 | 对照 DBLog 讨论 LOW/HIGH、回填、从最小 HIGH 追赶及分片过滤 | 原 8 项工具单测 + 5 项 Reader 测试；新增迁移/对照 2 项真实 MySQL Reader 用例，迁移组确认缺行；手工 metadata、顺序读取 | 该行只统计 Reader 层；新增真实 Sink 作业另列；仍不覆盖并行分配与故障恢复组合，论文与实现前提不能混用 |
 | 第三篇上、下：状态与恢复 | Reader/Enumerator 状态、Split 归属、完成确认、Checkpoint 门槛及恢复 | 合计 51 项对象/序列化测试 + 2 个真实 MySQL MiniCluster 故障作业；下游为受管内存 ListState | 两篇不重复计数；所测事务恢复点在整笔事务之前，未验证事务内部 event/row Checkpoint；没有真实外部 Sink 或物理进程 kill |
 | 第四篇：Schema 捕获与传播 | DDL 解码、Schema 事件、Coordinator、flush 确认、状态恢复 | 原始 33 项对象/解析器/算子测试 + 2 个模拟源/内存目标作业 + 5 个真实 MySQL Source 作业 | 原始 40 项中没有真实外部 Sink；内存目标重复 ADD 不证明真实 DDL 幂等；Source 动态 Struct 不等于 SQL 动态迁移 |
 | 第五篇：外部提交与恢复 | Paimon flush、replace、DDL 分支、precommit snapshot 发布 | 原始 43 项组件测试、2 个真实 MySQL → Paimon 作业、6 组 Catalog 检查；Checkpoint 场景当前表对账及两个快照的重复 changelog | p=1、bucket=1、主键表和 filesystem 的结果不能推广到所有入口、存储后端或故障位置；主键表正确不等于历史无重复 |
 | 审校补充：缓冲与完整字段核对 | BucketAssign 物理 Schema、旧缓冲状态移交、恢复后的字段转换 | 新增正常/故障两种缓冲场景；原 Schema 场景重跑补齐全量对账；分别 10 行 × 3 列、10 行 × 3 列、10 行 × 4 列，均通过 | 重跑不算新增独立覆盖；未重跑全部历史组件测试；未另查新增场景的 changelog，也未验证复杂 DDL 或其他并行配置 |
+| 新增跨篇：Chunk key 迁移到真实目标 | before-key/HIGH 过滤与 Sink 当前表完整性的边界 | 另行执行 2 个 MySQL → Flink MiniCluster → Paimon 场景；真实两 Chunk 切分/分配；迁移组 20→19 缺 id102，对照 20×3 一致；四时点全量对账含新 JVM | p=1、无故障、固定 Schema、filesystem；不是 Reader Map 重建，也未验证并发、恢复、DDL 或 changelog 唯一性；第二、五篇共用这两项证据，不重复计数 |
 
 表中的“测试”“数据库探针”“MiniCluster 作业”和“Catalog 直接调用”是不同证据单位，不能相加成一个端到端通过数。整条推理还依赖各篇明确的条件：例如第二篇的稳定主键与 Chunk key、扫描期间 Schema 不变、默认开启回填，不能被第四篇研究过运行期 Schema 演进这一事实自动解除。
 
@@ -295,7 +302,7 @@ snapshot 元数据也要慎读：本例 snapshot-4 的 totalRecordCount 为 17�
 
 ## 附录 F：探针修订、装配问题与材料索引
 
-本次网站编辑仅重组文章，不重跑 CDC 实验。以下保留实验阶段的修订记录，防止把后来补齐的证据追溯到原运行。
+此前精简第五篇时仅重组文章，没有重跑 CDC 实验。本轮另增附录 G 的跨 Chunk 完整作业；以下历史修订记录仍属于原实验，不能追溯合并为新运行。
 
 初版探针只识别 AddColumnEvent；核对源码后发现 writer 实际接收的是物理 CreateTableEvent，于是补强观察钩子并重新执行两条路径。首轮日志与最终日志均保留；重复执行不增加独立场景数。最终证据见[正常路径缓冲日志](/assets/flink-cdc-series/revision/runs/buffer-normal-final/buffer-observations.txt)、[故障路径缓冲日志](/assets/flink-cdc-series/revision/runs/buffer-failure-final/buffer-observations.txt)。
 
@@ -325,6 +332,27 @@ Paimon 又增加了一轮 bucket 分区，因此 FlushEvent 也需要在这个�
 作者本地的原始证据保存了三个 Java 探针、实际执行计划、原始日志、43 个测试的 Surefire 报告、各阶段目标查询、快照摘要、完整实验仓库和重放入口。见 [实验 README](/flink-cdc-series/#evidence-5)、[持久化回读与逐行对账](/assets/flink-cdc-series/article-05/durable-readback-results.txt)、[快照摘要](/assets/flink-cdc-series/article-05/snapshot-summary.json)。原始实验的临时 MySQL 已停止并删除，Paimon 实验文件保留；未修改生产源码。
 
 审校补充实验在本地单独保存探针改动、实际运行命令、缓冲观察、源目标全部字段和 Paimon warehouse，见[补充证据 README](/flink-cdc-series/#evidence-revision)、[三场景结果索引](/assets/flink-cdc-series/revision/result-summary.json)。上述链接提供公开子集，完整日志与 warehouse 保留于作者本地。旧证据未被覆盖；补充的当前表核对和原 Checkpoint 场景的重复 changelog 证据保持分开。
+
+<a id="appendix-chunk-e2e"></a>
+
+## 附录 G：跨 Chunk 迁移的完整作业与全量对账
+
+本组使用第二篇相同固定 CDC 提交与第五篇相同 Paimon 版本。两个独立场景均为完整单 JVM MiniCluster 作业，p=1、bucket=1、filesystem、EVOLVE、默认回填，关闭自动重启；没有 DDL 或故障注入。真实 Source Factory 和生产 translator 装配链路，仅注入已有 SnapshotPhaseHooks、透传事件观察及既有 Schema UID 对齐。源码、类加载位置与配置见[实验说明](/assets/flink-cdc-series/chunk-e2e/README.txt)、[探针](/assets/flink-cdc-series/chunk-e2e/ChunkMovementJob.java)、[环境](/assets/flink-cdc-series/chunk-e2e/environment.json)。
+
+**固定时序**：输入改为 c=95..114 的 20 行，主键 id 不变；ANALYZE TABLE 后用 chunk.size=10，让真实 Splitter/Assigner 生成并分配 `(-∞,105)`、`[105,+∞)`。探针对边界与 Chunk 数量做断言。B pre-LOW 内，迁移组把 id102 的 c110 改为 100；稳定键对照只把其 amount 改为 21。随后两组分别更新 id101 amount=11、id103 amount=31，三个独立事务全部先于 B LOW。生产水位日志与钩子读取一致，事后独立 server-id 的真实 binlog 审计确认 `H_A < E_102 < L_B == H_B`。
+
+**完整链路进度**：快照输出后完成 C1；确认 A 的追赶更新已输出，再把 id103 amount 改为 32，等待 Source 接到这条 B HIGH 之后的变化。之后停止写入、完成 C2 并独立查询，额外完成 C3，再取消作业。实验 JVM 退出后另启 JVM，打开同一真实 warehouse，与冻结保存的完整 MySQL 查询结果逐字段比较。
+
+| 场景 | C2 / snapshot-2 | C3 / snapshot-3、取消后、新 JVM | 全量差异 |
+| --- | --- | --- | --- |
+| 修改非主键 Chunk key：110→100 | 源 20 行，目标 19 行 | 三个后续读取时点仍为 19 行 | 仅缺少 (102,100,20)；其余 19 行三列一致，无重复键或多余行 |
+| Chunk key 不变，只更新 amount | 两端均 20 行 | 三个后续读取时点全部一致 | 20 行 × 3 列一致，无缺失、多余或字段差异 |
+
+每次完整扫描检查 `[id,c,amount]` 字段名/顺序、全部行值和主键集合，显式拒绝重复主键。最终读取的是合并后的当前表，不能用 snapshot 元数据的 totalRecordCount 代替业务行数，也不能因开启 input changelog 就声称验证了事件历史唯一性。证据：[迁移组四阶段对账](/assets/flink-cdc-series/chunk-e2e/move-final/reconciliation.txt)、[对照组四阶段对账](/assets/flink-cdc-series/chunk-e2e/control-final/reconciliation.txt)、[源端完整数据](/assets/flink-cdc-series/chunk-e2e/move-final/mysql-final.tsv)、[新 JVM 目标完整数据](/assets/flink-cdc-series/chunk-e2e/move-final/fresh-jvm-paimon.tsv)。
+
+**证据分层**：原 Reader 组是三行表、手工 Split metadata、Map 重建；本组是 20 行表、真实自动切分/分配、完整生产算子链及 Paimon 文件提交。两组各自实际运行，不能把前者的计数并入后者。两个新场景的行为断言成功，其中迁移场景明确断言 `data_equal=false`；这不是连接器修复，也不是两个数据正确的作业。本轮未重跑原第五篇的故障恢复或组件测试。
+
+本轮没有覆盖 p>1、多 Chunk 并发、反向迁移、修改主键、缺失后的再次更新、Checkpoint 失败恢复、并发 DDL、物理进程 kill 或其他存储后端。首次迁移运行在既有对账之后的日志审计中复用了复制 server-id，产生连接冲突；改用独立 server-id 并保留生产水位日志后重跑迁移组、运行对照组，正文只引用最终运行。首轮、编译与工具装配记录保留本地；完整说明见[证据索引](/flink-cdc-series/#evidence-chunk-e2e)。
 
 前文：[第四篇：Schema 演进的捕获、传播与恢复](/2026/10/18/flink-cdc-4-schema-evolution/)；[第三篇下：Checkpoint 恢复与故障窗口](/2026/10/18/flink-cdc-3b-checkpoint-recovery/)。
 

@@ -21,7 +21,7 @@ mermaid: true
 
 关键结论是：**每个 Chunk 先用窗口日志把自己的扫描结果归一到自己的 HIGH；持续日志再从最小 HIGH 起读，按每个 Chunk 的 HIGH 消除已经包含在快照中的变化。** 快照阶段结束时，各 Chunk 可以对应不同的时间边界。把它们对齐到同一个日志位置，还需要后续日志。
 
-源码固定为 Apache Flink CDC `release-3.7.0`，提交 `045e8da45df4b1017849b04e2d8bfe8f0ed7936d`。主线是 MySQL Connector 的独立实现，默认开启回填，表有稳定主键、稳定 Chunk key，Schema 在读取期间不变。下文给出这些条件下的人工证明草图，不是 DBLog 对 Flink CDC 的现成证明，也不是机器验证。“实测”部分来自 2026 年 10 月 18 日执行的真实 MySQL Reader 集成测试；形式化补写之后，又用真实 MySQL Reader 验证了撤去稳定 Chunk key 假设的迁移场景，并设置稳定键对照组；没有把 Reader 结果提升为完整作业或 Sink 的保证。
+源码固定为 Apache Flink CDC `release-3.7.0`，提交 `045e8da45df4b1017849b04e2d8bfe8f0ed7936d`。主线是 MySQL Connector 的独立实现，默认开启回填，表有稳定主键、稳定 Chunk key，Schema 在读取期间不变。下文给出这些条件下的人工证明草图，不是 DBLog 对 Flink CDC 的现成证明，也不是机器验证。“实测”部分来自 2026 年 10 月 18 日执行的真实 MySQL Reader 集成测试；形式化补写之后，先用真实 MySQL Reader 验证撤去稳定 Chunk key 假设的迁移场景，再另行运行完整 Flink MiniCluster → Paimon 作业。两层实验分别设置稳定键对照、保存独立证据；所测迁移在 Reader 重建和真实目标当前表中都出现缺行，不能推广为所有配置的结论。
 
 ## 先解决扫描结果属于哪个时间的问题
 
@@ -230,7 +230,7 @@ Union_i Apply(S_i(H_i), E_i(H_i,q]) = S_table(q)
 
 ### Chunk key 迁移：两个快照都没读到，持续日志又被过滤
 
-**源码推演，破坏 A3；后文新增 Reader 实验已复现该时序**：固定主键 k，另用可变列 c 分片，A 的范围为 `c<105`，B 为 `c≥105`。构造如下顺序：
+**源码推演，破坏 A3；后文 Reader 实验与另行执行的真实 Paimon 作业均已复现该路径**：固定主键 k，另用可变列 c 分片，A 的范围为 `c<105`，B 为 `c≥105`。构造如下顺序：
 
 ```text
 A 已在 H_A 完成：k 的 c=110，不在 A 快照中
@@ -332,9 +332,32 @@ H_A < E_102 < L_B == H_B
 
 **测试结果的含义**：两个用例的断言均通过，0 失败、0 错误、0 跳过；其中迁移用例刻意断言 `MISSING_KEYS=[102]` 与 `DATA_EQUAL=false`，属于行为刻画测试。“通过”表示遗漏现象被复现，绝不表示该组同步正确或连接器已修复。整理探针格式后再次执行得到同样结果，仍只计 2 个独立用例；原有 5 个 Reader 用例和 8 个工具单测未在这次补充中重跑。
 
-**验证边界**：最后的键值表由测试程序按完整主键应用 Reader 输出重建，并与源库 `SELECT id,c,amount` 全量比较；没有运行真实 Sink。这次只覆盖固定主键、可变非主键 Chunk key、B→A 单向迁移、顺序扫描、所列三条独立提交和指定 GTID 配置。没有运行 Assigner 自动切分、并发 Chunk、修改主键、其他迁移方向、Checkpoint 恢复或 Sink 提交，也没有验证后续更新会怎样影响缺失行。本次未修改连接器生产代码。
+**这组 Reader 实验的边界**：最后的键值表由测试程序按完整主键应用 Reader 输出重建，并与源库 `SELECT id,c,amount` 全量比较；没有运行真实 Sink。这次只覆盖固定主键、可变非主键 Chunk key、B→A 单向迁移、顺序扫描、所列三条独立提交和指定 GTID 配置。没有运行 Assigner 自动切分、并发 Chunk、修改主键、其他迁移方向、Checkpoint 恢复或 Sink 提交，也没有验证后续更新会怎样影响缺失行。本次未修改连接器生产代码。
 
 证据：[迁移组完整输出](/assets/flink-cdc-series/article-02-movement/movingFromUnscannedBToFinishedAIsMissingFromReconstruction.txt)、[稳定键对照输出](/assets/flink-cdc-series/article-02-movement/stableChunkKeyControlReconstructsAllRows.txt)、[探针源码](/assets/flink-cdc-series/article-02-movement/ArticleChunkKeyMovementITCase.java)、[运行摘要与复现条件](/assets/flink-cdc-series/article-02-movement/README.txt)。
+
+### 从 Reader 到完整作业：Paimon 提交后仍缺少该行
+
+**新增端到端实验**使用相同 CDC 提交、Flink 1.20.3、MySQL 8.4.11，以及第五篇的 Paimon 2.0.0。这里运行完整的单 JVM MiniCluster 作业：生产 MySQL Source、Splitter/Assigner、Reader、SchemaOperator、分区、Paimon writer 和 precommit，最终落到真实 filesystem Catalog 与数据文件。没有把上一组 Map 重建当作 Sink，也没有改写连接器过滤或提交算法。
+
+为让生产切分器自行生成同一边界，初始数据改为 **20 行**，c 连续取 95..114，`chunk.size=10`，先执行 ANALYZE TABLE；关键行仍为 `(101,100,10)`、`(102,110,20)`，另一进度标记行为 `(103,114,30)`。日志确认估算行数 20、分布因子 1、步长 10；探针必须断言实际仅有 `A=(-∞,105)` 与 `B=[105,+∞)`，否则实验失败。因此，这里覆盖了真实自动切分与分配，但只覆盖本组确定输入及 p=1 顺序扫描。
+
+时序通过现有 `MySqlSource.setSnapshotHooks` 固定：A 的 post-HIGH 观察位置；B 的 pre-LOW 在开始扫描前同步提交与 Reader 组相同的三条更新。迁移组修改 id=102 的 c 为 100，对照组只修改其 amount 为 21。生产任务记录的实际 LOW/HIGH 与钩子查询逐项一致；事后以独立复制 server-id 读取原始 binlog，取得真实 UPDATE 的完整位点，断言仍为 `H_A < E_102 < L_B == H_B`。这份审计日志不会送入作业或 Sink。[生产水位核对](/assets/flink-cdc-series/chunk-e2e/move-final/watermark-verification.json)、[实际探针](/assets/flink-cdc-series/chunk-e2e/ChunkMovementJob.java)。
+
+快照输出后完成 C1；确认 A 的追赶更新 id=101 已输出，再提交 id=103 amount=32 并等待 Source 实际收到，证明持续日志已推进到 B HIGH 之后。此后停止源端写入，完成 C2、独立读取 Paimon；再完成 C3、取消作业、退出实验 JVM，分别重复全量读取。最后另起 JVM，只读持久化文件，与已冻结并完整保存的 MySQL 查询结果比较。
+
+| 全量对账时点 | 修改 c 的迁移组 | c 不变的对照组 |
+| --- | --- | --- |
+| C2 完成，独立读取 snapshot-2 | MySQL 20 行，Paimon 19 行，缺少 id=102 | 两端 20 行 × 3 列一致 |
+| 再完成 C3，读取 snapshot-3 | 仍缺少 id=102 | 全量一致 |
+| 取消作业后重新打开 Catalog | 仍缺少 id=102 | 全量一致 |
+| 新 JVM 回读 snapshot-3 | 仍缺少 id=102；其余 19 行逐字段一致 | 20 行 × 3 列全部一致 |
+
+对账逐项比较字段名与顺序、全部主键及 `id,c,amount` 的值，并检查重复主键、多余行、缺失行和公共主键的字段差异。两组均无多余行和重复主键；迁移组唯一差异是缺少完整的 `(102,100,20)`。数据来自 SQL 查询和真实 Paimon 全表扫描，不是只比 count。完整数据与四阶段结果见[迁移组对账](/assets/flink-cdc-series/chunk-e2e/move-final/reconciliation.txt)、[稳定键对照](/assets/flink-cdc-series/chunk-e2e/control-final/reconciliation.txt)、[证据索引](/flink-cdc-series/#evidence-chunk-e2e)。
+
+**实际结果与解释分开**：Source 事件记录中，迁移组既没有 id=102 的快照 INSERT，也没有对应 UPDATE；对照组有 B 快照的 INSERT(102,110,21)。两组完整作业各完成三个 Checkpoint，迁移组在真实目标中仍缺行。这把已有 Reader 现象推进到了所测完整链路；结合前面的 before-key/HIGH 过滤分支，可解释该行为何没有送达 Sink。额外正常提交没有补回缺行，不能据此声称故障恢复或后续再更新 id=102 也一定不能补回。
+
+**验证边界**：两个 main 探针场景的断言均成功，其中迁移组刻意断言 `data_equal=false`；这不是两个“同步正确”的作业。p=1、bucket=1、主键 id 不变、非主键 INT 列 c 迁移、固定 Schema、默认回填、无故障、filesystem Paimon 是本次条件。未测并发 Chunk、反向迁移、主键变更、Checkpoint 失败恢复、DDL、物理进程故障、其他存储后端或缺失行的后续更新；本轮也未独立扫描 input changelog。源码未修复，Reader 组与这两组完整作业分别统计。
 
 ### 长事务与没有变化的窗口
 
@@ -366,31 +389,31 @@ H_A < E_102 < L_B == H_B
 
 稳定 Chunk key 是前面逐键证明的重要前提。源码对 UPDATE 使用 before 中的 Chunk key 判断归属；对于无主键表，还存在 after 已经移出范围的告警和 at-least-once 注释。不能把稳定主键例子的证明直接推广到跨 Chunk 迁移。无主键、Chunk key 更新、字符串排序规则与数据库比较是否一致，都需要各自验证。[RecordUtils 的范围与更新分支](https://github.com/apache/flink-cdc/blob/045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/utils/RecordUtils.java#L84)
 
-并行快照结束后，分配器还要处理输出顺序。`MySqlSnapshotSplitAssigner`在并行度大于 1 时，收到全部完成信息后等待一次满足条件的 completed checkpoint；并行度为 1 时走立即完成分支。Hybrid Assigner 只有在初始快照分配阶段完成后才创建持续 Binlog Split。这些结论来自源码，本轮没有把 Reader 测试提升为这套 Checkpoint 协议的实测结论。[完成条件](https://github.com/apache/flink-cdc/blob/045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/assigners/MySqlSnapshotSplitAssigner.java#L429)、[Binlog Split 分配门槛](https://github.com/apache/flink-cdc/blob/045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/assigners/MySqlHybridSplitAssigner.java#L153)
+并行快照结束后，分配器还要处理输出顺序。`MySqlSnapshotSplitAssigner`在并行度大于 1 时，收到全部完成信息后等待一次满足条件的 completed checkpoint；并行度为 1 时走立即完成分支。Hybrid Assigner 只有在初始快照分配阶段完成后才创建持续 Binlog Split。并行度大于 1 的 Checkpoint 门槛仍是本篇的源码结论；新增完整作业只覆盖 p=1 的真实切换，不能替代并行协议验证。[完成条件](https://github.com/apache/flink-cdc/blob/045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/assigners/MySqlSnapshotSplitAssigner.java#L429)、[Binlog Split 分配门槛](https://github.com/apache/flink-cdc/blob/045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/assigners/MySqlHybridSplitAssigner.java#L153)
 
 ## 验证结论及下一篇的边界
 
-形式化推导本身不增加实验计数。原有覆盖为 5 个真实 Reader 用例与 8 个工具单测；本次另外执行迁移/对照 2 个 Reader 用例，其中迁移组确认缺行。两次运行同一组用例不重复计数，历史通过数也不等于本轮重跑数。
+形式化推导本身不增加实验计数。原有覆盖为 5 个真实 Reader 用例与 8 个工具单测；随后执行迁移/对照 2 个 Reader 用例，另新增 2 个完整 MySQL → Paimon 作业场景。两层迁移组均确认缺行；本轮只新增后两项作业，没有重跑前述历史用例。重跑和新 JVM 回读不增加独立场景数，断言成功也不等于数据一致。
 
 | 待核实问题 | 已确认的结论 | 证据层级 |
 | --- | --- | --- |
 | 归一等式需要哪些前提 | A1—A6 下，由“已触及/未触及键”不变量推出 `M_i=S_i(H_i)` | 人工条件化证明；不是新增实验或机器验证 |
 | 多 Chunk 何时对应共同切点 | `M(p)=Union_i S_i(max(H_i,p))`；完整边界 q 不早于全部 HIGH 时得到全表状态 | 条件化推导；顺序双 Chunk Reader 用例只覆盖其具体时序 |
 | 去掉前提后会怎样 | 陈旧视图、缺失/乱序日志、部分 after 和 HIGH 错配可破坏证明 | 模型反例；这些故障配置仍未运行 |
-| 跨 Chunk 修改键会否漏行 | 所测 B→A 迁移在两份快照中均缺失，UPDATE 被逐块 HIGH 过滤；H_B 处重建缺少 id=102 | 源码及新增真实 MySQL Reader 实验；稳定键对照完整；无真实 Sink |
+| 跨 Chunk 修改键会否漏行 | 所测 B→A 迁移在两份快照中均缺失，UPDATE 被逐块 HIGH 过滤；H_B 处 Reader 重建缺少 id=102，完整作业完成 C2/C3 后真实 Paimon 仍缺该行 | 源码、独立 Reader 实验，以及另行执行的 p=1 MySQL → Paimon 作业；两层稳定键对照均完整 |
 | LOW/HIGH 是否写入源库水位表 | 这条 MySQL 路径查询位置并产生本地队列信号 | 源码 |
 | HIGH 是否表示回填完成 | HIGH 先采集，BINLOG_END 后才完成归一输出 | 源码及单 Chunk 实测 |
 | 多次更新和删除如何处理 | 同键覆盖为最终 READ，删除后不输出该行 | 源码及真实 Reader 实测 |
 | 没有变化的窗口是否能结束 | LOW=HIGH 时直接结束回填 | 源码及真实 Reader 实测 |
-| 多 Chunk 从哪里追赶 | 从最小 HIGH 起读，再按各自 HIGH 过滤 | 分配器源码及手工构造 metadata 的 Reader 实测 |
+| 多 Chunk 从哪里追赶 | 从最小 HIGH 起读，再按各自 HIGH 过滤 | 分配器源码、手工 metadata 的 Reader 实测；新增完整作业覆盖 p=1 自动切分与分配 |
 | 恰在分片边界的键属于哪里 | 左闭右开，105 属于以 105 开始的 Chunk | SQL 与过滤源码、单测及 Reader 实测 |
 | 等于 HIGH 的恢复位置是否输出 | 正常过滤使用严格 isAfter，完全相等不输出 | 源码；未另造等值记录运行该私有谓词 |
 | skip backfill 是否仍消除窗口重叠 | 不再保证，实测出现已扫描更新的重放 | 源码及真实 Reader 实测 |
-| 并行完成后何时切换 | 分配器按并行度和 completed checkpoint 控制 | 源码，运行证据 evidence_incomplete |
+| 并行完成后何时切换 | 分配器按并行度和 completed checkpoint 控制 | p>1 门槛仍为源码结论；新增 p=1 作业不覆盖该并行条件 |
 
 实验证据保留了[测试源码](/assets/flink-cdc-series/article-02/ArticleIncrementalSnapshotITCase.java)、[通过数汇总](/assets/flink-cdc-series/article-02/test-summary.json)、Maven 完整日志、Surefire XML、MySQL 配置与镜像标识、DBLog 原论文及源码 SHA-256 清单。原实验通过数为 5 个真实数据库用例和 8 个工具单测；新增迁移实验的[独立结果摘要](/assets/flink-cdc-series/article-02-movement/test-summary.json)另行保存，不能把其行为刻画断言通过解释成数据一致。
 
-跨 Chunk 修改键已覆盖上述特定 B→A Reader 时序；其他迁移方向、主键更新、完整 Flink 作业中的失败恢复、并发 Chunk 调度、日志清理或主从切换、DDL 与 Paimon 提交仍未覆盖。文章的状态证明限定在明确的输入条件内；Reader 集成通过不等于端到端 exactly-once 通过。下一篇继续沿 Split 分配、完成报告、Checkpoint 状态和恢复位置，检查这些边界怎样在失败后保持成立。
+跨 Chunk 修改键已分别覆盖特定 B→A Reader 时序和单并行度真实 Paimon 提交后的缺行。其他迁移方向、主键更新、该迁移场景的失败恢复、并发 Chunk 调度、日志清理或主从切换、快照期间 DDL 与 Sink 故障组合仍未覆盖。文章的状态证明限定在明确的输入条件内；Reader 集成通过不等于端到端 exactly-once 通过。下一篇继续沿 Split 分配、完成报告、Checkpoint 状态和恢复位置，检查这些边界怎样在失败后保持成立。
 
 ## 精读源码与论文的顺序
 

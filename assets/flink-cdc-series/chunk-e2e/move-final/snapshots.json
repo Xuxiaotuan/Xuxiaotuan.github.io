@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "schemaId": 0,
+    "commitUser": "chunk-e2e860ba58f-0627-4bff-94a6-2a8842ac9c0f",
+    "commitIdentifier": 1,
+    "commitKind": "APPEND",
+    "totalRecordCount": 19,
+    "deltaRecordCount": 19
+  },
+  {
+    "id": 2,
+    "schemaId": 0,
+    "commitUser": "chunk-e2e860ba58f-0627-4bff-94a6-2a8842ac9c0f",
+    "commitIdentifier": 2,
+    "commitKind": "APPEND",
+    "totalRecordCount": 21,
+    "deltaRecordCount": 2
+  },
+  {
+    "id": 3,
+    "schemaId": 0,
+    "commitUser": "chunk-e2e860ba58f-0627-4bff-94a6-2a8842ac9c0f",
+    "commitIdentifier": 3,
+    "commitKind": "APPEND",
+    "totalRecordCount": 21,
+    "deltaRecordCount": 0
+  }
+]

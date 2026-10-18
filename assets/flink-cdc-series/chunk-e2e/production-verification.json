@@ -1,0 +1,8 @@
+{
+  "cdc_commit": "045e8da45df4b1017849b04e2d8bfe8f0ed7936d",
+  "production_java_files_compared": 1193,
+  "changed": [],
+  "historical_pinned_source_fingerprints_matched": 5,
+  "probe_sha256": "aa38810579ba9ccffbc6d4c67b27c42c8b15bd7beeaf87be993b46096b08c51b",
+  "production_classes": "Loaded from existing fixed-source target/classes; see per-run logs. No production compilation or source edits in this run."
+}
