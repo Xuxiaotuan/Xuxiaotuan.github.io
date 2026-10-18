@@ -9,6 +9,12 @@ permalink: /flink-cdc-series/
 
 五个主题中，第三篇分为上下两篇，因此共六个阅读单元。研究与实验日期为 2026 年 10 月 18 日，版本固定，不表示其他版本或所有部署形态的行为。
 
+## 从原理研究到 Pekko 项目
+
+研究这组 Flink CDC 源码，是为了把可靠 CDC 能力引入自己的 Pekko 项目。新系列 [从 Flink CDC 到 Pekko：面向海量常驻同步任务的设计与验证](/pekko-cdc-series/) 已整理成五篇：从 70 多万表的业务背景进入当前源码、T/J/D 协议与真实 MySQL/Actor Journal 故障实验，最后比较两种方案的取舍。
+
+两个系列的证据分开统计：本组固定 CDC 3.7.0 源码与 Flink/Paimon 实验；新组是 Pekko 1.1.3、Debezium 3.6.1.Final 的 MySQL→MySQL 实验，其上游能力比较引用 CDC 3.6 文档。Pekko 的 70 万表容量、同负载性能对照和新恢复协议均未验证。
+
 ## 阅读路线
 
 | 阅读单元 | 核心问题 |

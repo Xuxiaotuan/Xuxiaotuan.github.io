@@ -1,0 +1,66 @@
+[info] welcome to sbt 1.9.8 (Microsoft Java 17.0.14)
+[info] loading global plugins from /Users/xujiawei/.sbt/1.0/plugins
+[info] loading settings for project pekko-reference-build from plugins.sbt ...
+[info] loading project definition from /Users/xujiawei/magic/scala-workbench/pekko-reference/project
+[info] loading settings for project root from build.sbt ...
+[info] set current project to pekko-reference (in build file:/Users/xujiawei/magic/scala-workbench/pekko-reference/)
+[warn] there's a key that's not used by any other settings/tasks:
+[warn]  
+[warn] * root / maintainer
+[warn]   +- /Users/xujiawei/magic/scala-workbench/pekko-reference/build.sbt:88
+[warn]  
+[warn] note: a setting might still be used by a command; to exclude a key from this `lintUnused` check
+[warn] either append it to `Global / excludeLintKeys` or call .withRank(KeyRanks.Invisible) on the key
+[info] set current project to pekko-reference (in build file:/Users/xujiawei/magic/scala-workbench/pekko-reference/)
+[info] Defining Test / testOptions
+[info] The new value will be used by Test / test / testOptions, Test / testOnly / testOptions, Test / testQuick / testOptions
+[info] Reapplying settings...
+[info] set current project to pekko-reference (in build file:/Users/xujiawei/magic/scala-workbench/pekko-reference/)
+[info] compiling 2 Scala sources to /Users/xujiawei/magic/scala-workbench/pekko-reference/pekko-server/target/scala-2.13/test-classes ...
+[warn] /Users/xujiawei/magic/scala-workbench/pekko-reference/pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowProcess.scala:35:58: match may not be exhaustive.
+[warn]     val Array(mode, schema, connector, minimumCutRows) = args
+[warn]                                                          ^
+[warn] one warning found
+[info] done compiling
+18:07:32,454 |-INFO in ch.qos.logback.classic.LoggerContext[default] - This is logback-classic version 1.4.12
+18:07:32,457 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4409242f - No custom configurators were discovered as a service.
+18:07:32,457 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4409242f - Trying to configure with ch.qos.logback.classic.joran.SerializedModelConfigurator
+18:07:32,467 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4409242f - Constructed configurator of type class ch.qos.logback.classic.joran.SerializedModelConfigurator
+18:07:32,467 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.scmo]
+18:07:32,467 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback.scmo]
+18:07:32,474 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4409242f - ch.qos.logback.classic.joran.SerializedModelConfigurator.configure() call lasted 2 milliseconds. ExecutionStatus=INVOKE_NEXT_IF_ANY
+18:07:32,474 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4409242f - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+18:07:32,475 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4409242f - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+18:07:32,476 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+18:07:32,476 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [file:/Users/xujiawei/magic/scala-workbench/pekko-reference/pekko-server/target/scala-2.13/classes/logback.xml]
+18:07:32,731 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [STDOUT]
+18:07:32,731 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+18:07:32,753 |-WARN in ch.qos.logback.core.model.processor.ImplicitModelHandler - Ignoring unknown property [withJansi] in [ch.qos.logback.classic.encoder.PatternLayoutEncoder]
+18:07:33,072 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [CLUSTER_EVENTS]
+18:07:33,072 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+18:07:33,088 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [ASYNC]
+18:07:33,088 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.classic.AsyncAppender]
+18:07:33,140 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [STDOUT] to ch.qos.logback.classic.AsyncAppender[ASYNC]
+18:07:33,140 |-INFO in ch.qos.logback.classic.AsyncAppender[ASYNC] - Attaching appender named [STDOUT] to AsyncAppender.
+18:07:33,179 |-INFO in ch.qos.logback.classic.AsyncAppender[ASYNC] - Setting discardingThreshold to 1638
+18:07:33,183 |-INFO in ch.qos.logback.classic.model.processor.LoggerModelHandler - Setting level of logger [ClusterEvents] to INFO
+18:07:33,230 |-INFO in ch.qos.logback.classic.model.processor.LoggerModelHandler - Setting additivity of logger [ClusterEvents] to false
+18:07:33,230 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [CLUSTER_EVENTS] to Logger[ClusterEvents]
+18:07:33,231 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+18:07:33,231 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [ASYNC] to Logger[ROOT]
+18:07:33,231 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@5f4be27c - End of configuration.
+18:07:33,234 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@6b481ba1 - Registering current configuration as safe fallback point
+18:07:33,234 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4409242f - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 759 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+CDC_JOURNAL_WINDOW_REPRODUCED scenario=exact-replay evidence=/Users/xujiawei/magic/scala-workbench/pekko-reference/target/cdc-journal-window/verified/exact-replay-256621e3d9a6 outcome=exact_batch_replayed_as_AlreadyCommitted_and_new_data_converged
+CDC_JOURNAL_WINDOW_REPRODUCED scenario=split-replay evidence=/Users/xujiawei/magic/scala-workbench/pekko-reference/target/cdc-journal-window/verified/split-replay-e0fec7eecef7 outcome=same_batch_id_different_batch_contents_conflict_and_actor_failed
+[info] RealMySQLCdcJournalWindowSpec:
+[info] the real Actor Journal CDC commit gap
+[info] - should record T/J/D and full-row reconciliation for exact-replay
+[info] - should record T/J/D and full-row reconciliation for split-replay
+[info] Run completed in 2 minutes, 4 seconds.
+[info] Total number of tests run: 2
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 2, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] Total time: 146 s (02:26), completed 2026年10月18日 下午6:09:35

@@ -1,0 +1,584 @@
+{
+  "executionId": "c313297a-140c-4f92-bbf0-9aca0364d059",
+  "firstReplayedBatch": {
+    "batchId": "837cc2dd6a2f0627a151956ca59ba2c2be635574ffed6dacd1d7110213b65c24",
+    "cursor": {
+      "offset": {
+        "event": 2,
+        "file": "mysql-bin.000003",
+        "gtids": "64cff9ec-cad9-11f1-83bf-fa023874add2:1-1067",
+        "pos": 1390884,
+        "row": 1,
+        "server_id": 741818,
+        "ts_sec": 1792318165
+      },
+      "version": 1
+    },
+    "rows": [{
+      "after": {
+        "amount": "1.1300",
+        "id": 1,
+        "label": "window-1",
+        "note": "窗口-🙂",
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "1.1200",
+        "id": 1,
+        "label": "初始-1",
+        "note": "  中文🙂  ",
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 1
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 0,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }],
+    "sequence": 5
+  },
+  "originalBatch": {
+    "batchId": "837cc2dd6a2f0627a151956ca59ba2c2be635574ffed6dacd1d7110213b65c24",
+    "cursor": {
+      "offset": {
+        "event": 2,
+        "file": "mysql-bin.000003",
+        "gtids": "64cff9ec-cad9-11f1-83bf-fa023874add2:1-1067",
+        "pos": 1390884,
+        "row": 16,
+        "server_id": 741818,
+        "ts_sec": 1792318165
+      },
+      "version": 1
+    },
+    "rows": [{
+      "after": {
+        "amount": "1.1300",
+        "id": 1,
+        "label": "window-1",
+        "note": "窗口-🙂",
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "1.1200",
+        "id": 1,
+        "label": "初始-1",
+        "note": "  中文🙂  ",
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 1
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 0,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "2.1300",
+        "id": 2,
+        "label": "window-2",
+        "note": null,
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "2.1200",
+        "id": 2,
+        "label": "初始-2",
+        "note": null,
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 2
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 1,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "3.1300",
+        "id": 3,
+        "label": "window-3",
+        "note": "窗口-🙂",
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "3.1200",
+        "id": 3,
+        "label": "初始-3",
+        "note": "  中文🙂  ",
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 3
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 2,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "4.1300",
+        "id": 4,
+        "label": "window-4",
+        "note": null,
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "4.1200",
+        "id": 4,
+        "label": "初始-4",
+        "note": null,
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 4
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 3,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "5.1300",
+        "id": 5,
+        "label": "window-5",
+        "note": "窗口-🙂",
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "5.1200",
+        "id": 5,
+        "label": "初始-5",
+        "note": "  中文🙂  ",
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 5
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 4,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "6.1300",
+        "id": 6,
+        "label": "window-6",
+        "note": null,
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "6.1200",
+        "id": 6,
+        "label": "初始-6",
+        "note": null,
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 6
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 5,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "7.1300",
+        "id": 7,
+        "label": "window-7",
+        "note": "窗口-🙂",
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "7.1200",
+        "id": 7,
+        "label": "初始-7",
+        "note": "  中文🙂  ",
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 7
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 6,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "8.1300",
+        "id": 8,
+        "label": "window-8",
+        "note": null,
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "8.1200",
+        "id": 8,
+        "label": "初始-8",
+        "note": null,
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 8
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 7,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "9.1300",
+        "id": 9,
+        "label": "window-9",
+        "note": "窗口-🙂",
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "9.1200",
+        "id": 9,
+        "label": "初始-9",
+        "note": "  中文🙂  ",
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 9
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 8,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "10.1300",
+        "id": 10,
+        "label": "window-10",
+        "note": null,
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "10.1200",
+        "id": 10,
+        "label": "初始-10",
+        "note": null,
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 10
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 9,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "11.1300",
+        "id": 11,
+        "label": "window-11",
+        "note": "窗口-🙂",
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "11.1200",
+        "id": 11,
+        "label": "初始-11",
+        "note": "  中文🙂  ",
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 11
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 10,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "12.1300",
+        "id": 12,
+        "label": "window-12",
+        "note": null,
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "12.1200",
+        "id": 12,
+        "label": "初始-12",
+        "note": null,
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 12
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 11,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "13.1300",
+        "id": 13,
+        "label": "window-13",
+        "note": "窗口-🙂",
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "13.1200",
+        "id": 13,
+        "label": "初始-13",
+        "note": "  中文🙂  ",
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 13
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 12,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "14.1300",
+        "id": 14,
+        "label": "window-14",
+        "note": null,
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "14.1200",
+        "id": 14,
+        "label": "初始-14",
+        "note": null,
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 14
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 13,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "15.1300",
+        "id": 15,
+        "label": "window-15",
+        "note": "窗口-🙂",
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "15.1200",
+        "id": 15,
+        "label": "初始-15",
+        "note": "  中文🙂  ",
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 15
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 14,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }, {
+      "after": {
+        "amount": "16.1300",
+        "id": 16,
+        "label": "window-16",
+        "note": null,
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "16.1200",
+        "id": 16,
+        "label": "初始-16",
+        "note": null,
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 16
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_e0fec7eecef7",
+        "database": "pekko_test_cdc_window_e0fec7eecef7",
+        "eventTimestampMillis": 1792318165858,
+        "file": "mysql-bin.000003",
+        "position": 1391108,
+        "row": 15,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }],
+    "sequence": 5
+  },
+  "originalPid": 89353,
+  "outcome": "same_batch_id_different_batch_contents_conflict_and_actor_failed",
+  "recoveredPid": 89418
+}

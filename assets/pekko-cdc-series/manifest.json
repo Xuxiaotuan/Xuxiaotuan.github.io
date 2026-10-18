@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-18",
+  "source_repository": "https://github.com/Xuxiaotuan/pekko-reference",
+  "article_commit": "4a519d947e3b809b34d08e4fc13332cf7871b804",
+  "experiment_commit": "ad58cf3d861597b577e2f5745584fe56e81fb621",
+  "linked_production_commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+  "experiment_rerun_for_publication": false,
+  "production_protocol_changed": false,
+  "scope": "Original evidence archive copied byte-for-byte. Selected JSON and log members extracted without modification. Passing reproduction assertions include an expected recovery failure, not a correctness certification. No 700k-table capacity or comparative performance results.",
+  "archive": {
+    "path": "2026-10-18-cdc-journal-window.tar.gz",
+    "sha256": "6ed9a39afef5f70c591d9a1545f5b9cd034ead88e3d02495304562afa9b52e0d"
+  },
+  "files": [
+    {
+      "path": "exact-replay/final.json",
+      "archive_member": "cdc-journal-window/verified/exact-replay-256621e3d9a6/final.json",
+      "sha256": "c84f822e25c7485cf5b34f6b7b320579ec7b991d3ab5628a4c00b125be0dadcb"
+    },
+    {
+      "path": "exact-replay/cutpoint.json",
+      "archive_member": "cdc-journal-window/verified/exact-replay-256621e3d9a6/cutpoint.json",
+      "sha256": "d00e5593aa923d20e533a9f4a097e36e84619c563e34316e068a58b058ff6181"
+    },
+    {
+      "path": "exact-replay/replay.json",
+      "archive_member": "cdc-journal-window/verified/exact-replay-256621e3d9a6/replay.json",
+      "sha256": "599e613e7d43992c1ccfa8517dcfa45016db9fd7a9612670cbc1dd331004f741"
+    },
+    {
+      "path": "split-replay/final.json",
+      "archive_member": "cdc-journal-window/verified/split-replay-e0fec7eecef7/final.json",
+      "sha256": "af78df95aab15861d2dba21af5b7af0a9c4c4ae6e81962793657368c1c9f381c"
+    },
+    {
+      "path": "split-replay/cutpoint.json",
+      "archive_member": "cdc-journal-window/verified/split-replay-e0fec7eecef7/cutpoint.json",
+      "sha256": "82c32c1bb67fcd02640492a763efd98ec0f61b8d2dcfaea858278f071495c0cc"
+    },
+    {
+      "path": "split-replay/replay.json",
+      "archive_member": "cdc-journal-window/verified/split-replay-e0fec7eecef7/replay.json",
+      "sha256": "3f562b16e4bfab8aa21f783b71c18dd026083e38cfe954518005a818e4d6db50"
+    },
+    {
+      "path": "verified-test.log",
+      "archive_member": "cdc-journal-window/verified-test.log",
+      "sha256": "8a0c3473cb84c6f2cf4d4ef0b4d50c8337f83e7df2dbab4d6aff770cfa2acaa4"
+    }
+  ]
+}

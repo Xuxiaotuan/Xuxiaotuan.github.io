@@ -1,0 +1,104 @@
+{
+  "executionId": "56261be8-de7f-4aaa-bc23-3a433e018804",
+  "firstReplayedBatch": {
+    "batchId": "50e99579f48e916e6a2a19bf8da8e2ea92e8d544c5e48c6b0707e4f8b762582d",
+    "cursor": {
+      "offset": {
+        "event": 2,
+        "file": "mysql-bin.000003",
+        "gtids": "64cff9ec-cad9-11f1-83bf-fa023874add2:1-828",
+        "pos": 1046878,
+        "row": 1,
+        "server_id": 741818,
+        "ts_sec": 1792318107
+      },
+      "version": 1
+    },
+    "rows": [{
+      "after": {
+        "amount": "1.1300",
+        "id": 1,
+        "label": "window-1",
+        "note": "窗口-🙂",
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "1.1200",
+        "id": 1,
+        "label": "初始-1",
+        "note": "  中文🙂  ",
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 1
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_256621e3d9a6",
+        "database": "pekko_test_cdc_window_256621e3d9a6",
+        "eventTimestampMillis": 1792318107414,
+        "file": "mysql-bin.000003",
+        "position": 1047102,
+        "row": 0,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }],
+    "sequence": 6
+  },
+  "originalBatch": {
+    "batchId": "50e99579f48e916e6a2a19bf8da8e2ea92e8d544c5e48c6b0707e4f8b762582d",
+    "cursor": {
+      "offset": {
+        "event": 2,
+        "file": "mysql-bin.000003",
+        "gtids": "64cff9ec-cad9-11f1-83bf-fa023874add2:1-828",
+        "pos": 1046878,
+        "row": 1,
+        "server_id": 741818,
+        "ts_sec": 1792318107
+      },
+      "version": 1
+    },
+    "rows": [{
+      "after": {
+        "amount": "1.1300",
+        "id": 1,
+        "label": "window-1",
+        "note": "窗口-🙂",
+        "revision": 1,
+        "updated_at": "2026-10-18T12:34:56.123456"
+      },
+      "before": {
+        "amount": "1.1200",
+        "id": 1,
+        "label": "初始-1",
+        "note": "  中文🙂  ",
+        "revision": 0,
+        "updated_at": "2026-10-18T01:02:03.654321"
+      },
+      "key": {
+        "id": 1
+      },
+      "op": "u",
+      "source": {
+        "connectorId": "window_256621e3d9a6",
+        "database": "pekko_test_cdc_window_256621e3d9a6",
+        "eventTimestampMillis": 1792318107414,
+        "file": "mysql-bin.000003",
+        "position": 1047102,
+        "row": 0,
+        "snapshot": false,
+        "table": "source_rows"
+      },
+      "version": 1
+    }],
+    "sequence": 6
+  },
+  "originalPid": 88833,
+  "outcome": "exact_batch_replayed_as_AlreadyCommitted_and_new_data_converged",
+  "recoveredPid": 89042
+}
