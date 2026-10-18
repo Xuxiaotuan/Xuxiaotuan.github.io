@@ -1,0 +1,25 @@
+--- original-helper
++++ buffer-probe-helper
+@@ -191,7 +191,9 @@
+         DataSinkTranslator sinkTranslator = new DataSinkTranslator();
+         DataSource source = sourceTranslator.createDataSource(sourceDef, pipeline, env);
+         DataSink baseSink = sinkTranslator.createDataSink(sinkDef, pipeline, env);
+-        MetadataApplier applier = new DdlFaultApplier(baseSink.getMetadataApplier());
++        MetadataApplier applier = ArticlePaimonBufferProbe.enabled
++                ? new ArticlePaimonBufferProbe.BufferApplier(baseSink.getMetadataApplier())
++                : new DdlFaultApplier(baseSink.getMetadataApplier());
+         OperatorUidGenerator uids = new OperatorUidGenerator("article5");
+         DataStream<Event> stream = sourceTranslator.translate(sourceDef, source, env, 1, uids)
+                 .map(new SourceProbe()).returns(new EventTypeInfo()).name("Article source observation");
+@@ -201,8 +203,9 @@
+         OperatorIDGenerator ids = new OperatorIDGenerator(UID);
+         stream = new PartitioningTranslator().translateRegular(stream, 1, 1,
+                 ids.generate(), baseSink.getDataChangeEventHashFunctionProvider(1), uids);
+-        DataSink selectedSink = probeCommit
+-                ? new CommitProbeSink(baseSink, options) : new UidAlignedSink(baseSink, options);
++        DataSink selectedSink = ArticlePaimonBufferProbe.enabled
++                ? new ArticlePaimonBufferProbe.BufferSink(baseSink, options)
++                : probeCommit ? new CommitProbeSink(baseSink, options) : new UidAlignedSink(baseSink, options);
+         sinkTranslator.translate(sinkDef, stream, selectedSink, ids.generate(), uids);
+         Files.writeString(evidence.resolve(name + "-execution-plan.json"), env.getExecutionPlan());
+         job = env.executeAsync("article5-" + name);

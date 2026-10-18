@@ -1,0 +1,362 @@
+[
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.composer.flink.FlinkSchemaCoordinatorRecoveryITCase",
+      "time": "13.33",
+      "tests": "2",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "replaysFailedSchemaChangeAfterCheckpointAndContinues(boolean)[1]",
+        "classname": "org.apache.flink.cdc.composer.flink.FlinkSchemaCoordinatorRecoveryITCase",
+        "time": "5.502",
+        "status": "passed"
+      },
+      {
+        "name": "replaysFailedSchemaChangeAfterCheckpointAndContinues(boolean)[2]",
+        "classname": "org.apache.flink.cdc.composer.flink.FlinkSchemaCoordinatorRecoveryITCase",
+        "time": "4.178",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "83b32cb1b811109da753211d99db09155f077f360b3fc975196a115be855d9fa"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.ArticleDdlOnlyCheckpointITCase",
+      "time": "13.041",
+      "tests": "1",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "ddlOnlyCheckpointWithSchemaOutputDisabledRestoresAndReplaysDdl",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.ArticleDdlOnlyCheckpointITCase",
+        "time": "12.008",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "7daffc29bcf7b0ac7772fb86fa6b1aeaa278bc810cc54b6c1f0a4a2eb9562dab"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.ArticleSchemaRecoveryITCase",
+      "time": "43.978",
+      "tests": "4",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "restoresSchemaAtCheckpointAndReplaysLaterDdl(boolean, boolean)[1]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.ArticleSchemaRecoveryITCase",
+        "time": "18.583",
+        "status": "passed"
+      },
+      {
+        "name": "restoresSchemaAtCheckpointAndReplaysLaterDdl(boolean, boolean)[2]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.ArticleSchemaRecoveryITCase",
+        "time": "7.895",
+        "status": "passed"
+      },
+      {
+        "name": "restoresSchemaAtCheckpointAndReplaysLaterDdl(boolean, boolean)[3]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.ArticleSchemaRecoveryITCase",
+        "time": "8.132",
+        "status": "passed"
+      },
+      {
+        "name": "restoresSchemaAtCheckpointAndReplaysLaterDdl(boolean, boolean)[4]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.ArticleSchemaRecoveryITCase",
+        "time": "7.644",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "910d8009317d4ab901602e0cd01011c5afbb4a8129b4586e75f85eb3d0f4f224"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.parser.ArticleDdlParserTest",
+      "time": "1.359",
+      "tests": "4",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "indexDdlDoesNotBecomeColumnEvolution",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.parser.ArticleDdlParserTest",
+        "time": "1.241",
+        "status": "passed"
+      },
+      {
+        "name": "changeColumnSplitsTypeAndRenameInOrder",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.parser.ArticleDdlParserTest",
+        "time": "0.054",
+        "status": "passed"
+      },
+      {
+        "name": "dropColumnProducesStructuredEvent",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.parser.ArticleDdlParserTest",
+        "time": "0.014",
+        "status": "passed"
+      },
+      {
+        "name": "addAfterRetainsPosition",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.parser.ArticleDdlParserTest",
+        "time": "0.023",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "a2a599da24c6ba94f37f08a94263ac30cb07c18390bbc4dc6d17808a0756acae"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaDerivatorTest",
+      "time": "0.419",
+      "tests": "8",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testNormalizeSchemaChangeEventsInLenientMode",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaDerivatorTest",
+        "time": "0.09",
+        "status": "passed"
+      },
+      {
+        "name": "testGetAffectedEvolvedTables",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaDerivatorTest",
+        "time": "0.01",
+        "status": "passed"
+      },
+      {
+        "name": "testDeduceMergedCreateTableEvent",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaDerivatorTest",
+        "time": "0.009",
+        "status": "passed"
+      },
+      {
+        "name": "testNormalizeSchemaChangeEventsInEvolveMode",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaDerivatorTest",
+        "time": "0.003",
+        "status": "passed"
+      },
+      {
+        "name": "testNormalizeSchemaChangeEventsInTryEvolveMode",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaDerivatorTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testReverseLookupDependingUpstreamSchemas",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaDerivatorTest",
+        "time": "0.013",
+        "status": "passed"
+      },
+      {
+        "name": "testNormalizeSchemaChangeEventsInIgnoreMode",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaDerivatorTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testReverseLookupDependingUpstreamTables",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaDerivatorTest",
+        "time": "0.003",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "79dc8dd1ee6f4443e5625b38dea1eca9b245b3e1ba0668de89c5a92607f1859b"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaManagerTest",
+      "time": "0.047",
+      "tests": "8",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testSerde",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaManagerTest",
+        "time": "0.028",
+        "status": "passed"
+      },
+      {
+        "name": "testHandlingAlterColumnTypeEvent",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaManagerTest",
+        "time": "0.005",
+        "status": "passed"
+      },
+      {
+        "name": "testVersionCleanup",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaManagerTest",
+        "time": "0.007",
+        "status": "passed"
+      },
+      {
+        "name": "testHandlingRenameColumnEvent",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaManagerTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testHandlingCreateTableEvent",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaManagerTest",
+        "time": "0",
+        "status": "passed"
+      },
+      {
+        "name": "testHandlingAddColumnEvent",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaManagerTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testGettingHistoricalSchema",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaManagerTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testHandlingDropColumnEvent",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaManagerTest",
+        "time": "0",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "c636486a7e1cb9a1d100f19bb69db4a304d953e1f5967aac85f95f6dbd5d03ed"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaCoordinatorTest",
+      "time": "0.065",
+      "tests": "4",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "resetsFailedSchemaEvolutionBeforeReplay",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaCoordinatorTest",
+        "time": "0.054",
+        "status": "passed"
+      },
+      {
+        "name": "tryExpandModeFailsWhenConnectorLacksExpansionSupport",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaCoordinatorTest",
+        "time": "0.002",
+        "status": "passed"
+      },
+      {
+        "name": "checkModeSkipsExternalCreateTableButRegistersSchema",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaCoordinatorTest",
+        "time": "0.005",
+        "status": "passed"
+      },
+      {
+        "name": "expandModeFailureIsNotSwallowedUnderTryEvolve",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaCoordinatorTest",
+        "time": "0.004",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "6518d12a9dbbffff96e07e242853cb50dc3a86643d8ee0717c2990b6f32d0652"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaEvolveTest",
+      "time": "101.138",
+      "tests": "9",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testEvolveSchemaWithFailure",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaEvolveTest",
+        "time": "6.353",
+        "status": "passed"
+      },
+      {
+        "name": "testTryEvolveSchemaWithFailure",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaEvolveTest",
+        "time": "15.663",
+        "status": "passed"
+      },
+      {
+        "name": "testEvolveSchema",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaEvolveTest",
+        "time": "15.26",
+        "status": "passed"
+      },
+      {
+        "name": "testLenientSchemaEvolves",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaEvolveTest",
+        "time": "15.468",
+        "status": "passed"
+      },
+      {
+        "name": "testIgnoreEvolveSchema",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaEvolveTest",
+        "time": "3.343",
+        "status": "passed"
+      },
+      {
+        "name": "testExceptionEvolveSchema",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaEvolveTest",
+        "time": "3.229",
+        "status": "passed"
+      },
+      {
+        "name": "testLenientEvolveTweaks",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaEvolveTest",
+        "time": "15.452",
+        "status": "passed"
+      },
+      {
+        "name": "testFineGrainedSchemaEvolves",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaEvolveTest",
+        "time": "9.966",
+        "status": "passed"
+      },
+      {
+        "name": "testTryEvolveSchema",
+        "classname": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaEvolveTest",
+        "time": "16.347",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "b55c9d9908fad19f91ea0bfc28eeca221c070047111180bffaec1540d3656ac2"
+  }
+]

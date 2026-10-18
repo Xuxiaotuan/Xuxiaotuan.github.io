@@ -1,0 +1,305 @@
+[
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+      "time": "9.377",
+      "tests": "28",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testMysqlDefaultTimestampValueConversionInAddColumn",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "1.5",
+        "status": "passed"
+      },
+      {
+        "name": "testApplySchemaChange(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.091",
+        "status": "passed"
+      },
+      {
+        "name": "testApplySchemaChange(String)[2]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "4.953",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateTableWithoutPrimaryKey(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.017",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateTableWithoutPrimaryKey(String)[2]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.55",
+        "status": "passed"
+      },
+      {
+        "name": "testAddColumnWithPosition(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.012",
+        "status": "passed"
+      },
+      {
+        "name": "testAddColumnWithPosition(String)[2]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.318",
+        "status": "passed"
+      },
+      {
+        "name": "testCloseIsIdempotentAndRecreatesCatalogOnReuse",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.006",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateTableWithComment(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.006",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateTableWithComment(String)[2]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "1.001",
+        "status": "passed"
+      },
+      {
+        "name": "testAddBlobColumnToAppendOnlyTable(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.012",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateTableWithAllDataTypes(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.016",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateTableWithAllDataTypes(String)[2]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.368",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateAppendOnlyTableWithMultipleBlobFields(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.007",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateTableWithoutBlobFieldConfig(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.005",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateAppendOnlyTableWithBinaryToBlob(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.005",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateAppendOnlyTableWithStringToBlob(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "testMysqlDefaultTimestampValueWithMicrosInAddColumn",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.007",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateAppendOnlyTableWithCharToBlob(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.005",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateAppendOnlyTableWithVarcharToBlob(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateTableWithEmptyBlobFieldConfig(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateAppendOnlyTableWithBlobField(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.005",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateTableWithOptions(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.006",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateTableWithOptions(String)[2]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.246",
+        "status": "passed"
+      },
+      {
+        "name": "testExistingTableSchemaExpansion",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.036",
+        "status": "passed"
+      },
+      {
+        "name": "testExistingTableSchemaExpansionOnPartitionedTable",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.014",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateTableWithNonExistentBlobFieldConfig(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "testAddNormalVarbinaryColumnWithoutBlobConfig(String)[1]",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+        "time": "0.006",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "7400e99bbb0060412b84ea4454cafc0329014e4c94b6bf7aa5c3ac7804a02267"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+      "time": "0.242",
+      "tests": "14",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testDeduceSchemaForPaimonTable",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.03",
+        "status": "passed"
+      },
+      {
+        "name": "testConvertEventToGenericRowOfDataChangeTypes",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testConvertEventToFullGenericRowsOfDataChangeTypes",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testDeduceSchemaForPaimonTableWithBlobDescriptorField",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.022",
+        "status": "passed"
+      },
+      {
+        "name": "testCreateFieldGettersWithBlobWriteContext",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.002",
+        "status": "passed"
+      },
+      {
+        "name": "testConvertEventToGenericRowOfAllDataTypes",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.089",
+        "status": "passed"
+      },
+      {
+        "name": "testBlobWriteContextMixedDescriptorAndRawBlobFields",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.018",
+        "status": "passed"
+      },
+      {
+        "name": "testConvertEventToGenericRowWithNestedRow",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.024",
+        "status": "passed"
+      },
+      {
+        "name": "testDeduceSchemaForPaimonTableWithBlobType",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.008",
+        "status": "passed"
+      },
+      {
+        "name": "testBlobWriteContextFromTableWithBlobDescriptorField",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.01",
+        "status": "passed"
+      },
+      {
+        "name": "testSameColumnsWithOutCommentAndDefaultValue",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0",
+        "status": "passed"
+      },
+      {
+        "name": "testBlobWriteContextCaseSensitiveMismatch",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.006",
+        "status": "passed"
+      },
+      {
+        "name": "testBlobWriteContextCreateBlobFromBytes",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testBlobWriteContextCaseInsensitive",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+        "time": "0.006",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "ecb8a6750e5131bae297c441a9b5d8a3de3e9d208fced2e65fa9f76bf9dceead"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterTest",
+      "time": "2.116",
+      "tests": "1",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testGetTableInvocationCount",
+        "classname": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterTest",
+        "time": "2.115",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "af310937a258815d335bc5d424d6f2bb4db4a31245bd5993b111ecaf653c6dd9"
+  }
+]

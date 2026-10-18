@@ -1,0 +1,374 @@
+{
+  "date": "2026-10-18",
+  "scope": "Public subset; full logs, private Page snapshots, classpaths and warehouses are not included. Machine paths normalized; test outcomes unchanged. Testcases extracted from Surefire XML without environment properties. Trailing whitespace/extra final blank lines normalized in public text; original source hashes retained.",
+  "files": [
+    {
+      "file": "article-01/unit-test-summary.json",
+      "source_file": "flink-cdc-article-01-evidence-20261018/unit-test-summary.json",
+      "source_sha256": "2a60bdb0b6a6de4f39425b2c10a99adb93e47fa462f7195c571a081e824f82d4",
+      "public_sha256": "2a60bdb0b6a6de4f39425b2c10a99adb93e47fa462f7195c571a081e824f82d4",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-01/mysql-visibility-result.json",
+      "source_file": "flink-cdc-article-01-evidence-20261018/mysql-visibility-result.json",
+      "source_sha256": "06a613305a275c84dda845c77295bf5986b78134724f3451e0384d79f0a72b6b",
+      "public_sha256": "06a613305a275c84dda845c77295bf5986b78134724f3451e0384d79f0a72b6b",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-01/mysql-binlog-events.tsv",
+      "source_file": "flink-cdc-article-01-evidence-20261018/mysql-binlog-events.tsv",
+      "source_sha256": "f41833e7aa3e911878393f0cb491e27257dc1b033b9f17d21b0e5b8705de232e",
+      "public_sha256": "f41833e7aa3e911878393f0cb491e27257dc1b033b9f17d21b0e5b8705de232e",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-01/ArticleSnapshotMergeTest.java",
+      "source_file": "flink-cdc-article-01-evidence-20261018/ArticleSnapshotMergeTest.java",
+      "source_sha256": "653f58adc3cf06717354bf7617d8a55c0676e8413779b0f80fd91c5cf3952e04",
+      "public_sha256": "653f58adc3cf06717354bf7617d8a55c0676e8413779b0f80fd91c5cf3952e04",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-01/mysql_visibility_probe.py",
+      "source_file": "flink-cdc-article-01-evidence-20261018/mysql_visibility_probe.py",
+      "source_sha256": "3af50b03cecef4c93e57ecba8815efab7e5fcaf9ffad1483b813dfc14a169114",
+      "public_sha256": "3af50b03cecef4c93e57ecba8815efab7e5fcaf9ffad1483b813dfc14a169114",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02/test-summary.json",
+      "source_file": "flink-cdc-article-02-evidence-20261018/test-summary.json",
+      "source_sha256": "06030a37847b5874819b6314a278cf69f0d1e4a84a0ee221110eba4f2f99a173",
+      "public_sha256": "06030a37847b5874819b6314a278cf69f0d1e4a84a0ee221110eba4f2f99a173",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02/ArticleIncrementalSnapshotITCase.java",
+      "source_file": "flink-cdc-article-02-evidence-20261018/ArticleIncrementalSnapshotITCase.java",
+      "source_sha256": "add2fdfb70c4bfeb098b9ecbc22682179bad37f90123eb249c828950df24a125",
+      "public_sha256": "eb2e7838468f7758a3d36182920d6eafad1140b6ff6317b5375afb54fb6ec3d6",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "article-02/windowMergesCommittedChangesButExcludesPostHigh.txt",
+      "source_file": "flink-cdc-article-02-evidence-20261018/windowMergesCommittedChangesButExcludesPostHigh.txt",
+      "source_sha256": "b8c554eab643b7ae3da5fa8783ff681893248a013e753e60eb4f26d36c20974f",
+      "public_sha256": "b8c554eab643b7ae3da5fa8783ff681893248a013e753e60eb4f26d36c20974f",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02/multipleChunksUseIndividualHighWatermarks.txt",
+      "source_file": "flink-cdc-article-02-evidence-20261018/multipleChunksUseIndividualHighWatermarks.txt",
+      "source_sha256": "31a1138ae9a1fa1181bdc479039ad583a52897d77411a595e8c807e8c594a8ef",
+      "public_sha256": "31a1138ae9a1fa1181bdc479039ad583a52897d77411a595e8c807e8c594a8ef",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02/transactionStartedBeforeLowCommitsBeforeHigh.txt",
+      "source_file": "flink-cdc-article-02-evidence-20261018/transactionStartedBeforeLowCommitsBeforeHigh.txt",
+      "source_sha256": "00db2957242c41b4317520142b796680bef8be9e213018e30178479fbda7171c",
+      "public_sha256": "00db2957242c41b4317520142b796680bef8be9e213018e30178479fbda7171c",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02/skippingBackfillReplaysChangeAlreadySeenBySelect.txt",
+      "source_file": "flink-cdc-article-02-evidence-20261018/skippingBackfillReplaysChangeAlreadySeenBySelect.txt",
+      "source_sha256": "e92bf4f348a1f69b7c0637fa0bc700e9742b4f2c04b8b9603a1d74fc93e26fa5",
+      "public_sha256": "e92bf4f348a1f69b7c0637fa0bc700e9742b4f2c04b8b9603a1d74fc93e26fa5",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02/unchangedWindowHasEqualWatermarksAndCompletes.txt",
+      "source_file": "flink-cdc-article-02-evidence-20261018/unchangedWindowHasEqualWatermarksAndCompletes.txt",
+      "source_sha256": "61cd23af7d4a3410af26e4606c7102d953d2c402b1bcb689461016b4174a2e71",
+      "public_sha256": "61cd23af7d4a3410af26e4606c7102d953d2c402b1bcb689461016b4174a2e71",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-03/tests/ArticleReaderAckTest.java",
+      "source_file": "flink-cdc-article-03-evidence-20261018/tests/ArticleReaderAckTest.java",
+      "source_sha256": "954dc6186377f18f248c75d9097fda37fdb5da361096200d044efbb51699438c",
+      "public_sha256": "954dc6186377f18f248c75d9097fda37fdb5da361096200d044efbb51699438c",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-03/tests/ArticleSourceProtocolTest.java",
+      "source_file": "flink-cdc-article-03-evidence-20261018/tests/ArticleSourceProtocolTest.java",
+      "source_sha256": "bb4352c28d33b1ae6262ffc0b086d05803d819af1ec522add79ba64fbdf85e8d",
+      "public_sha256": "bb4352c28d33b1ae6262ffc0b086d05803d819af1ec522add79ba64fbdf85e8d",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-03/tests/ArticleSourceRecoveryITCase.java",
+      "source_file": "flink-cdc-article-03-evidence-20261018/tests/ArticleSourceRecoveryITCase.java",
+      "source_sha256": "740dfec18be3b3fc1c844b51679dd3e067298b0bb5f5063ca4c3c04e42b483a9",
+      "public_sha256": "740dfec18be3b3fc1c844b51679dd3e067298b0bb5f5063ca4c3c04e42b483a9",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-04/test-summary.json",
+      "source_file": "flink-cdc-article-04-evidence-20261018/test-summary.json",
+      "source_sha256": "b251bfe2c929a5bdaa03d16a3ce35bcf4763c92a264770e7ad1ca3932e1d9b6d",
+      "public_sha256": "b251bfe2c929a5bdaa03d16a3ce35bcf4763c92a264770e7ad1ca3932e1d9b6d",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-04/tests/ArticleDdlParserTest.java",
+      "source_file": "flink-cdc-article-04-evidence-20261018/tests/ArticleDdlParserTest.java",
+      "source_sha256": "e50125eb74c58412faf050455eb17ef651bb1cfc8cd659bc56e74f0afbe8c012",
+      "public_sha256": "e50125eb74c58412faf050455eb17ef651bb1cfc8cd659bc56e74f0afbe8c012",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-04/tests/ArticleSchemaRecoveryITCase.java",
+      "source_file": "flink-cdc-article-04-evidence-20261018/tests/ArticleSchemaRecoveryITCase.java",
+      "source_sha256": "4732496bb628adc55d9352beacdd636e19fd0fe48b077f25c2e97497f724b27a",
+      "public_sha256": "4732496bb628adc55d9352beacdd636e19fd0fe48b077f25c2e97497f724b27a",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-04/tests/ArticleDdlOnlyCheckpointITCase.java",
+      "source_file": "flink-cdc-article-04-evidence-20261018/tests/ArticleDdlOnlyCheckpointITCase.java",
+      "source_sha256": "95f6a555617041258b4c9c3123a89c30ad9f23c7e3d55f1817b9e38e8b044a08",
+      "public_sha256": "95f6a555617041258b4c9c3123a89c30ad9f23c7e3d55f1817b9e38e8b044a08",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-05/test-summary.json",
+      "source_file": "flink-cdc-article-05-evidence-20261018/test-summary.json",
+      "source_sha256": "4a46d97ce78a8c258924b3cb7b2870e3548b75771a47ba689949bc0f676d2c8c",
+      "public_sha256": "4a46d97ce78a8c258924b3cb7b2870e3548b75771a47ba689949bc0f676d2c8c",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-05/durable-readback-results.txt",
+      "source_file": "flink-cdc-article-05-evidence-20261018/durable-readback-results.txt",
+      "source_sha256": "1cfd69a8e8b7c3ffddcb542c35e79121cff48502e079b57749351e196787f4e9",
+      "public_sha256": "1cfd69a8e8b7c3ffddcb542c35e79121cff48502e079b57749351e196787f4e9",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-05/snapshot-summary.json",
+      "source_file": "flink-cdc-article-05-evidence-20261018/snapshot-summary.json",
+      "source_sha256": "e23e598d95483bc64afeeada5b827e96d5bdeb71593d9bdeddccf4893878a8c8",
+      "public_sha256": "e23e598d95483bc64afeeada5b827e96d5bdeb71593d9bdeddccf4893878a8c8",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-05/ddl-matrix-results.txt",
+      "source_file": "flink-cdc-article-05-evidence-20261018/ddl-matrix-results.txt",
+      "source_sha256": "2c97dc402ebd28f624c635721a9bc459da9aa3ff5bd4293c2edfa5e2a64ba517",
+      "public_sha256": "2c97dc402ebd28f624c635721a9bc459da9aa3ff5bd4293c2edfa5e2a64ba517",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-05/checkpoint-target-visible-before-global-completion.txt",
+      "source_file": "flink-cdc-article-05-evidence-20261018/checkpoint-target-visible-before-global-completion.txt",
+      "source_sha256": "754074b4e2c930787430800f969e44f1a46ee43853388a814ebc2d96afed8767",
+      "public_sha256": "e14a8dbdc6eae7d769b14d2b103ae79a5902ea2dd78dd60a19a0f4f7f231e06b",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-05/checkpoint-after-restart-before-recommit.txt",
+      "source_file": "flink-cdc-article-05-evidence-20261018/checkpoint-after-restart-before-recommit.txt",
+      "source_sha256": "1a27b75f76f1f38cdb53649fb796ec451ce330cb31fb333d4dec34fc354d8328",
+      "public_sha256": "279c5aa0d9fa161f2be77a859d945ab8142b90f839cb968cb8b2a004ca50d276",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-05/checkpoint-final.txt",
+      "source_file": "flink-cdc-article-05-evidence-20261018/checkpoint-final.txt",
+      "source_sha256": "7416dee85d05a011cbcd3ba4159222b96924bc557d0d225e2bb78fcfddb24ec6",
+      "public_sha256": "c642fd8105d4989a1c96a59a8e9c70da3bece15e0c5a49e31bf0e9c135de64c9",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-05/tests/ArticlePaimonExperiment.java",
+      "source_file": "flink-cdc-article-05-evidence-20261018/tests/ArticlePaimonExperiment.java",
+      "source_sha256": "dfcc8d753b50634c82dbb24c8c461f316dd55f7ec98990ec91687dd162a28399",
+      "public_sha256": "c40972556f91564d157a2605aed4584cd40d05cf484c929936c60c846cbbb3fe",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "article-05/tests/ArticlePaimonDdlMatrix.java",
+      "source_file": "flink-cdc-article-05-evidence-20261018/tests/ArticlePaimonDdlMatrix.java",
+      "source_sha256": "f81cab7ca45ab613aa6c8d023866352dee3b7a489350b56f30d9d2c0778a16a7",
+      "public_sha256": "58f4825c0fdd2595e9b06c679e1ead0ddab9bc8276acd74ac725091c449558c5",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "article-05/tests/ArticlePaimonReadback.java",
+      "source_file": "flink-cdc-article-05-evidence-20261018/tests/ArticlePaimonReadback.java",
+      "source_sha256": "615cbca41561fad36b74bea820d6d60d24f9decb550366d6a46abb35bb3f756c",
+      "public_sha256": "201e7da16861275c5a1646701584f73157ae98df67ad865c3ca5a8cac99c4d74",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "revision/result-summary.json",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/result-summary.json",
+      "source_sha256": "25696977eb19058c41eabb08ea62ff6be8b0f1d08273d387d9e264a8a2e486f0",
+      "public_sha256": "25696977eb19058c41eabb08ea62ff6be8b0f1d08273d387d9e264a8a2e486f0",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/source-verification.json",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/source-verification.json",
+      "source_sha256": "acddd78ebdd85443750be3b7ce520796b5e5373a1b1402fa47ad1fe4beddeb53",
+      "public_sha256": "acddd78ebdd85443750be3b7ce520796b5e5373a1b1402fa47ad1fe4beddeb53",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/harness-change.diff",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/harness-change.diff",
+      "source_sha256": "dc6fd546a2d2b2de1d1171bd557fab341f85313974e3813e51e563f6d03ba4a9",
+      "public_sha256": "dc6fd546a2d2b2de1d1171bd557fab341f85313974e3813e51e563f6d03ba4a9",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/probe-observation-refinement.diff",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/probe-observation-refinement.diff",
+      "source_sha256": "d75f40d8b8fef5b94438b3720d7aeecff0b4ce2b43ace3d39f850353e63dd264",
+      "public_sha256": "d75f40d8b8fef5b94438b3720d7aeecff0b4ce2b43ace3d39f850353e63dd264",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/tests/ArticlePaimonExperiment.java",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/tests/ArticlePaimonExperiment.java",
+      "source_sha256": "9ec8bbe653cc56cb7cacf7c65d523823463875d1856d569b70e44735cd2b2c47",
+      "public_sha256": "6ca6075379bcc49f12f09440173bee1ca5c2a0d37c9a8f05033759be743ec8b9",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "revision/tests/ArticlePaimonBufferProbe.java",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/tests/ArticlePaimonBufferProbe.java",
+      "source_sha256": "f3d4f5c0df159d64dbec645f4581193cc18eeeb6c54d388fef4785e7bcbf85d9",
+      "public_sha256": "f3d4f5c0df159d64dbec645f4581193cc18eeeb6c54d388fef4785e7bcbf85d9",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/runs/schema/schema-full-reconciliation.txt",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/runs/schema/schema-full-reconciliation.txt",
+      "source_sha256": "cf77bb526283890cb5b101bd4813ed4897ae424f587c5ad421562b7f471199cd",
+      "public_sha256": "cf77bb526283890cb5b101bd4813ed4897ae424f587c5ad421562b7f471199cd",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/runs/schema/process-result.json",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/runs/schema/process-result.json",
+      "source_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "public_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/runs/schema/buffer-observations.txt",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/runs/schema/buffer-observations.txt",
+      "source_sha256": "d1a79dcf3c55fff2b60b011e2a56068e89cec8ade7a1919358555e8cd74f9de5",
+      "public_sha256": "92412dd90a34a1868e79b900d125a751f277319da4df50db1cf3fb01d1a111ab",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "revision/runs/buffer-normal-final/buffer-normal-durable-reconciliation.txt",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/runs/buffer-normal-final/buffer-normal-durable-reconciliation.txt",
+      "source_sha256": "ec8258302ae2575343ca7781f44cbdc70660563ef5285afcd47b7cc873706a7a",
+      "public_sha256": "ec8258302ae2575343ca7781f44cbdc70660563ef5285afcd47b7cc873706a7a",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/runs/buffer-normal-final/buffer-normal-full-reconciliation.txt",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/runs/buffer-normal-final/buffer-normal-full-reconciliation.txt",
+      "source_sha256": "ec8258302ae2575343ca7781f44cbdc70660563ef5285afcd47b7cc873706a7a",
+      "public_sha256": "ec8258302ae2575343ca7781f44cbdc70660563ef5285afcd47b7cc873706a7a",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/runs/buffer-normal-final/process-result.json",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/runs/buffer-normal-final/process-result.json",
+      "source_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "public_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/runs/buffer-normal-final/buffer-observations.txt",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/runs/buffer-normal-final/buffer-observations.txt",
+      "source_sha256": "0a29f5f62fcce87451f4a526a80f413b21f43541265429eca0cc51969d36f619",
+      "public_sha256": "e409893acadd185a6c93fca63f44ce549cbddd4ccdde8691b3fe529f563dfe88",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "revision/runs/buffer-failure-final/buffer-failure-durable-reconciliation.txt",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/runs/buffer-failure-final/buffer-failure-durable-reconciliation.txt",
+      "source_sha256": "ec8258302ae2575343ca7781f44cbdc70660563ef5285afcd47b7cc873706a7a",
+      "public_sha256": "ec8258302ae2575343ca7781f44cbdc70660563ef5285afcd47b7cc873706a7a",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/runs/buffer-failure-final/buffer-failure-full-reconciliation.txt",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/runs/buffer-failure-final/buffer-failure-full-reconciliation.txt",
+      "source_sha256": "ec8258302ae2575343ca7781f44cbdc70660563ef5285afcd47b7cc873706a7a",
+      "public_sha256": "ec8258302ae2575343ca7781f44cbdc70660563ef5285afcd47b7cc873706a7a",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/runs/buffer-failure-final/process-result.json",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/runs/buffer-failure-final/process-result.json",
+      "source_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "public_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "revision/runs/buffer-failure-final/buffer-observations.txt",
+      "source_file": "flink-cdc-series-revision-evidence-20261018/runs/buffer-failure-final/buffer-observations.txt",
+      "source_sha256": "944cadce8cf8524ce5ce9265ce040f2e02d0f88009881c225a746dcba4c06228",
+      "public_sha256": "99d29b93d5ccca907ddf3ca7a51b78f9d003b3c91f68973f5e02410128ba364a",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    }
+  ]
+}

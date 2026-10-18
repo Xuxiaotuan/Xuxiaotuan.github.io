@@ -1,0 +1,410 @@
+[
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.ArticleSourceRecoveryITCase",
+      "time": "22.776",
+      "tests": "2",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "binlogTaskFailureReplaysUncheckpointedTransactionAndRollsBackSinkState",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.ArticleSourceRecoveryITCase",
+        "time": "16.916",
+        "status": "passed"
+      },
+      {
+        "name": "checkpointDuringUnfinishedSnapshotThenTaskFailureRereadsRange",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.ArticleSourceRecoveryITCase",
+        "time": "4.08",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "2c299c37173e1e45950fe300221f90d0cffde145adef0bc394a791734e246b19"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.assigners.ArticleSourceProtocolTest",
+      "time": "0.563",
+      "tests": "5",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "parallelHandoffRequiresCheckpointTakenAfterAllReports",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.ArticleSourceProtocolTest",
+        "time": "0.484",
+        "status": "passed"
+      },
+      {
+        "name": "singleReaderSkipsHandoffCheckpointGate",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.ArticleSourceProtocolTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "returnedSnapshotSplitInvalidatesItsOldFinishedReport",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.ArticleSourceProtocolTest",
+        "time": "0.018",
+        "status": "passed"
+      },
+      {
+        "name": "serializedBoundaryCheckpointRearmsFinishOnNextCheckpoint",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.ArticleSourceProtocolTest",
+        "time": "0.01",
+        "status": "passed"
+      },
+      {
+        "name": "runtimeTrackerReturnsOnlyAssignmentsNotCoveredByRestoredCheckpoint",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.ArticleSourceProtocolTest",
+        "time": "0.022",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "01615f2c25eff9a20f65ad717eed6035d98f9e4d93f17c9bcacc3a13df280e5f"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+      "time": "0.314",
+      "tests": "18",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testNoReleaseWithoutMetaAssembledAck",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.063",
+        "status": "passed"
+      },
+      {
+        "name": "testEnumeratorSerializerWritesV6OnlyWhenReleaseEnabled",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.123",
+        "status": "passed"
+      },
+      {
+        "name": "testFailFastWhenNewlyAddedEnabledOnReleasedRestore",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.005",
+        "status": "passed"
+      },
+      {
+        "name": "testStaleBinlogMetaRequestAfterLightRestoreIsIgnored",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.033",
+        "status": "passed"
+      },
+      {
+        "name": "testReleasedStateSerializedThenRestoredWithOptionOffFailsFast",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.009",
+        "status": "passed"
+      },
+      {
+        "name": "testNoReleaseWhenReleaseMetadataDisabled",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.003",
+        "status": "passed"
+      },
+      {
+        "name": "testStaleBinlogMetaRequestAfterReleaseIsIgnored",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.006",
+        "status": "passed"
+      },
+      {
+        "name": "testNoReleaseBeforeCheckpointComplete",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.005",
+        "status": "passed"
+      },
+      {
+        "name": "testStaleAssembledEventFromOldGenerationDoesNotRelease",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.017",
+        "status": "passed"
+      },
+      {
+        "name": "testEmptyAddBackFromBinlogReaderInvalidatesStaleAssembledEvent",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.013",
+        "status": "passed"
+      },
+      {
+        "name": "testFailFastWhenBothOptionsEnabled",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.002",
+        "status": "passed"
+      },
+      {
+        "name": "testStaleBinlogSplitAssignedEventDoesNotCorruptHolder",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "testFailFastWhenReleaseDisabledOnReleasedRestore",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "testRestoreFromReleasedLightState",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.002",
+        "status": "passed"
+      },
+      {
+        "name": "testReleaseAfterMetaAssembledAndCheckpointComplete",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.002",
+        "status": "passed"
+      },
+      {
+        "name": "testInlineSplitStillReleasesAfterAddBackBumpedGeneration",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.005",
+        "status": "passed"
+      },
+      {
+        "name": "testAddBackResetsScheduledReleaseAndKeepsMetadata",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.002",
+        "status": "passed"
+      },
+      {
+        "name": "testReleasedFlagNotInferredWhenSnapshotSplitsRemain",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotMetadataReleaseTest",
+        "time": "0.001",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "83ac4b57ea7aff5daf1abc654b2aaa30f774162d239c72fcd8dc6d9419ed57ba"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+      "time": "0.491",
+      "tests": "24",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testRepeatedSerializationCache(PendingSplitsState)[1]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.02",
+        "status": "passed"
+      },
+      {
+        "name": "testRepeatedSerializationCache(PendingSplitsState)[2]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.008",
+        "status": "passed"
+      },
+      {
+        "name": "testRepeatedSerializationCache(PendingSplitsState)[3]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "testRepeatedSerializationCache(PendingSplitsState)[4]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "testRepeatedSerializationCache(PendingSplitsState)[5]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0",
+        "status": "passed"
+      },
+      {
+        "name": "testReleaseDisabledSerializerRoundTripsHybridStateAtV5",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.01",
+        "status": "passed"
+      },
+      {
+        "name": "testSerializeAndDeserializeReleasedHybridState",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "testOutputIsFinallyCleared(PendingSplitsState)[1]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.019",
+        "status": "passed"
+      },
+      {
+        "name": "testOutputIsFinallyCleared(PendingSplitsState)[2]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.005",
+        "status": "passed"
+      },
+      {
+        "name": "testOutputIsFinallyCleared(PendingSplitsState)[3]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "testOutputIsFinallyCleared(PendingSplitsState)[4]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.006",
+        "status": "passed"
+      },
+      {
+        "name": "testOutputIsFinallyCleared(PendingSplitsState)[5]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testsSerializeAndDeserialize(PendingSplitsState)[1]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.015",
+        "status": "passed"
+      },
+      {
+        "name": "testsSerializeAndDeserialize(PendingSplitsState)[2]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.01",
+        "status": "passed"
+      },
+      {
+        "name": "testsSerializeAndDeserialize(PendingSplitsState)[3]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.006",
+        "status": "passed"
+      },
+      {
+        "name": "testsSerializeAndDeserialize(PendingSplitsState)[4]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.012",
+        "status": "passed"
+      },
+      {
+        "name": "testsSerializeAndDeserialize(PendingSplitsState)[5]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testTableSchemasAfterSerializeAndDeserialize(PendingSplitsState)[1]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.011",
+        "status": "passed"
+      },
+      {
+        "name": "testTableSchemasAfterSerializeAndDeserialize(PendingSplitsState)[2]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.012",
+        "status": "passed"
+      },
+      {
+        "name": "testTableSchemasAfterSerializeAndDeserialize(PendingSplitsState)[3]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.005",
+        "status": "passed"
+      },
+      {
+        "name": "testTableSchemasAfterSerializeAndDeserialize(PendingSplitsState)[4]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.006",
+        "status": "passed"
+      },
+      {
+        "name": "testTableSchemasAfterSerializeAndDeserialize(PendingSplitsState)[5]",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testReleaseDisabledJobKeepsWritingV5Format",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.03",
+        "status": "passed"
+      },
+      {
+        "name": "testDeserializeV5SnapshotStateDefaultsReleasedFlagToFalse",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.assigners.state.PendingSplitsStateSerializerTest",
+        "time": "0.015",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "a972d185e42cc36dd4cd634112c62311fe3c86dabdfb3b409a878be17cd34210"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.reader.ArticleReaderAckTest",
+      "time": "4.372",
+      "tests": "1",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "lostAckKeepsFinishedSplitInCheckpointAndRestoreReportsWithoutRescanning",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.reader.ArticleReaderAckTest",
+        "time": "4.249",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "90aa0b2336c22652f03bfe1e0df436e054116953a7327ce26cd0deac628d4b67"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.split.MySqlSplitSerializerTest",
+      "time": "1.894",
+      "tests": "3",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testRepeatedSerializationCache",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.split.MySqlSplitSerializerTest",
+        "time": "0.277",
+        "status": "passed"
+      },
+      {
+        "name": "testSnapshotSplit",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.split.MySqlSplitSerializerTest",
+        "time": "0.035",
+        "status": "passed"
+      },
+      {
+        "name": "testBinlogSplit",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.split.MySqlSplitSerializerTest",
+        "time": "1.531",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "e2fa866ceff169afd60143f8f7082723f033a7099e266741811ddfc66dc45890"
+  }
+]

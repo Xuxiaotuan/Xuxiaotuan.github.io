@@ -1,0 +1,66 @@
+[
+  {
+    "name": "org.apache.flink.cdc.composer.flink.FlinkSchemaCoordinatorRecoveryITCase",
+    "tests": "2",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "13.33"
+  },
+  {
+    "name": "org.apache.flink.cdc.connectors.mysql.source.ArticleDdlOnlyCheckpointITCase",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "13.041"
+  },
+  {
+    "name": "org.apache.flink.cdc.connectors.mysql.source.ArticleSchemaRecoveryITCase",
+    "tests": "4",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "43.978"
+  },
+  {
+    "name": "org.apache.flink.cdc.connectors.mysql.source.parser.ArticleDdlParserTest",
+    "tests": "4",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.359"
+  },
+  {
+    "name": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaDerivatorTest",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.419"
+  },
+  {
+    "name": "org.apache.flink.cdc.runtime.operators.schema.common.SchemaManagerTest",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.047"
+  },
+  {
+    "name": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaCoordinatorTest",
+    "tests": "4",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.065"
+  },
+  {
+    "name": "org.apache.flink.cdc.runtime.operators.schema.regular.SchemaEvolveTest",
+    "tests": "9",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "101.138"
+  }
+]

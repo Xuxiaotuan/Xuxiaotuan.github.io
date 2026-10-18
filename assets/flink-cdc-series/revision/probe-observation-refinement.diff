@@ -1,0 +1,68 @@
+--- first-successful-probe
++++ physical-schema-event-probe
+@@ -5,6 +5,7 @@
+ import org.apache.flink.api.connector.sink2.WriterInitContext;
+ import org.apache.flink.cdc.common.event.AddColumnEvent;
+ import org.apache.flink.cdc.common.event.DataChangeEvent;
++import org.apache.flink.cdc.common.event.CreateTableEvent;
+ import org.apache.flink.cdc.common.event.Event;
+ import org.apache.flink.cdc.common.event.SchemaChangeEvent;
+ import org.apache.flink.cdc.common.event.SchemaChangeEventType;
+@@ -113,12 +114,13 @@
+     static void runBuffered(int port, String mode) throws Exception {
+         initialize(mode, port, false);
+         long baseline = snapshotId();
++        List<Long> baselineCompleted = new ArrayList<>(COMPLETED);
+         sql("UPDATE cdc_article5.items SET amount=13 WHERE id=103");
+         sql("INSERT INTO cdc_article5.items VALUES (202,22)");
+         sql("DELETE FROM cdc_article5.items WHERE id=102");
+         await(() -> WRITER_EVENTS.contains("delete:102"), "old-layout writes reached real writer");
+         BufferState before = inspect(currentWriter);
+-        assertThat(before.count).isGreaterThan(0);
++        assertThat(before.count).isEqualTo(4);
+         assertThat(before.columns).containsExactly("id", "amount");
+         assertThat(snapshotId()).isEqualTo(baseline);
+         assertThat(rows()).containsEntry(103, "103,10").doesNotContainKey(202).containsKey(102);
+@@ -129,6 +131,7 @@
+         assertThat(DDL_APPLIED.await(60, TimeUnit.SECONDS)).isTrue();
+         assertThat(columns()).containsExactly("id", "flag", "amount");
+         assertThat(snapshotId()).isEqualTo(baseline);
++        assertThat(COMPLETED).containsExactlyElementsOf(baselineCompleted);
+         BufferState during = inspect(currentWriter);
+         assertThat(during.count).isEqualTo(before.count);
+         assertThat(during.columns).containsExactly("id", "amount");
+@@ -138,6 +141,7 @@
+         DDL_RELEASE.countDown();
+         await(() -> WRITER_EVENTS.contains("data:101:20")
+                 && (!failAfterDdl || attempt >= 1), "post-DDL data reached real writer");
++        assertThat(WRITER_EVENTS).contains("schema:buffer4-to-0");
+         checkpoint();
+         assertThat(DDL_CALLS.get()).isEqualTo(failAfterDdl ? 2 : 1);
+         assertThat(rows()).containsEntry(103, "103,null,13")
+@@ -247,10 +251,23 @@
+         @Override public void write(Event event, Context context) throws IOException {
+             Event inner = event instanceof BucketWrapperChangeEvent
+                     ? ((BucketWrapperChangeEvent) event).getInnerEvent() : event;
+-            boolean flag = isFlag(inner);
+-            if (flag) note("WRITER_BEFORE_SCHEMA " + inspect(this));
++            boolean schema = inner instanceof SchemaChangeEvent;
++            boolean flag = inner instanceof CreateTableEvent
++                    && ((CreateTableEvent) inner).getSchema().getColumn("flag").isPresent();
++            BufferState beforeSchema = schema ? inspect(this) : null;
++            if (schema) note("WRITER_BEFORE_SCHEMA event=" + inner + " " + beforeSchema);
+             super.write(event, context);
+-            if (flag) { note("WRITER_AFTER_SCHEMA " + inspect(this)); WRITER_EVENTS.add("schema:flag"); }
++            if (schema) {
++                BufferState afterSchema = inspect(this);
++                note("WRITER_AFTER_SCHEMA event=" + inner.getClass().getSimpleName() + " " + afterSchema);
++                if (flag) {
++                    WRITER_EVENTS.add("schema:flag");
++                    if (beforeSchema.count == 4) {
++                        assertThat(afterSchema.count).isZero();
++                        WRITER_EVENTS.add("schema:buffer4-to-0");
++                    }
++                }
++            }
+             if (inner instanceof DataChangeEvent) {
+                 DataChangeEvent d = (DataChangeEvent) inner;
+                 String key = d.after() == null ? "delete:" + d.before().getInt(0)

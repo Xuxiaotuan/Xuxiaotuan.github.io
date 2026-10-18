@@ -1,0 +1,23 @@
+[
+  {
+    "name": "org.apache.flink.cdc.connectors.paimon.sink.PaimonMetadataApplierTest",
+    "tests": "28",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterHelperTest",
+    "tests": "14",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriterTest",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  }
+]

@@ -1,0 +1,46 @@
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+binlog.000003	4	Format_desc	8675309	127	Server ver: 8.4.11, Binlog ver: 4
+binlog.000003	127	Previous_gtids	8675309	198	f6080c8c-cab4-11f1-b086-8f12aa20a0c3:1-5
+binlog.000003	198	Gtid	8675309	275	SET @@SESSION.GTID_NEXT= 'f6080c8c-cab4-11f1-b086-8f12aa20a0c3:6'
+binlog.000003	275	Query	8675309	410	CREATE DATABASE article_probe /* xid=12 */
+binlog.000003	410	Gtid	8675309	489	SET @@SESSION.GTID_NEXT= 'f6080c8c-cab4-11f1-b086-8f12aa20a0c3:7'
+binlog.000003	489	Query	8675309	694	CREATE TABLE article_probe.orders (id INT PRIMARY KEY, amount INT NOT NULL, revision INT NOT NULL) ENGINE=InnoDB /* xid=14 */
+binlog.000003	694	Gtid	8675309	773	SET @@SESSION.GTID_NEXT= 'f6080c8c-cab4-11f1-b086-8f12aa20a0c3:8'
+binlog.000003	773	Query	8675309	844	BEGIN
+binlog.000003	844	Table_map	8675309	907	table_id: 85 (article_probe.orders)
+binlog.000003	907	Write_rows	8675309	955	table_id: 85 flags: STMT_END_F
+binlog.000003	955	Xid	8675309	986	COMMIT /* xid=16 */
+binlog.000003	986	Gtid	8675309	1065	SET @@SESSION.GTID_NEXT= 'f6080c8c-cab4-11f1-b086-8f12aa20a0c3:9'
+binlog.000003	1065	Query	8675309	1145	BEGIN
+binlog.000003	1145	Table_map	8675309	1208	table_id: 85 (article_probe.orders)
+binlog.000003	1208	Update_rows	8675309	1270	table_id: 85 flags: STMT_END_F
+binlog.000003	1270	Xid	8675309	1301	COMMIT /* xid=24 */
+binlog.000003	1301	Gtid	8675309	1380	SET @@SESSION.GTID_NEXT= 'f6080c8c-cab4-11f1-b086-8f12aa20a0c3:10'
+binlog.000003	1380	Query	8675309	1460	BEGIN
+binlog.000003	1460	Table_map	8675309	1523	table_id: 85 (article_probe.orders)
+binlog.000003	1523	Update_rows	8675309	1585	table_id: 85 flags: STMT_END_F
+binlog.000003	1585	Xid	8675309	1616	COMMIT /* xid=38 */
+binlog.000003	1616	Gtid	8675309	1695	SET @@SESSION.GTID_NEXT= 'f6080c8c-cab4-11f1-b086-8f12aa20a0c3:11'
+binlog.000003	1695	Query	8675309	1881	CREATE TABLE article_probe.sink_model (id INT PRIMARY KEY, amount INT NOT NULL) ENGINE=InnoDB /* xid=50 */
+binlog.000003	1881	Gtid	8675309	1960	SET @@SESSION.GTID_NEXT= 'f6080c8c-cab4-11f1-b086-8f12aa20a0c3:12'
+binlog.000003	1960	Query	8675309	2169	CREATE TABLE article_probe.delivery_audit (seq INT AUTO_INCREMENT PRIMARY KEY, row_id INT, amount INT) ENGINE=InnoDB /* xid=52 */
+binlog.000003	2169	Gtid	8675309	2248	SET @@SESSION.GTID_NEXT= 'f6080c8c-cab4-11f1-b086-8f12aa20a0c3:13'
+binlog.000003	2248	Query	8675309	2319	BEGIN
+binlog.000003	2319	Table_map	8675309	2385	table_id: 87 (article_probe.sink_model)
+binlog.000003	2385	Write_rows	8675309	2429	table_id: 87 flags: STMT_END_F
+binlog.000003	2429	Xid	8675309	2460	COMMIT /* xid=54 */
+binlog.000003	2460	Gtid	8675309	2539	SET @@SESSION.GTID_NEXT= 'f6080c8c-cab4-11f1-b086-8f12aa20a0c3:14'
+binlog.000003	2539	Query	8675309	2857	CREATE DEFINER=`root`@`localhost` TRIGGER article_probe.audit_delivery AFTER UPDATE ON article_probe.sink_model FOR EACH ROW INSERT INTO article_probe.delivery_audit(row_id,amount) VALUES (NEW.id,NEW.amount) /* xid=56 */
+binlog.000003	2857	Gtid	8675309	2936	SET @@SESSION.GTID_NEXT= 'f6080c8c-cab4-11f1-b086-8f12aa20a0c3:15'
+binlog.000003	2936	Query	8675309	3016	BEGIN
+binlog.000003	3016	Table_map	8675309	3082	table_id: 88 (article_probe.sink_model)
+binlog.000003	3082	Table_map	8675309	3153	table_id: 89 (article_probe.delivery_audit)
+binlog.000003	3153	Update_rows	8675309	3207	table_id: 88
+binlog.000003	3207	Write_rows	8675309	3255	table_id: 89 flags: STMT_END_F
+binlog.000003	3255	Xid	8675309	3286	COMMIT /* xid=58 */
+binlog.000003	3286	Gtid	8675309	3365	SET @@SESSION.GTID_NEXT= 'f6080c8c-cab4-11f1-b086-8f12aa20a0c3:16'
+binlog.000003	3365	Query	8675309	3458	BEGIN
+binlog.000003	3458	Table_map	8675309	3524	table_id: 88 (article_probe.sink_model)
+binlog.000003	3524	Table_map	8675309	3595	table_id: 89 (article_probe.delivery_audit)
+binlog.000003	3595	Write_rows	8675309	3643	table_id: 89 flags: STMT_END_F
+binlog.000003	3643	Xid	8675309	3674	COMMIT /* xid=61 */

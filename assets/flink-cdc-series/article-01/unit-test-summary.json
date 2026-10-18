@@ -1,0 +1,26 @@
+[
+  {
+    "name": "org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffsetTest",
+    "tests": "7",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "time": "0.194"
+  },
+  {
+    "name": "org.apache.flink.cdc.connectors.mysql.source.utils.ArticleSnapshotMergeTest",
+    "tests": "2",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "time": "1.399"
+  },
+  {
+    "name": "org.apache.flink.cdc.connectors.mysql.source.reader.MySqlRecordEmitterTest",
+    "tests": "9",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "time": "5.549"
+  }
+]

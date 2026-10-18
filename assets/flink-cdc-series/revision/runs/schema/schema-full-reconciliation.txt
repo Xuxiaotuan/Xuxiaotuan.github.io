@@ -1,0 +1,6 @@
+columns=[id, note, flag, amount]
+source={101=[101, blue, yes, 30], 103=[103, null, null, 10], 104=[104, null, null, 10], 105=[105, null, null, 10], 106=[106, null, null, 10], 107=[107, null, null, 10], 108=[108, null, null, 10], 109=[109, null, null, 10], 110=[110, null, null, 10], 201=[201, green, ok, 40]}
+target={101=[101, blue, yes, 30], 103=[103, null, null, 10], 104=[104, null, null, 10], 105=[105, null, null, 10], 106=[106, null, null, 10], 107=[107, null, null, 10], 108=[108, null, null, 10], 109=[109, null, null, 10], 110=[110, null, null, 10], 201=[201, green, ok, 40]}
+visibleRows=10
+uniqueKeys=10
+FULL_FIELD_RECONCILIATION=PASS

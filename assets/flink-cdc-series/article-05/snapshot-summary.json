@@ -1,0 +1,101 @@
+[
+  {
+    "warehouse": "warehouse-schema",
+    "id": 1,
+    "schemaId": 0,
+    "commitIdentifier": 1,
+    "commitUser": "article5b414676d-c9a2-44c4-96ed-ca13c1ffc832",
+    "commitKind": "APPEND",
+    "totalRecordCount": 10,
+    "deltaRecordCount": 10,
+    "changelogRecordCount": 10
+  },
+  {
+    "warehouse": "warehouse-schema",
+    "id": 2,
+    "schemaId": 0,
+    "commitIdentifier": 2,
+    "commitUser": "article5b414676d-c9a2-44c4-96ed-ca13c1ffc832",
+    "commitKind": "APPEND",
+    "totalRecordCount": 11,
+    "deltaRecordCount": 1,
+    "changelogRecordCount": 2
+  },
+  {
+    "warehouse": "warehouse-schema",
+    "id": 3,
+    "schemaId": 1,
+    "commitIdentifier": 3,
+    "commitUser": "article5b414676d-c9a2-44c4-96ed-ca13c1ffc832",
+    "commitKind": "APPEND",
+    "totalRecordCount": 12,
+    "deltaRecordCount": 1,
+    "changelogRecordCount": 2
+  },
+  {
+    "warehouse": "warehouse-schema",
+    "id": 4,
+    "schemaId": 2,
+    "commitIdentifier": 4,
+    "commitUser": "article5b414676d-c9a2-44c4-96ed-ca13c1ffc832",
+    "commitKind": "APPEND",
+    "totalRecordCount": 13,
+    "deltaRecordCount": 1,
+    "changelogRecordCount": 2
+  },
+  {
+    "warehouse": "warehouse-schema",
+    "id": 5,
+    "schemaId": 2,
+    "commitIdentifier": 5,
+    "commitUser": "article5b414676d-c9a2-44c4-96ed-ca13c1ffc832",
+    "commitKind": "APPEND",
+    "totalRecordCount": 15,
+    "deltaRecordCount": 2,
+    "changelogRecordCount": 2
+  },
+  {
+    "warehouse": "warehouse-checkpoint",
+    "id": 1,
+    "schemaId": 0,
+    "commitIdentifier": 1,
+    "commitUser": "article5b4bfdfff-a979-4d63-94af-d86c14f12269",
+    "commitKind": "APPEND",
+    "totalRecordCount": 10,
+    "deltaRecordCount": 10,
+    "changelogRecordCount": 10
+  },
+  {
+    "warehouse": "warehouse-checkpoint",
+    "id": 2,
+    "schemaId": 0,
+    "commitIdentifier": 2,
+    "commitUser": "article5b4bfdfff-a979-4d63-94af-d86c14f12269",
+    "commitKind": "APPEND",
+    "totalRecordCount": 11,
+    "deltaRecordCount": 1,
+    "changelogRecordCount": 2
+  },
+  {
+    "warehouse": "warehouse-checkpoint",
+    "id": 3,
+    "schemaId": 0,
+    "commitIdentifier": 3,
+    "commitUser": "article5b4bfdfff-a979-4d63-94af-d86c14f12269",
+    "commitKind": "APPEND",
+    "totalRecordCount": 14,
+    "deltaRecordCount": 3,
+    "changelogRecordCount": 4
+  },
+  {
+    "warehouse": "warehouse-checkpoint",
+    "id": 4,
+    "schemaId": 0,
+    "commitIdentifier": 4,
+    "commitUser": "article5b4bfdfff-a979-4d63-94af-d86c14f12269",
+    "commitKind": "APPEND",
+    "totalRecordCount": 17,
+    "deltaRecordCount": 3,
+    "changelogRecordCount": 4
+  }
+]

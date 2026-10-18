@@ -1,0 +1,47 @@
+environment=8.4.11,ROW,FULL,ON
+loaded=org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriter from=file:/work/source/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/target/classes/
+loaded=org.apache.flink.cdc.connectors.paimon.sink.v2.PreCommitOperator from=file:/work/source/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/target/classes/
+loaded=io.debezium.connector.mysql.MySqlStreamingChangeEventSource from=file:/work/source/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+loaded=org.apache.paimon.operation.FileStoreCommitImpl from=file:/home/author/.m2/repository/org/apache/paimon/paimon-flink-1.20/2.0.0/paimon-flink-1.20-2.0.0.jar
+FLUSH_RETURN endOfInput=false before=bufferRecords=0 writerColumns=[] buffers=[] after=bufferRecords=0 writerColumns=[] buffers=[]
+WRITER_BEFORE_SCHEMA event=CreateTableEvent{tableId=cdc_article5.items, schema=columns={`id` INT NOT NULL,`amount` INT NOT NULL}, primaryKeys=id, options=()} bufferRecords=0 writerColumns=[] buffers=[]
+WRITER_AFTER_SCHEMA event=CreateTableEvent bufferRecords=0 writerColumns=[] buffers=[]
+WRITER_BEFORE_SCHEMA event=CreateTableEvent{tableId=cdc_article5.items, schema=columns={`id` INT NOT NULL,`amount` INT NOT NULL}, primaryKeys=id, options=({bucket=1, path=/work/evidence/flink-cdc-series-revision-evidence-20261018/runs/buffer-failure-final/warehouse-buffer-failure/cdc_article5.db/items, changelog-producer=input, write-buffer-size=8mb})} bufferRecords=0 writerColumns=[] buffers=[]
+WRITER_AFTER_SCHEMA event=CreateTableEvent bufferRecords=0 writerColumns=[] buffers=[]
+WRITER_AFTER data:101:10 attempt=0 bufferRecords=1 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:1]
+WRITER_AFTER data:102:10 attempt=0 bufferRecords=2 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:2]
+WRITER_AFTER data:103:10 attempt=0 bufferRecords=3 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:3]
+WRITER_AFTER data:104:10 attempt=0 bufferRecords=4 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:4]
+WRITER_AFTER data:105:10 attempt=0 bufferRecords=5 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:5]
+WRITER_AFTER data:106:10 attempt=0 bufferRecords=6 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:6]
+WRITER_AFTER data:107:10 attempt=0 bufferRecords=7 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:7]
+WRITER_AFTER data:108:10 attempt=0 bufferRecords=8 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:8]
+WRITER_AFTER data:109:10 attempt=0 bufferRecords=9 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:9]
+WRITER_AFTER data:110:10 attempt=0 bufferRecords=10 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:10]
+FLUSH_RETURN endOfInput=false before=bufferRecords=10 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:10] after=bufferRecords=10 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:10]
+WRITER_AFTER data:101:11 attempt=0 bufferRecords=2 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:2]
+FLUSH_RETURN endOfInput=false before=bufferRecords=2 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:2] after=bufferRecords=2 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:2]
+WRITER_AFTER data:103:13 attempt=0 bufferRecords=2 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:2]
+WRITER_AFTER data:202:22 attempt=0 bufferRecords=3 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:3]
+WRITER_AFTER delete:102 attempt=0 bufferRecords=4 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:4]
+BEFORE_DDL bufferRecords=4 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:4] visibleSnapshot=2 completed=[1, 2]
+FLUSH_RETURN endOfInput=false before=bufferRecords=4 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:4] after=bufferRecords=4 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:4]
+REAL_DDL_RETURN call=1 bufferRecords=4 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:4]
+DDL_SUCCEEDED_WRITER_NOT_SWITCHED bufferRecords=4 writerColumns=[id, amount] buffers=[SortBufferWriteBuffer:4] targetColumns=[id, flag, amount]
+FLUSH_RETURN endOfInput=false before=bufferRecords=0 writerColumns=[] buffers=[] after=bufferRecords=0 writerColumns=[] buffers=[]
+WRITER_BEFORE_SCHEMA event=CreateTableEvent{tableId=cdc_article5.items, schema=columns={`id` INT NOT NULL,`amount` INT NOT NULL}, primaryKeys=id, options=()} bufferRecords=0 writerColumns=[] buffers=[]
+WRITER_AFTER_SCHEMA event=CreateTableEvent bufferRecords=0 writerColumns=[] buffers=[]
+WRITER_BEFORE_SCHEMA event=CreateTableEvent{tableId=cdc_article5.items, schema=columns={`id` INT NOT NULL,`flag` VARCHAR(20),`amount` INT NOT NULL}, primaryKeys=id, options=({bucket=1, path=/work/evidence/flink-cdc-series-revision-evidence-20261018/runs/buffer-failure-final/warehouse-buffer-failure/cdc_article5.db/items, changelog-producer=input, write-buffer-size=8mb})} bufferRecords=0 writerColumns=[] buffers=[]
+WRITER_AFTER_SCHEMA event=CreateTableEvent bufferRecords=0 writerColumns=[] buffers=[]
+WRITER_AFTER data:103:13 attempt=1 bufferRecords=2 writerColumns=[id, flag, amount] buffers=[SortBufferWriteBuffer:2]
+WRITER_AFTER data:202:22 attempt=1 bufferRecords=3 writerColumns=[id, flag, amount] buffers=[SortBufferWriteBuffer:3]
+WRITER_AFTER delete:102 attempt=1 bufferRecords=4 writerColumns=[id, flag, amount] buffers=[SortBufferWriteBuffer:4]
+FLUSH_RETURN endOfInput=false before=bufferRecords=4 writerColumns=[id, flag, amount] buffers=[SortBufferWriteBuffer:4] after=bufferRecords=4 writerColumns=[id, flag, amount] buffers=[SortBufferWriteBuffer:4]
+REAL_DDL_RETURN call=2 bufferRecords=4 writerColumns=[id, flag, amount] buffers=[SortBufferWriteBuffer:4]
+WRITER_BEFORE_SCHEMA event=CreateTableEvent{tableId=cdc_article5.items, schema=columns={`id` INT NOT NULL,`flag` VARCHAR(20),`amount` INT NOT NULL}, primaryKeys=id, options=({bucket=1, path=/work/evidence/flink-cdc-series-revision-evidence-20261018/runs/buffer-failure-final/warehouse-buffer-failure/cdc_article5.db/items, changelog-producer=input, write-buffer-size=8mb})} bufferRecords=4 writerColumns=[id, flag, amount] buffers=[SortBufferWriteBuffer:4]
+WRITER_AFTER_SCHEMA event=CreateTableEvent bufferRecords=0 writerColumns=[id, flag, amount] buffers=[SortBufferWriteBuffer:0]
+WRITER_AFTER data:101:20 attempt=1 bufferRecords=2 writerColumns=[id, flag, amount] buffers=[SortBufferWriteBuffer:2]
+FLUSH_RETURN endOfInput=false before=bufferRecords=2 writerColumns=[id, flag, amount] buffers=[SortBufferWriteBuffer:2] after=bufferRecords=2 writerColumns=[id, flag, amount] buffers=[SortBufferWriteBuffer:2]
+buffer-failure-full-reconciliation columns=[id, flag, amount] source={101=[101, blue, 20], 103=[103, null, 13], 104=[104, null, 10], 105=[105, null, 10], 106=[106, null, 10], 107=[107, null, 10], 108=[108, null, 10], 109=[109, null, 10], 110=[110, null, 10], 202=[202, null, 22]} target={101=[101, blue, 20], 103=[103, null, 13], 104=[104, null, 10], 105=[105, null, 10], 106=[106, null, 10], 107=[107, null, 10], 108=[108, null, 10], 109=[109, null, 10], 110=[110, null, 10], 202=[202, null, 22]} visibleRows=10 uniqueKeys=10 FULL_FIELD_RECONCILIATION=PASS
+buffer-failure-durable-reconciliation columns=[id, flag, amount] source={101=[101, blue, 20], 103=[103, null, 13], 104=[104, null, 10], 105=[105, null, 10], 106=[106, null, 10], 107=[107, null, 10], 108=[108, null, 10], 109=[109, null, 10], 110=[110, null, 10], 202=[202, null, 22]} target={101=[101, blue, 20], 103=[103, null, 13], 104=[104, null, 10], 105=[105, null, 10], 106=[106, null, 10], 107=[107, null, 10], 108=[108, null, 10], 109=[109, null, 10], 110=[110, null, 10], 202=[202, null, 22]} visibleRows=10 uniqueKeys=10 FULL_FIELD_RECONCILIATION=PASS
+SCENARIO_PASSED=buffer-failure

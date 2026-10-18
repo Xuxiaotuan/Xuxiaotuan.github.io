@@ -1,0 +1,24 @@
+ARTICLE connection autocommit=true isolation=4
+ARTICLE SNAPSHOT cdc_article2.items:0 values=[r:104=10, r:103=20, r:102=10, r:101=10]
+ARTICLE WATERMARK Struct{split_id=cdc_article2.items:0,watermark_kind=LOW} {ts_sec=0, file=binlog.000003, pos=13722, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-54, row=0, event=0}
+ARTICLE ROW [r:104=10] {transaction_id=null, ts_sec=1792302794, file=, pos=0}
+ARTICLE ROW [r:103=20] {transaction_id=null, ts_sec=1792302794, file=binlog.000003, pos=13801, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-54, row=1, server_id=8675310, event=2}
+ARTICLE ROW [r:102=10] {transaction_id=null, ts_sec=1792302794, file=, pos=0}
+ARTICLE ROW [r:101=10] {transaction_id=null, ts_sec=1792302794, file=, pos=0}
+ARTICLE WATERMARK Struct{split_id=cdc_article2.items:0,watermark_kind=HIGH} {ts_sec=0, file=binlog.000003, pos=14026, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-55, row=0, event=0}
+ARTICLE SNAPSHOT cdc_article2.items:1 values=[r:105=55, r:109=10, r:108=10, r:107=10, r:106=50, r:110=10]
+ARTICLE WATERMARK Struct{split_id=cdc_article2.items:1,watermark_kind=LOW} {ts_sec=0, file=binlog.000003, pos=14634, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-57, row=0, event=0}
+ARTICLE ROW [r:105=55] {transaction_id=null, ts_sec=1792302795, file=binlog.000003, pos=15017, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-58, row=1, server_id=8675310, event=2}
+ARTICLE ROW [r:109=10] {transaction_id=null, ts_sec=1792302795, file=, pos=0}
+ARTICLE ROW [r:108=10] {transaction_id=null, ts_sec=1792302795, file=, pos=0}
+ARTICLE ROW [r:107=10] {transaction_id=null, ts_sec=1792302795, file=, pos=0}
+ARTICLE ROW [r:106=50] {transaction_id=null, ts_sec=1792302795, file=binlog.000003, pos=14713, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-57, row=1, server_id=8675310, event=2}
+ARTICLE ROW [r:110=10] {transaction_id=null, ts_sec=1792302795, file=, pos=0}
+ARTICLE WATERMARK Struct{split_id=cdc_article2.items:1,watermark_kind=HIGH} {ts_sec=0, file=binlog.000003, pos=15242, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-59, row=0, event=0}
+ARTICLE CONTINUOUS start={ts_sec=0, file=binlog.000003, pos=14026, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-55, row=0, event=0} end={ts_sec=0, file=binlog.000003, pos=15242, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-59, row=0, event=0} values=[u:103=30]
+ARTICLE ROW [u:103=30] {transaction_id=null, ts_sec=1792302794, file=binlog.000003, pos=14105, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-55, row=1, server_id=8675310, event=2}
+ARTICLE CONTINUOUS start={ts_sec=0, file=binlog.000003, pos=14026, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-55, row=0, event=0} end={ts_sec=0, file=binlog.000003, pos=16154, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-62, row=0, event=0} values=[u:103=30, u:103=60, u:106=70, u:110=99]
+ARTICLE ROW [u:103=30] {transaction_id=null, ts_sec=1792302794, file=binlog.000003, pos=14105, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-55, row=1, server_id=8675310, event=2}
+ARTICLE ROW [u:103=60] {transaction_id=null, ts_sec=1792302798, file=binlog.000003, pos=15321, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-59, row=1, server_id=8675310, event=2}
+ARTICLE ROW [u:106=70] {transaction_id=null, ts_sec=1792302798, file=binlog.000003, pos=15625, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-60, row=1, server_id=8675310, event=2}
+ARTICLE ROW [u:110=99] {transaction_id=null, ts_sec=1792302798, file=binlog.000003, pos=15929, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-61, row=1, server_id=8675310, event=2}

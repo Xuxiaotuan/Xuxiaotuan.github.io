@@ -1,0 +1,110 @@
+[
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.debezium.reader.ArticleIncrementalSnapshotITCase",
+      "time": "13.245",
+      "tests": "5",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "skippingBackfillReplaysChangeAlreadySeenBySelect",
+        "classname": "org.apache.flink.cdc.connectors.mysql.debezium.reader.ArticleIncrementalSnapshotITCase",
+        "time": "4.681",
+        "status": "passed"
+      },
+      {
+        "name": "multipleChunksUseIndividualHighWatermarks",
+        "classname": "org.apache.flink.cdc.connectors.mysql.debezium.reader.ArticleIncrementalSnapshotITCase",
+        "time": "4.261",
+        "status": "passed"
+      },
+      {
+        "name": "unchangedWindowHasEqualWatermarksAndCompletes",
+        "classname": "org.apache.flink.cdc.connectors.mysql.debezium.reader.ArticleIncrementalSnapshotITCase",
+        "time": "1.074",
+        "status": "passed"
+      },
+      {
+        "name": "windowMergesCommittedChangesButExcludesPostHigh",
+        "classname": "org.apache.flink.cdc.connectors.mysql.debezium.reader.ArticleIncrementalSnapshotITCase",
+        "time": "2.103",
+        "status": "passed"
+      },
+      {
+        "name": "transactionStartedBeforeLowCommitsBeforeHigh",
+        "classname": "org.apache.flink.cdc.connectors.mysql.debezium.reader.ArticleIncrementalSnapshotITCase",
+        "time": "1.071",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "43db75c8c1ed12389956d16f117dcbc00aa06bc4059840e6eb3aaf8ec8b040d6"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.utils.SplitKeyUtilsTest",
+      "time": "0.337",
+      "tests": "8",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testFindSplitByKeyBinaryEdgeCases",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.utils.SplitKeyUtilsTest",
+        "time": "0.199",
+        "status": "passed"
+      },
+      {
+        "name": "testSortFinishedSplitInfos",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.utils.SplitKeyUtilsTest",
+        "time": "0.043",
+        "status": "passed"
+      },
+      {
+        "name": "testFindSplitByKeyBinaryWithOnlyOneSplit",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.utils.SplitKeyUtilsTest",
+        "time": "0.013",
+        "status": "passed"
+      },
+      {
+        "name": "testFindSplitByKeyBinary",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.utils.SplitKeyUtilsTest",
+        "time": "0.002",
+        "status": "passed"
+      },
+      {
+        "name": "testFindSplitByKeyBinaryWithLargeNumberOfSplits",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.utils.SplitKeyUtilsTest",
+        "time": "0.02",
+        "status": "passed"
+      },
+      {
+        "name": "testBinarySearchConsistencyWithLinearSearch",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.utils.SplitKeyUtilsTest",
+        "time": "0.003",
+        "status": "passed"
+      },
+      {
+        "name": "testSortFinishedSplitInfosWithByteArraySplitKey",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.utils.SplitKeyUtilsTest",
+        "time": "0.013",
+        "status": "passed"
+      },
+      {
+        "name": "testFindSplitByKeyBinaryWithByteArraySplitKey",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.utils.SplitKeyUtilsTest",
+        "time": "0.001",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "9bdf16fafd2c2a6ac4b6e4608f91ddc088d4a6ecdfee2614074f83aaa5ea0fb8"
+  }
+]

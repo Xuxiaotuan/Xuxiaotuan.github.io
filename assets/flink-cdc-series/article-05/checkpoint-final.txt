@@ -1,0 +1,11 @@
+name=checkpoint-final
+warehouse=/work/evidence/flink-cdc-article-05-evidence-20261018/warehouse-checkpoint
+columns=[id, amount]
+snapshotId=4
+completed=[1, 2, 4]
+heldCheckpoint=3
+attempt=1
+restoredRecords=11
+flagApplications=0
+rows={101=101,20, 103=103,10, 104=104,10, 105=105,10, 106=106,10, 107=107,10, 108=108,10, 109=109,10, 110=110,10, 201=201,40}
+raw=[CreateTableEvent, data:104:10, data:103:10, data:102:10, data:101:10, data:108:10, data:107:10, data:106:10, data:105:10, data:110:10, data:109:10, data:101:11, data:101:20, data:201:40, delete:102, CreateTableEvent, data:101:20, data:201:40, delete:102]

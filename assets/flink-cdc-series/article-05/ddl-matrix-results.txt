@@ -1,0 +1,6 @@
+duplicate CREATE: returned successfully
+duplicate identical ADD: returned, schema id unchanged
+same-name ADD with incompatible requested BIGINT: returned, existing VARCHAR(20) retained
+ADD list [existing note, missing extra]: returned, extra still absent
+duplicate RENAME note->memo: SchemaEvolveException
+duplicate DROP memo: returned, memo absent

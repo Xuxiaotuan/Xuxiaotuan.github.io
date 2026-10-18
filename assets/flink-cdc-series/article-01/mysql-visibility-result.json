@@ -1,0 +1,178 @@
+{
+  "status": "PASS",
+  "version": [
+    "8.4.11\tREPEATABLE-READ\tON\tROW"
+  ],
+  "scope": "Real MySQL sessions; deliberate replay model; no Flink or CDC pipeline",
+  "checks": {
+    "repeatable_read": true,
+    "commit_visibility_and_binlog": true,
+    "same_final_value_does_not_prove_single_write": true
+  },
+  "trace": [
+    {
+      "session": "A",
+      "sql": "SELECT VERSION(), @@transaction_isolation, @@gtid_mode, @@binlog_format",
+      "result": [
+        "8.4.11\tREPEATABLE-READ\tON\tROW"
+      ]
+    },
+    {
+      "session": "A",
+      "sql": "CREATE DATABASE article_probe",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "CREATE TABLE article_probe.orders (id INT PRIMARY KEY, amount INT NOT NULL, revision INT NOT NULL) ENGINE=InnoDB",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "INSERT INTO article_probe.orders VALUES (42,100,1)",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "START TRANSACTION WITH CONSISTENT SNAPSHOT",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "SELECT amount,revision FROM article_probe.orders WHERE id=42",
+      "result": [
+        "100\t1"
+      ]
+    },
+    {
+      "session": "B",
+      "sql": "UPDATE article_probe.orders SET amount=200, revision=2 WHERE id=42",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "SELECT amount,revision FROM article_probe.orders WHERE id=42",
+      "result": [
+        "100\t1"
+      ]
+    },
+    {
+      "session": "B",
+      "sql": "SELECT amount,revision FROM article_probe.orders WHERE id=42",
+      "result": [
+        "200\t2"
+      ]
+    },
+    {
+      "session": "A",
+      "sql": "COMMIT",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "SELECT amount,revision FROM article_probe.orders WHERE id=42",
+      "result": [
+        "200\t2"
+      ]
+    },
+    {
+      "session": "B",
+      "sql": "SHOW BINARY LOG STATUS",
+      "result": [
+        "binlog.000003\t1301\t\t\tf6080c8c-cab4-11f1-b086-8f12aa20a0c3:1-9"
+      ]
+    },
+    {
+      "session": "A",
+      "sql": "START TRANSACTION",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "UPDATE article_probe.orders SET amount=300, revision=3 WHERE id=42",
+      "result": []
+    },
+    {
+      "session": "B",
+      "sql": "SHOW BINARY LOG STATUS",
+      "result": [
+        "binlog.000003\t1301\t\t\tf6080c8c-cab4-11f1-b086-8f12aa20a0c3:1-9"
+      ]
+    },
+    {
+      "session": "B",
+      "sql": "SELECT amount,revision FROM article_probe.orders WHERE id=42",
+      "result": [
+        "200\t2"
+      ]
+    },
+    {
+      "session": "A",
+      "sql": "COMMIT",
+      "result": []
+    },
+    {
+      "session": "B",
+      "sql": "SHOW BINARY LOG STATUS",
+      "result": [
+        "binlog.000003\t1616\t\t\tf6080c8c-cab4-11f1-b086-8f12aa20a0c3:1-10"
+      ]
+    },
+    {
+      "session": "B",
+      "sql": "SELECT amount,revision FROM article_probe.orders WHERE id=42",
+      "result": [
+        "300\t3"
+      ]
+    },
+    {
+      "session": "A",
+      "sql": "CREATE TABLE article_probe.sink_model (id INT PRIMARY KEY, amount INT NOT NULL) ENGINE=InnoDB",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "CREATE TABLE article_probe.delivery_audit (seq INT AUTO_INCREMENT PRIMARY KEY, row_id INT, amount INT) ENGINE=InnoDB",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "INSERT INTO article_probe.sink_model VALUES (42,100)",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "CREATE TRIGGER article_probe.audit_delivery AFTER UPDATE ON article_probe.sink_model FOR EACH ROW INSERT INTO article_probe.delivery_audit(row_id,amount) VALUES (NEW.id,NEW.amount)",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "UPDATE article_probe.sink_model SET amount=200 WHERE id=42",
+      "result": []
+    },
+    {
+      "session": "A",
+      "sql": "UPDATE article_probe.sink_model SET amount=200 WHERE id=42",
+      "result": []
+    },
+    {
+      "session": "B",
+      "sql": "SELECT amount FROM article_probe.sink_model WHERE id=42",
+      "result": [
+        "200"
+      ]
+    },
+    {
+      "session": "B",
+      "sql": "SELECT COUNT(*) FROM article_probe.delivery_audit",
+      "result": [
+        "2"
+      ]
+    }
+  ]
+}

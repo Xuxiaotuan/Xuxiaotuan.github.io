@@ -1,0 +1,17 @@
+ARTICLE connection autocommit=true isolation=4
+ARTICLE SNAPSHOT cdc_article2.items:0 values=[r:101=20, r:102=10, r:103=10, r:104=10, r:105=10, r:106=10, r:107=10, r:108=10, r:109=10, r:110=10]
+ARTICLE WATERMARK Struct{split_id=cdc_article2.items:0,watermark_kind=LOW} {ts_sec=0, file=binlog.000003, pos=12041, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-48, row=0, event=0}
+ARTICLE ROW [r:101=20] {transaction_id=null, ts_sec=1792302792, file=, pos=0}
+ARTICLE ROW [r:102=10] {transaction_id=null, ts_sec=1792302792, file=, pos=0}
+ARTICLE ROW [r:103=10] {transaction_id=null, ts_sec=1792302792, file=, pos=0}
+ARTICLE ROW [r:104=10] {transaction_id=null, ts_sec=1792302792, file=, pos=0}
+ARTICLE ROW [r:105=10] {transaction_id=null, ts_sec=1792302792, file=, pos=0}
+ARTICLE ROW [r:106=10] {transaction_id=null, ts_sec=1792302792, file=, pos=0}
+ARTICLE ROW [r:107=10] {transaction_id=null, ts_sec=1792302792, file=, pos=0}
+ARTICLE ROW [r:108=10] {transaction_id=null, ts_sec=1792302792, file=, pos=0}
+ARTICLE ROW [r:109=10] {transaction_id=null, ts_sec=1792302792, file=, pos=0}
+ARTICLE ROW [r:110=10] {transaction_id=null, ts_sec=1792302792, file=, pos=0}
+ARTICLE WATERMARK Struct{split_id=cdc_article2.items:0,watermark_kind=HIGH} {ts_sec=0, file=binlog.000003, pos=12041, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-48, row=0, event=0}
+ARTICLE CONTINUOUS start={ts_sec=0, file=binlog.000003, pos=12041, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-48, row=0, event=0} end={ts_sec=0, file=binlog.000003, pos=12649, kind=SPECIFIC, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-50, row=0, event=0} values=[u:101=20, u:101=30]
+ARTICLE ROW [u:101=20] {transaction_id=null, ts_sec=1792302792, file=binlog.000003, pos=12120, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-48, row=1, server_id=8675310, event=2}
+ARTICLE ROW [u:101=30] {transaction_id=null, ts_sec=1792302792, file=binlog.000003, pos=12424, gtids=3c3d8fa5-cab7-11f1-a89c-eef935c04a39:1-49, row=1, server_id=8675310, event=2}

@@ -1,0 +1,18 @@
+[
+  {
+    "name": "org.apache.flink.cdc.connectors.mysql.debezium.reader.ArticleIncrementalSnapshotITCase",
+    "tests": "5",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "13.245"
+  },
+  {
+    "name": "org.apache.flink.cdc.connectors.mysql.source.utils.SplitKeyUtilsTest",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.337"
+  }
+]

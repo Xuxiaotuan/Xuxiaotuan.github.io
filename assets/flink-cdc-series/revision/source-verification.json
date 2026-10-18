@@ -1,0 +1,27 @@
+[
+  {
+    "path": "flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/src/main/java/org/apache/flink/cdc/connectors/paimon/sink/v2/PaimonWriter.java",
+    "sha256": "1f8fe83f5d9af3db784089464374629bec425c01aa7fa209818329f5a86888c0",
+    "matches_pinned_upstream": true
+  },
+  {
+    "path": "flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/src/main/java/org/apache/flink/cdc/connectors/paimon/sink/v2/StoreSinkWriteImpl.java",
+    "sha256": "cf028ceae4e0198fffff8dd3ced5cf53b72e9755f37c8e57a9581e02a3ae5640",
+    "matches_pinned_upstream": true
+  },
+  {
+    "path": "flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/src/main/java/org/apache/flink/cdc/connectors/paimon/sink/v2/PreCommitOperator.java",
+    "sha256": "acef7cfc5744004b5174ed36a66186b43be0fc3da6388a21c7ad2dc972f47faa",
+    "matches_pinned_upstream": true
+  },
+  {
+    "path": "flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/io/debezium/connector/mysql/MySqlStreamingChangeEventSource.java",
+    "sha256": "570c06d2219a3889653a979244d4bd31dec2bbb84560534ea363fdcb7ca3cd96",
+    "matches_pinned_upstream": true
+  },
+  {
+    "path": "flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/src/main/java/org/apache/flink/cdc/connectors/paimon/sink/v2/bucket/BucketAssignOperator.java",
+    "sha256": "2a515de5c32e14fa55a73a86418b2e57ff80393badbc96ed259ed55058edd171",
+    "matches_pinned_upstream": true
+  }
+]

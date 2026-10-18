@@ -1,0 +1,38 @@
+[
+  {
+    "run": "schema",
+    "exit_code": 0,
+    "passed_marker": true,
+    "reconciliation_files": [
+      "schema-full-reconciliation.txt"
+    ],
+    "rows": 10,
+    "columns": 4
+  },
+  {
+    "run": "buffer-normal-final",
+    "exit_code": 0,
+    "passed_marker": true,
+    "reconciliation_files": [
+      "buffer-normal-durable-reconciliation.txt",
+      "buffer-normal-full-reconciliation.txt"
+    ],
+    "rows": 10,
+    "columns": 3,
+    "buffer_records_before_and_after_flush": 4,
+    "buffer_records_after_schema_switch": 0
+  },
+  {
+    "run": "buffer-failure-final",
+    "exit_code": 0,
+    "passed_marker": true,
+    "reconciliation_files": [
+      "buffer-failure-durable-reconciliation.txt",
+      "buffer-failure-full-reconciliation.txt"
+    ],
+    "rows": 10,
+    "columns": 3,
+    "buffer_records_before_and_after_flush": 4,
+    "buffer_records_after_schema_switch": 0
+  }
+]

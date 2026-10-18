@@ -1,0 +1,7 @@
+direct full scan: 10 rows, no duplicate visible primary keys
+snapshot 3 changelog=[DELETE:102:10, INSERT:201:40, UPDATE_AFTER:101:20, UPDATE_BEFORE:101:11]
+snapshot 4 changelog=[DELETE:102:10, INSERT:201:40, UPDATE_AFTER:101:20, UPDATE_BEFORE:101:11]
+duplicate complete changelog batch across snapshots 3 and 4: CONFIRMED
+MySQL={101=101,20, 103=103,10, 104=104,10, 105=105,10, 106=106,10, 107=107,10, 108=108,10, 109=109,10, 110=110,10, 201=201,40}
+Paimon={101=101,20, 103=103,10, 104=104,10, 105=105,10, 106=106,10, 107=107,10, 108=108,10, 109=109,10, 110=110,10, 201=201,40}
+full primary-key row reconciliation: PASS

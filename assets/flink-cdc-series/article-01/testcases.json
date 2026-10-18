@@ -1,0 +1,155 @@
+[
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffsetTest",
+      "time": "0.194",
+      "tests": "7",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testCompareToWithFilePositionAndSkipEventsAndSkipRows",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffsetTest",
+        "time": "0.013",
+        "status": "passed"
+      },
+      {
+        "name": "testCompareToWithFilePosition",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffsetTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testCompareToWithDifferentFilenameLength",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffsetTest",
+        "time": "0.001",
+        "status": "passed"
+      },
+      {
+        "name": "testCompareToTimestampWithDifferentServerId",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffsetTest",
+        "time": "0.004",
+        "status": "passed"
+      },
+      {
+        "name": "testCompareToWithGtidSetAndSkipEventsAndSkipRows",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffsetTest",
+        "time": "0.078",
+        "status": "passed"
+      },
+      {
+        "name": "testCompareToWithGtidSetExistence",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffsetTest",
+        "time": "0.003",
+        "status": "passed"
+      },
+      {
+        "name": "testCompareToWithGtidSet",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffsetTest",
+        "time": "0.006",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "9a30628b8ab306aff39076fabdee6a82b0de6dafccc380be1559fff8b18cee9e"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.reader.MySqlRecordEmitterTest",
+      "time": "5.549",
+      "tests": "9",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "testTransactionMetadataEventsEnabledExplicitly",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.reader.MySqlRecordEmitterTest",
+        "time": "3.114",
+        "status": "passed"
+      },
+      {
+        "name": "testMultipleTransactionEventsWithDisabledConfig",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.reader.MySqlRecordEmitterTest",
+        "time": "0.154",
+        "status": "passed"
+      },
+      {
+        "name": "testNonTransactionEventNotDetected",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.reader.MySqlRecordEmitterTest",
+        "time": "0.01",
+        "status": "passed"
+      },
+      {
+        "name": "testHeartbeatEventHandling",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.reader.MySqlRecordEmitterTest",
+        "time": "1.64",
+        "status": "passed"
+      },
+      {
+        "name": "testTransactionEventWithoutKeySchemaNotDetected",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.reader.MySqlRecordEmitterTest",
+        "time": "0.002",
+        "status": "passed"
+      },
+      {
+        "name": "testTransactionBeginEventHandling",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.reader.MySqlRecordEmitterTest",
+        "time": "0.1",
+        "status": "passed"
+      },
+      {
+        "name": "testMixedEventsWithTransactionMetadataDisabled",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.reader.MySqlRecordEmitterTest",
+        "time": "0.002",
+        "status": "passed"
+      },
+      {
+        "name": "testTransactionEndEventHandling",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.reader.MySqlRecordEmitterTest",
+        "time": "0.007",
+        "status": "passed"
+      },
+      {
+        "name": "testTransactionMetadataEventsDisabledByDefault",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.reader.MySqlRecordEmitterTest",
+        "time": "0.001",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "48608a3fed58958c2d12096d024e1c898b5f75a1b372141f1b306e9a78e2aaf8"
+  },
+  {
+    "suite": {
+      "{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation": "https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd",
+      "version": "3.0",
+      "name": "org.apache.flink.cdc.connectors.mysql.source.utils.ArticleSnapshotMergeTest",
+      "time": "1.399",
+      "tests": "2",
+      "errors": "0",
+      "skipped": "0",
+      "failures": "0"
+    },
+    "testcases": [
+      {
+        "name": "deleteRemovesTheBufferedRow",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.utils.ArticleSnapshotMergeTest",
+        "time": "0.239",
+        "status": "passed"
+      },
+      {
+        "name": "successiveUpdatesCollapseToOneReadRecord",
+        "classname": "org.apache.flink.cdc.connectors.mysql.source.utils.ArticleSnapshotMergeTest",
+        "time": "0.025",
+        "status": "passed"
+      }
+    ],
+    "source_report_sha256": "4eedd2fd8ec32c77adbd9e50f38bd377908ca8fb3886d1f0060e3d9265aa1466"
+  }
+]
