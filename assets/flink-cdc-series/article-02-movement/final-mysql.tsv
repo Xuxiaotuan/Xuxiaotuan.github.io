@@ -1,0 +1,6 @@
+id	c	amount
+101	100	11
+102	100	20
+103	120	31
+VERSION()	@@binlog_format	@@binlog_row_image	@@gtid_mode	@@transaction_isolation
+8.4.11	ROW	FULL	ON	REPEATABLE-READ

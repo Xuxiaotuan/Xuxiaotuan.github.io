@@ -1,0 +1,9 @@
+{
+  "production_files_checked_before_after": 114,
+  "changed": [],
+  "fixed_commit_reference_files_matched": 17,
+  "fixed_commit": "045e8da45df4b1017849b04e2d8bfe8f0ed7936d",
+  "probe_source_sha256": "40c8deb9cae71fd0e95e1cf0517ee7f74e8c0870939e92964645e40649f158d2",
+  "loaded_class_locations": "See each test output; production Readers and RecordUtils from fixed source target/classes",
+  "format": "Spotless apply and check succeeded, matching exactly one probe file"
+}

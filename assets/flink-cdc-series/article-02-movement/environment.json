@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-18",
+  "cdc_commit": "045e8da45df4b1017849b04e2d8bfe8f0ed7936d",
+  "flink": "1.20.3",
+  "java": "Temurin 11.0.29",
+  "mysql": "8.4.11",
+  "mysql_image_id": "sha256:cc52b8b5900d106bc482241091cfa7496d830280868e19aca8a24e8e7086568e",
+  "mysql_repo_digests": [
+    "mysql@sha256:24989179f58856db763f418010c1169fecc944e3ec1ea7e921572d83eb070f70"
+  ],
+  "binlog_format": "ROW",
+  "binlog_row_image": "FULL",
+  "gtid": "ON",
+  "isolation": "REPEATABLE-READ",
+  "chunk_key": "c",
+  "primary_key": "id",
+  "snapshot_backfill_skipped": false,
+  "execution": "Two sequential real MySQL Reader tests; no Flink job or Sink",
+  "container": "cdc-article2-movement-20261018",
+  "loopback_port": 32782
+}

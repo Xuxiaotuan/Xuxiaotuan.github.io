@@ -1,0 +1,38 @@
+{
+  "suite": {
+    "name": "org.apache.flink.cdc.connectors.mysql.debezium.reader.ArticleChunkKeyMovementITCase",
+    "time": "9.418",
+    "tests": "2",
+    "errors": "0",
+    "skipped": "0",
+    "failures": "0"
+  },
+  "cases": [
+    {
+      "name": "stableChunkKeyControlReconstructsAllRows",
+      "classname": "org.apache.flink.cdc.connectors.mysql.debezium.reader.ArticleChunkKeyMovementITCase",
+      "time": "5.156",
+      "assertions": "passed",
+      "data_equal": true,
+      "missing_keys": [],
+      "source_rows": 3,
+      "reconstructed_rows": 3
+    },
+    {
+      "name": "movingFromUnscannedBToFinishedAIsMissingFromReconstruction",
+      "classname": "org.apache.flink.cdc.connectors.mysql.debezium.reader.ArticleChunkKeyMovementITCase",
+      "time": "4.239",
+      "assertions": "passed",
+      "data_equal": false,
+      "missing_keys": [
+        102
+      ],
+      "source_rows": 3,
+      "reconstructed_rows": 2
+    }
+  ],
+  "distinct_cases": 2,
+  "executions_per_case": 2,
+  "historical_tests_rerun": false,
+  "interpretation": "Characterization tests: movement asserts missing key 102; assertion success is NOT data equality or a connector fix."
+}

@@ -1,0 +1,27 @@
+ARTICLE connection autocommit=true isolation=4
+SCENARIO=STABLE_CONTROL
+LOADED org.apache.flink.cdc.connectors.mysql.debezium.reader.SnapshotSplitReader file:/work/source/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+LOADED org.apache.flink.cdc.connectors.mysql.debezium.reader.BinlogSplitReader file:/work/source/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+LOADED org.apache.flink.cdc.connectors.mysql.source.utils.RecordUtils file:/work/source/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+ARTICLE SNAPSHOT cdc_article2_move.items:0 values=[r:101:100:10]
+ARTICLE WATERMARK Struct{split_id=cdc_article2_move.items:0,watermark_kind=LOW} {ts_sec=0, file=binlog.000003, pos=5625, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-24, row=0, event=0}
+ARTICLE ROW [r:101:100:10] before=null after=Struct{id=101,c=100,amount=10} offset={transaction_id=null, ts_sec=1792312265, file=, pos=0}
+ARTICLE WATERMARK Struct{split_id=cdc_article2_move.items:0,watermark_kind=HIGH} {ts_sec=0, file=binlog.000003, pos=5625, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-24, row=0, event=0}
+ARTICLE SNAPSHOT cdc_article2_move.items:1 values=[r:103:120:31, r:102:110:21]
+ARTICLE WATERMARK Struct{split_id=cdc_article2_move.items:1,watermark_kind=LOW} {ts_sec=0, file=binlog.000003, pos=6579, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-27, row=0, event=0}
+ARTICLE ROW [r:103:120:31] before=null after=Struct{id=103,c=120,amount=31} offset={transaction_id=null, ts_sec=1792312266, file=, pos=0}
+ARTICLE ROW [r:102:110:21] before=null after=Struct{id=102,c=110,amount=21} offset={transaction_id=null, ts_sec=1792312266, file=, pos=0}
+ARTICLE WATERMARK Struct{split_id=cdc_article2_move.items:1,watermark_kind=HIGH} {ts_sec=0, file=binlog.000003, pos=6579, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-27, row=0, event=0}
+ARTICLE RAW_BINLOG values=[u:102:110:21, u:101:100:11, u:103:120:31]
+ARTICLE ROW [u:102:110:21] before=Struct{id=102,c=110,amount=20} after=Struct{id=102,c=110,amount=21} offset={transaction_id=null, ts_sec=1792312266, file=binlog.000003, pos=5704, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-24, row=1, server_id=8675320, event=2}
+ARTICLE ROW [u:101:100:11] before=Struct{id=101,c=100,amount=10} after=Struct{id=101,c=100,amount=11} offset={transaction_id=null, ts_sec=1792312266, file=binlog.000003, pos=6022, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-25, row=1, server_id=8675320, event=2}
+ARTICLE ROW [u:103:120:31] before=Struct{id=103,c=120,amount=30} after=Struct{id=103,c=120,amount=31} offset={transaction_id=null, ts_sec=1792312266, file=binlog.000003, pos=6340, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-26, row=1, server_id=8675320, event=2}
+BOUNDARY_ASSERTIONS H_A < E_102 < L_B == H_B : PASS
+BOUNDARIES H_A={ts_sec=0, file=binlog.000003, pos=5625, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-24, row=0, event=0} E_102={transaction_id=null, ts_sec=1792312266, file=binlog.000003, pos=5704, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-24, row=1, event=2, server_id=8675320} L_B={ts_sec=0, file=binlog.000003, pos=6579, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-27, row=0, event=0} H_B={ts_sec=0, file=binlog.000003, pos=6579, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-27, row=0, event=0}
+ARTICLE FILTERED_BINLOG values=[u:101:100:11]
+ARTICLE ROW [u:101:100:11] before=Struct{id=101,c=100,amount=10} after=Struct{id=101,c=100,amount=11} offset={transaction_id=null, ts_sec=1792312266, file=binlog.000003, pos=6022, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-25, row=1, server_id=8675320, event=2}
+MYSQL_FULL_ROWS={101=100,11, 102=110,21, 103=120,31}
+RECONSTRUCTED_READER_ROWS={101=100,11, 102=110,21, 103=120,31}
+MISSING_KEYS=[]
+DATA_EQUAL=true
+CHARACTERIZATION_ASSERTIONS=PASS STABLE_CONTROL

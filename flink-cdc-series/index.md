@@ -27,7 +27,7 @@ permalink: /flink-cdc-series/
 | 主题 | 源码或论文支持的内容 | 已执行的证据 | 不能由这些证据推出的结论 |
 | --- | --- | --- | --- |
 | 第一篇：一致性边界 | 位点、快照归一、事务事件与外部结果的区别 | 18 项 Java 测试；3 组独立真实 MySQL 验证，包括读取视图、提交边界、重复写入模型 | 没有运行 CDC 到外部 Sink 作业；数据库模型不构成 CDC 端到端证明 |
-| 第二篇：增量快照 | 对照 DBLog 讨论 LOW/HIGH、回填、从最小 HIGH 追赶及分片过滤 | 8 项工具单测 + 5 项真实 MySQL Reader 测试；多 Chunk 使用手工 metadata、顺序读取 | 不覆盖真实并行分配、故障恢复与外部 Sink 的组合；论文算法与具体实现的前提不能混用 |
+| 第二篇：增量快照 | 对照 DBLog 讨论 LOW/HIGH、回填、从最小 HIGH 追赶及分片过滤 | 原 8 项工具单测 + 5 项 Reader 测试；新增迁移/对照 2 项真实 MySQL Reader 用例，迁移组确认缺行；手工 metadata、顺序读取 | 不覆盖真实并行分配、故障恢复与外部 Sink 的组合；论文算法与具体实现的前提不能混用 |
 | 第三篇上、下：状态与恢复 | Reader/Enumerator 状态、Split 归属、完成确认、Checkpoint 门槛及恢复 | 合计 51 项对象/序列化测试 + 2 个真实 MySQL MiniCluster 故障作业；下游为受管内存 ListState | 两篇不重复计数；所测事务恢复点在整笔事务之前，未验证事务内部 event/row Checkpoint；没有真实外部 Sink 或物理进程 kill |
 | 第四篇：Schema 捕获与传播 | DDL 解码、Schema 事件、Coordinator、flush 确认、状态恢复 | 原始 33 项对象/解析器/算子测试 + 2 个模拟源/内存目标作业 + 5 个真实 MySQL Source 作业 | 原始 40 项中没有真实外部 Sink；内存目标重复 ADD 不证明真实 DDL 幂等；Source 动态 Struct 不等于 SQL 动态迁移 |
 | 第五篇：外部提交与恢复 | Paimon flush、replace、DDL 分支、precommit snapshot 发布 | 原始 43 项组件测试、2 个真实 MySQL → Paimon 作业、6 组 Catalog 检查；Checkpoint 场景当前表对账及两个快照的重复 changelog | p=1、bucket=1、主键表和 filesystem 的结果不能推广到所有入口、存储后端或故障位置；主键表正确不等于历史无重复 |
@@ -58,6 +58,15 @@ permalink: /flink-cdc-series/
 [原实验说明（公开副本）](/assets/flink-cdc-series/article-02/README.txt) · [浏览该组公开文件](https://github.com/Xuxiaotuan/Xuxiaotuan.github.io/tree/main/assets/flink-cdc-series/article-02)
 
 - [test-summary.json](/assets/flink-cdc-series/article-02/test-summary.json)
+
+<h3 id="evidence-2-movement">第2篇补充：跨 Chunk 修改键实验</h3>
+
+[实验说明与复现条件](/assets/flink-cdc-series/article-02-movement/README.txt) · [独立结果摘要](/assets/flink-cdc-series/article-02-movement/test-summary.json) · [探针源码](/assets/flink-cdc-series/article-02-movement/ArticleChunkKeyMovementITCase.java)
+
+- [迁移组：确认 id=102 遗漏](/assets/flink-cdc-series/article-02-movement/movingFromUnscannedBToFinishedAIsMissingFromReconstruction.txt)
+- [稳定键对照：当前结果完整](/assets/flink-cdc-series/article-02-movement/stableChunkKeyControlReconstructsAllRows.txt)
+
+两项为真实 MySQL Reader 行为刻画实验；迁移项断言通过意味着遗漏被确认，不是数据一致或连接器修复。没有运行完整 Flink 作业或真实 Sink。
 
 <h3 id="evidence-3">第3篇</h3>
 

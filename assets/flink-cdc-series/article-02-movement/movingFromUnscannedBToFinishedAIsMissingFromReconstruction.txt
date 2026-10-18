@@ -1,0 +1,26 @@
+ARTICLE connection autocommit=true isolation=4
+SCENARIO=MOVEMENT
+LOADED org.apache.flink.cdc.connectors.mysql.debezium.reader.SnapshotSplitReader file:/work/source/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+LOADED org.apache.flink.cdc.connectors.mysql.debezium.reader.BinlogSplitReader file:/work/source/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+LOADED org.apache.flink.cdc.connectors.mysql.source.utils.RecordUtils file:/work/source/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+ARTICLE SNAPSHOT cdc_article2_move.items:0 values=[r:101:100:10]
+ARTICLE WATERMARK Struct{split_id=cdc_article2_move.items:0,watermark_kind=LOW} {ts_sec=0, file=binlog.000003, pos=7658, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-31, row=0, event=0}
+ARTICLE ROW [r:101:100:10] before=null after=Struct{id=101,c=100,amount=10} offset={transaction_id=null, ts_sec=1792312270, file=, pos=0}
+ARTICLE WATERMARK Struct{split_id=cdc_article2_move.items:0,watermark_kind=HIGH} {ts_sec=0, file=binlog.000003, pos=7658, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-31, row=0, event=0}
+ARTICLE SNAPSHOT cdc_article2_move.items:1 values=[r:103:120:31]
+ARTICLE WATERMARK Struct{split_id=cdc_article2_move.items:1,watermark_kind=LOW} {ts_sec=0, file=binlog.000003, pos=8612, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-34, row=0, event=0}
+ARTICLE ROW [r:103:120:31] before=null after=Struct{id=103,c=120,amount=31} offset={transaction_id=null, ts_sec=1792312271, file=, pos=0}
+ARTICLE WATERMARK Struct{split_id=cdc_article2_move.items:1,watermark_kind=HIGH} {ts_sec=0, file=binlog.000003, pos=8612, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-34, row=0, event=0}
+ARTICLE RAW_BINLOG values=[u:102:100:20, u:101:100:11, u:103:120:31]
+ARTICLE ROW [u:102:100:20] before=Struct{id=102,c=110,amount=20} after=Struct{id=102,c=100,amount=20} offset={transaction_id=null, ts_sec=1792312271, file=binlog.000003, pos=7737, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-31, row=1, server_id=8675320, event=2}
+ARTICLE ROW [u:101:100:11] before=Struct{id=101,c=100,amount=10} after=Struct{id=101,c=100,amount=11} offset={transaction_id=null, ts_sec=1792312271, file=binlog.000003, pos=8055, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-32, row=1, server_id=8675320, event=2}
+ARTICLE ROW [u:103:120:31] before=Struct{id=103,c=120,amount=30} after=Struct{id=103,c=120,amount=31} offset={transaction_id=null, ts_sec=1792312271, file=binlog.000003, pos=8373, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-33, row=1, server_id=8675320, event=2}
+BOUNDARY_ASSERTIONS H_A < E_102 < L_B == H_B : PASS
+BOUNDARIES H_A={ts_sec=0, file=binlog.000003, pos=7658, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-31, row=0, event=0} E_102={transaction_id=null, ts_sec=1792312271, file=binlog.000003, pos=7737, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-31, row=1, event=2, server_id=8675320} L_B={ts_sec=0, file=binlog.000003, pos=8612, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-34, row=0, event=0} H_B={ts_sec=0, file=binlog.000003, pos=8612, kind=SPECIFIC, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-34, row=0, event=0}
+ARTICLE FILTERED_BINLOG values=[u:101:100:11]
+ARTICLE ROW [u:101:100:11] before=Struct{id=101,c=100,amount=10} after=Struct{id=101,c=100,amount=11} offset={transaction_id=null, ts_sec=1792312271, file=binlog.000003, pos=8055, gtids=bdfcb9d4-cacd-11f1-a801-56541fda7b35:1-32, row=1, server_id=8675320, event=2}
+MYSQL_FULL_ROWS={101=100,11, 102=100,20, 103=120,31}
+RECONSTRUCTED_READER_ROWS={101=100,11, 103=120,31}
+MISSING_KEYS=[102]
+DATA_EQUAL=false
+CHARACTERIZATION_ASSERTIONS=PASS MOVEMENT

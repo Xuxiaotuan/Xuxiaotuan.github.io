@@ -369,6 +369,70 @@
       "public_sha256": "99d29b93d5ccca907ddf3ca7a51b78f9d003b3c91f68973f5e02410128ba364a",
       "machine_paths_normalized": true,
       "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "article-02-movement/README.txt",
+      "source_file": "flink-cdc-article-02-movement-evidence-20261018/README.txt",
+      "source_sha256": "ad393e20a12c851da075eeb6cae2c6fc393d07f36c344b275c358fb53aec6e0a",
+      "public_sha256": "ad393e20a12c851da075eeb6cae2c6fc393d07f36c344b275c358fb53aec6e0a",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02-movement/ArticleChunkKeyMovementITCase.java",
+      "source_file": "flink-cdc-article-02-movement-evidence-20261018/ArticleChunkKeyMovementITCase.java",
+      "source_sha256": "40c8deb9cae71fd0e95e1cf0517ee7f74e8c0870939e92964645e40649f158d2",
+      "public_sha256": "40c8deb9cae71fd0e95e1cf0517ee7f74e8c0870939e92964645e40649f158d2",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02-movement/test-summary.json",
+      "source_file": "flink-cdc-article-02-movement-evidence-20261018/test-summary.json",
+      "source_sha256": "d8f77764f8773952ec6dffdc52c1a9005a84c1c4f1176c35f5d186b54edc7a92",
+      "public_sha256": "d8f77764f8773952ec6dffdc52c1a9005a84c1c4f1176c35f5d186b54edc7a92",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02-movement/environment.json",
+      "source_file": "flink-cdc-article-02-movement-evidence-20261018/environment.json",
+      "source_sha256": "41d650f0252ebfa07ecfa14a168a06fa3253dae2ec3438fc977750b4c9e73b0f",
+      "public_sha256": "41d650f0252ebfa07ecfa14a168a06fa3253dae2ec3438fc977750b4c9e73b0f",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02-movement/production-verification.json",
+      "source_file": "flink-cdc-article-02-movement-evidence-20261018/production-verification.json",
+      "source_sha256": "5aa81f96896695a60eed991f72aeb028448da490039187083fed87c9dacff279",
+      "public_sha256": "5aa81f96896695a60eed991f72aeb028448da490039187083fed87c9dacff279",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02-movement/final-mysql.tsv",
+      "source_file": "flink-cdc-article-02-movement-evidence-20261018/final-mysql.tsv",
+      "source_sha256": "b9abdc9c13d593d4d977920e9f61fa50414df4613e6f603697762fee9417a1eb",
+      "public_sha256": "b9abdc9c13d593d4d977920e9f61fa50414df4613e6f603697762fee9417a1eb",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02-movement/movingFromUnscannedBToFinishedAIsMissingFromReconstruction.txt",
+      "source_file": "flink-cdc-article-02-movement-evidence-20261018/movingFromUnscannedBToFinishedAIsMissingFromReconstruction.txt",
+      "source_sha256": "be4840b8da59228c537ac8b43acaa8d8b83db9ccaa20ad7347902be935df4e4c",
+      "public_sha256": "7a98ce36dc89762e5019c13bfb7db9e8a84c42279ee31093e64986919eb75bb9",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": false
+    },
+    {
+      "file": "article-02-movement/stableChunkKeyControlReconstructsAllRows.txt",
+      "source_file": "flink-cdc-article-02-movement-evidence-20261018/stableChunkKeyControlReconstructsAllRows.txt",
+      "source_sha256": "595d64ba648c315d27a7feab523a1b0503030dba91808d9be27fe1acd94c5d02",
+      "public_sha256": "d1d058d5f91eae3798bfedf0acb15414206fda3bd4d185cba6fac2cf5843a53e",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": false
     }
   ]
 }

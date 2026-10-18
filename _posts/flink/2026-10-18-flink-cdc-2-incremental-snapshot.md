@@ -21,7 +21,7 @@ mermaid: true
 
 关键结论是：**每个 Chunk 先用窗口日志把自己的扫描结果归一到自己的 HIGH；持续日志再从最小 HIGH 起读，按每个 Chunk 的 HIGH 消除已经包含在快照中的变化。** 快照阶段结束时，各 Chunk 可以对应不同的时间边界。把它们对齐到同一个日志位置，还需要后续日志。
 
-源码固定为 Apache Flink CDC `release-3.7.0`，提交 `045e8da45df4b1017849b04e2d8bfe8f0ed7936d`。主线是 MySQL Connector 的独立实现，默认开启回填，表有稳定主键、稳定 Chunk key，Schema 在读取期间不变。下文给出这些条件下的人工证明草图，不是 DBLog 对 Flink CDC 的现成证明，也不是机器验证。“实测”部分来自 2026 年 10 月 18 日执行的真实 MySQL Reader 集成测试；本次形式化补写复核了源码与既有输出，没有新增或重跑数据库、故障恢复实验。
+源码固定为 Apache Flink CDC `release-3.7.0`，提交 `045e8da45df4b1017849b04e2d8bfe8f0ed7936d`。主线是 MySQL Connector 的独立实现，默认开启回填，表有稳定主键、稳定 Chunk key，Schema 在读取期间不变。下文给出这些条件下的人工证明草图，不是 DBLog 对 Flink CDC 的现成证明，也不是机器验证。“实测”部分来自 2026 年 10 月 18 日执行的真实 MySQL Reader 集成测试；形式化补写之后，又用真实 MySQL Reader 验证了撤去稳定 Chunk key 假设的迁移场景，并设置稳定键对照组；没有把 Reader 结果提升为完整作业或 Sink 的保证。
 
 ## 先解决扫描结果属于哪个时间的问题
 
@@ -216,7 +216,7 @@ Union_i Apply(S_i(H_i), E_i(H_i,q]) = S_table(q)
 
 ## 哪些反例会破坏结论
 
-下面区分三种证据：**模型反例**展示去掉假设后等式为何不成立；**源码条件推演**把构造时序代入已核对的分支；**既有实测**才表示实际执行过。前两类不能改写成“本轮复现了连接器故障”。
+下面区分三种证据：**模型反例**展示去掉假设后等式为何不成立；**源码条件推演**把构造时序代入已核对的分支；**既有实测**才表示实际执行过。模型反例本身不能写成运行结果；跨 Chunk 迁移这一项已有下文的新增实测，其他未运行的反例仍保持推演身份。
 
 ### 陈旧视图：回填窗口根本不包含需要修正的更新
 
@@ -230,7 +230,7 @@ Union_i Apply(S_i(H_i), E_i(H_i,q]) = S_table(q)
 
 ### Chunk key 迁移：两个快照都没读到，持续日志又被过滤
 
-**源码条件推演，破坏 A3，尚未做真实 Reader 复现**：固定主键 k，另用可变列 c 分片，A 的范围为 `c<105`，B 为 `c≥105`。构造如下顺序：
+**源码推演，破坏 A3；后文新增 Reader 实验已复现该时序**：固定主键 k，另用可变列 c 分片，A 的范围为 `c<105`，B 为 `c≥105`。构造如下顺序：
 
 ```text
 A 已在 H_A 完成：k 的 c=110，不在 A 快照中
@@ -240,7 +240,7 @@ H_B 完成：        两块快照都没有 k
 从 H_A 追赶：     e 的 before.c=110，被归到 B；e≤H_B，过滤
 ```
 
-这里 B 的 LOW 也晚于 e，所以 B 的回填不会补它。把该 UPDATE 代入 `getStructContainsChunkKey` 的 before 取值与 `shouldEmit` 的逐块 HIGH 比较，得到上述遗漏路径。它给出了一个可执行的验证问题，而非已完成的故障报告；还需实际固定分片、UPDATE 的 SourceRecord 形态与水位时序，断言 Reader 是否漏掉 k。[UPDATE 的 Chunk key 取值](https://github.com/apache/flink-cdc/blob/045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/utils/RecordUtils.java#L84)、[逐块过滤分支](https://github.com/apache/flink-cdc/blob/045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/debezium/reader/BinlogSplitReader.java#L289)
+这里 B 的 LOW 也晚于 e，所以 B 的回填不会补它。把该 UPDATE 代入 `getStructContainsChunkKey` 的 before 取值与 `shouldEmit` 的逐块 HIGH 比较，得到上述遗漏路径。下文实验固定了分片，实测 UPDATE 的 before/after 与水位关系，并确认 Reader 输出缺少该键。这使该特定路径从源码推演变成有运行证据的结论，但没有验证自动切分、并发调度或故障恢复。[UPDATE 的 Chunk key 取值](https://github.com/apache/flink-cdc/blob/045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/utils/RecordUtils.java#L84)、[逐块过滤分支](https://github.com/apache/flink-cdc/blob/045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/debezium/reader/BinlogSplitReader.java#L289)
 
 ### 起点与 HIGH 错配：共同起点不能替代逐块边界
 
@@ -290,6 +290,52 @@ H_B 完成：        两块快照都没有 k
 
 A 快照里的 103=20 与 B 快照里的 106=50，在本次源库时序中没有同时存在过。源库在 106=50 出现之前就已把 103 改成了 30。这为“Chunk 快照的并集不一定是全局时间点快照”提供了一个实际案例；有界日志输出的 103=30 正是所需补齐。
 
+### 跨 Chunk 修改键：迁移组漏行，稳定键对照完整
+
+新增 `ArticleChunkKeyMovementITCase` 直接运行同一固定版本的 SnapshotSplitReader 和 BinlogSplitReader。源库是新建的独立 MySQL 8.4.11 容器，仍为 InnoDB、ROW/FULL、GTID ON；主键 id 不变，显式将普通列 c 设为 Chunk key，手工固定 `A=(-∞,105)`、`B=[105,+∞)`。每个用例重建自己的三行测试表：
+
+```text
+id    c     amount
+101   100   10
+102   110   20
+103   120   30
+```
+
+时序由同步调用固定，不靠 sleep 猜测：完整取完 A 的快照与 HIGH 后，提交三条独立 UPDATE；随后才启动 B 的扫描，并完整取回 LOW/HIGH。迁移组的三条更新是：
+
+```sql
+UPDATE items SET c=100 WHERE id=102;
+UPDATE items SET amount=11 WHERE id=101;
+UPDATE items SET amount=31 WHERE id=103;
+```
+
+对照组只把第一条换成 `UPDATE items SET amount=21 WHERE id=102`，保留 c=110。id=101 的更新用于确认 A 缺少的增量确实能放出；id=103 的更新由 B 快照吸收，同时使迁移事件严格早于 B 的 LOW。
+
+每组从 H_A 到 H_B 分别启动两个真实 BinlogSplitReader：一份不传已完成快照 metadata，用于读取该段原始变更；另一份传入 A/B 的真实范围和 HIGH，验证生产过滤路径。未替换 `shouldEmit`，也未手工伪造 UPDATE。原始事件实际为主键 id=102 的 UPDATE，迁移组 before.c=110、after.c=100。用完整 `BinlogOffset` 比较并断言：
+
+```text
+H_A < E_102 < L_B == H_B
+```
+
+**实际结果**如下；单元格中的三元组依次为 `(id,c,amount)`：
+
+| 观察点 | 修改 Chunk key 的迁移组 | Chunk key 不变的对照组 |
+| --- | --- | --- |
+| A 快照 | READ(101,100,10) | READ(101,100,10) |
+| B 快照 | READ(103,120,31) | READ(102,110,21)、READ(103,120,31) |
+| 不传快照 metadata 的日志 | UPDATE(102,100,20)、UPDATE(101,100,11)、UPDATE(103,120,31) | UPDATE(102,110,21)、UPDATE(101,100,11)、UPDATE(103,120,31) |
+| 带 A/B HIGH 的追赶日志 | 仅 UPDATE(101,100,11) | 仅 UPDATE(101,100,11) |
+| MySQL 当前完整结果 | 3 行，含 (102,100,20) | 3 行，含 (102,110,21) |
+| 快照加追赶日志重建结果 | 2 行，缺少 id=102；其余字段一致 | 3 行，所有字段与源库一致 |
+
+迁移组并非没有捕获 UPDATE：无快照过滤的 Reader 已实际输出它；带 metadata 的 Reader 则没有输出。结合 UPDATE 按 before.c=110 归到 B、位置不晚于 H_B 的源码分支，解释了这次过滤。A 的快照早于迁入，B 的快照晚于迁出，两边也都没有 id=102。因此，在所测边界 H_B，Reader 输出无法重建源表完整状态。
+
+**测试结果的含义**：两个用例的断言均通过，0 失败、0 错误、0 跳过；其中迁移用例刻意断言 `MISSING_KEYS=[102]` 与 `DATA_EQUAL=false`，属于行为刻画测试。“通过”表示遗漏现象被复现，绝不表示该组同步正确或连接器已修复。整理探针格式后再次执行得到同样结果，仍只计 2 个独立用例；原有 5 个 Reader 用例和 8 个工具单测未在这次补充中重跑。
+
+**验证边界**：最后的键值表由测试程序按完整主键应用 Reader 输出重建，并与源库 `SELECT id,c,amount` 全量比较；没有运行真实 Sink。这次只覆盖固定主键、可变非主键 Chunk key、B→A 单向迁移、顺序扫描、所列三条独立提交和指定 GTID 配置。没有运行 Assigner 自动切分、并发 Chunk、修改主键、其他迁移方向、Checkpoint 恢复或 Sink 提交，也没有验证后续更新会怎样影响缺失行。本次未修改连接器生产代码。
+
+证据：[迁移组完整输出](/assets/flink-cdc-series/article-02-movement/movingFromUnscannedBToFinishedAIsMissingFromReconstruction.txt)、[稳定键对照输出](/assets/flink-cdc-series/article-02-movement/stableChunkKeyControlReconstructsAllRows.txt)、[探针源码](/assets/flink-cdc-series/article-02-movement/ArticleChunkKeyMovementITCase.java)、[运行摘要与复现条件](/assets/flink-cdc-series/article-02-movement/README.txt)。
+
 ### 长事务与没有变化的窗口
 
 长事务用例在 LOW 之前，通过独立连接关闭自动提交并把 101 改成 77；在 SELECT 结束之后、HIGH 之前才提交。快照最终输出 `r:101=77`，HIGH 大于 LOW。它验证了这一事务提交时序能被回填覆盖，没有测量锁等待、死锁或长事务资源消耗。
@@ -324,13 +370,14 @@ A 快照里的 103=20 与 B 快照里的 106=50，在本次源库时序中没有
 
 ## 验证结论及下一篇的边界
 
-形式化补写新增的是模型与推导，不增加实验计数。下表把证明义务和运行证据分开；5 个真实 Reader 用例与 8 个工具单测仍是原有覆盖。
+形式化推导本身不增加实验计数。原有覆盖为 5 个真实 Reader 用例与 8 个工具单测；本次另外执行迁移/对照 2 个 Reader 用例，其中迁移组确认缺行。两次运行同一组用例不重复计数，历史通过数也不等于本轮重跑数。
 
 | 待核实问题 | 已确认的结论 | 证据层级 |
 | --- | --- | --- |
 | 归一等式需要哪些前提 | A1—A6 下，由“已触及/未触及键”不变量推出 `M_i=S_i(H_i)` | 人工条件化证明；不是新增实验或机器验证 |
 | 多 Chunk 何时对应共同切点 | `M(p)=Union_i S_i(max(H_i,p))`；完整边界 q 不早于全部 HIGH 时得到全表状态 | 条件化推导；顺序双 Chunk Reader 用例只覆盖其具体时序 |
-| 去掉前提后会怎样 | 陈旧视图、缺失/乱序日志、部分 after、键迁移和 HIGH 错配可破坏证明 | 模型反例或源码条件推演；未运行相应故障配置 |
+| 去掉前提后会怎样 | 陈旧视图、缺失/乱序日志、部分 after 和 HIGH 错配可破坏证明 | 模型反例；这些故障配置仍未运行 |
+| 跨 Chunk 修改键会否漏行 | 所测 B→A 迁移在两份快照中均缺失，UPDATE 被逐块 HIGH 过滤；H_B 处重建缺少 id=102 | 源码及新增真实 MySQL Reader 实验；稳定键对照完整；无真实 Sink |
 | LOW/HIGH 是否写入源库水位表 | 这条 MySQL 路径查询位置并产生本地队列信号 | 源码 |
 | HIGH 是否表示回填完成 | HIGH 先采集，BINLOG_END 后才完成归一输出 | 源码及单 Chunk 实测 |
 | 多次更新和删除如何处理 | 同键覆盖为最终 READ，删除后不输出该行 | 源码及真实 Reader 实测 |
@@ -341,9 +388,9 @@ A 快照里的 103=20 与 B 快照里的 106=50，在本次源库时序中没有
 | skip backfill 是否仍消除窗口重叠 | 不再保证，实测出现已扫描更新的重放 | 源码及真实 Reader 实测 |
 | 并行完成后何时切换 | 分配器按并行度和 completed checkpoint 控制 | 源码，运行证据 evidence_incomplete |
 
-实验证据保留了[测试源码](/assets/flink-cdc-series/article-02/ArticleIncrementalSnapshotITCase.java)、[通过数汇总](/assets/flink-cdc-series/article-02/test-summary.json)、Maven 完整日志、Surefire XML、MySQL 配置与镜像标识、DBLog 原论文及源码 SHA-256 清单。测试覆盖范围以用例中的实际输入和断言为准；通过数统计为 5 个真实数据库用例和 8 个工具单测。
+实验证据保留了[测试源码](/assets/flink-cdc-series/article-02/ArticleIncrementalSnapshotITCase.java)、[通过数汇总](/assets/flink-cdc-series/article-02/test-summary.json)、Maven 完整日志、Surefire XML、MySQL 配置与镜像标识、DBLog 原论文及源码 SHA-256 清单。原实验通过数为 5 个真实数据库用例和 8 个工具单测；新增迁移实验的[独立结果摘要](/assets/flink-cdc-series/article-02-movement/test-summary.json)另行保存，不能把其行为刻画断言通过解释成数据一致。
 
-还没有覆盖完整 Flink 作业中的失败恢复、并发 Chunk 调度、日志清理或主从切换、跨 Chunk 修改键、DDL 与 Paimon 提交。文章的状态证明限定在明确的输入条件内；Reader 集成通过不等于端到端 exactly-once 通过。下一篇继续沿 Split 分配、完成报告、Checkpoint 状态和恢复位置，检查这些边界怎样在失败后保持成立。
+跨 Chunk 修改键已覆盖上述特定 B→A Reader 时序；其他迁移方向、主键更新、完整 Flink 作业中的失败恢复、并发 Chunk 调度、日志清理或主从切换、DDL 与 Paimon 提交仍未覆盖。文章的状态证明限定在明确的输入条件内；Reader 集成通过不等于端到端 exactly-once 通过。下一篇继续沿 Split 分配、完成报告、Checkpoint 状态和恢复位置，检查这些边界怎样在失败后保持成立。
 
 ## 精读源码与论文的顺序
 
