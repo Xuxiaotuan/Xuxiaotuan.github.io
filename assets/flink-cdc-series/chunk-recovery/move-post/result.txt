@@ -1,0 +1,12 @@
+mode=move-post
+assertions=PASS
+data_equal=false
+source_rows=20
+sink_rows=19
+missing_keys=[102]
+completed=[1, 2, 4, 5]
+restored_checkpoint=2
+restored_observer_count=21
+failed_checkpoint=3
+attempt=1
+snapshot_executions=2

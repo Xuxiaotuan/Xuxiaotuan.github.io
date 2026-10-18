@@ -357,7 +357,24 @@ H_A < E_102 < L_B == H_B
 
 **实际结果与解释分开**：Source 事件记录中，迁移组既没有 id=102 的快照 INSERT，也没有对应 UPDATE；对照组有 B 快照的 INSERT(102,110,21)。两组完整作业各完成三个 Checkpoint，迁移组在真实目标中仍缺行。这把已有 Reader 现象推进到了所测完整链路；结合前面的 before-key/HIGH 过滤分支，可解释该行为何没有送达 Sink。额外正常提交没有补回缺行，不能据此声称故障恢复或后续再更新 id=102 也一定不能补回。
 
-**验证边界**：两个 main 探针场景的断言均成功，其中迁移组刻意断言 `data_equal=false`；这不是两个“同步正确”的作业。p=1、bucket=1、主键 id 不变、非主键 INT 列 c 迁移、固定 Schema、默认回填、无故障、filesystem Paimon 是本次条件。未测并发 Chunk、反向迁移、主键变更、Checkpoint 失败恢复、DDL、物理进程故障、其他存储后端或缺失行的后续更新；本轮也未独立扫描 input changelog。源码未修复，Reader 组与这两组完整作业分别统计。
+**验证边界**：两个 main 探针场景的断言均成功，其中迁移组刻意断言 `data_equal=false`；这不是两个“同步正确”的作业。p=1、bucket=1、主键 id 不变、非主键 INT 列 c 迁移、固定 Schema、默认回填、无故障、filesystem Paimon 是本次条件。未测并发 Chunk、反向迁移、主键变更、Checkpoint 失败恢复（后续独立实验见下一节）、DDL、物理进程故障、其他存储后端或缺失行的后续更新；本组也未独立扫描 input changelog。源码未修复，Reader 组与这两组完整作业分别统计。
+
+<h3 id="chunk-recovery">从迁移前、迁移后的 Checkpoint 恢复，是否补回缺行</h3>
+
+**新增恢复实验**沿用上述版本、20 行、真实两 Chunk 和 Paimon 链路，另行执行四个独立场景：迁移/稳定键对照 × 迁移前/后恢复点。没有把 Reader 重建或前一组无故障提交当作恢复证据。这里“迁移前”有精确含义：**A 已输出 10 行，B 已分配但暂停在 pre-LOW，源端尚未提交迁移**。此时完成 C1；实际 Reader 状态只有 `B=[105,+∞), highWatermark=null`。C1 并不是 A 尚未完成的恢复点。
+
+释放 B 后，仍按 `H_A < E_102 < L_B == H_B` 固定迁移；等 Source 输出 A 的追赶更新和 B HIGH 之后的 id103 amount=32，再选择是否完成 C2。迁移前组保留 C1 为最近成功点；迁移后组完成 C2，其 Reader 状态为已经前进的 binlog Split。随后两组在同一语义窗口注入故障：下一 Checkpoint 的 Paimon snapshot 已可独立读取，commitIdentifier 等于该次编号，而全局 Future 仍未完成。释放下游闸门后抛错，由 Flink 自动恢复 task attempt；不是手工拼装 Reader。
+
+| 恢复点与故障点 | 实际恢复路径 | 迁移组最终 Paimon | 稳定键对照 |
+| --- | --- | --- | --- |
+| C1 在迁移前完成，C2 发布后失败 | 恢复 C1；只重扫 B，A 不重扫 | 源 20 行、目标 19 行，仍缺 (102,100,20) | 20 行 × 3 列一致 |
+| C2 在迁移后完成，C3 发布后失败 | 恢复 C2 的 binlog Split，不再执行快照扫描 | 同样缺少 id102，其余 19 行逐字段一致 | 20 行 × 3 列一致 |
+
+恢复编号来自 Flink 初始化上下文；Reader 交还的首个 Split 与所选 Checkpoint 记录的范围/位点文本一致。恢复后用 id103 amount=33 确认日志继续推进；迁移前组先等重扫 B 的 HIGH 固定才提交这个标记。之后停止写入，在恢复后成功 Checkpoint、额外一次成功 Checkpoint、取消作业后及新 JVM 中分别全量读取。四阶段均得到上表结果；没有多余行、重复主键或公共主键的字段差异。[四组结果与完整证据](/flink-cdc-series/#evidence-chunk-recovery)。
+
+**源码解释**：C1 虽早于迁移，但 A 的完成事实已被覆盖，恢复不意味着整表重扫。重扫 B 时 id102 已迁出；重新追赶日志仍按 before.c=110 和 B 的 HIGH 过滤。C2 则已经推进到遗漏形成之后，恢复它也不会主动回查源库缺行。**实验确认的是这两个具体恢复点都未修复遗漏**，不是“任意更早 Checkpoint 都无效”。A 尚未完成的 Checkpoint、重新全量扫描、后续再更新 id102、不同迁移方向均未验证。
+
+故障是单 JVM MiniCluster 中的 task 异常，p=1、bucket=1、filesystem、固定 Schema、默认回填；未测物理 JM/TM kill、HA、并发 Chunk 或本组 input changelog。四组行为断言成功，其中两组迁移结果明确为 `data_equal=false`。恢复协议按所选状态继续工作，与全量数据完整性是两个判断。状态分析见[第三篇下](/2026/10/18/flink-cdc-3b-checkpoint-recovery/#chunk-recovery)，外部发布边界见[第五篇附录 H](/2026/10/18/flink-cdc-5-paimon-commit/#appendix-chunk-recovery)。
 
 ### 长事务与没有变化的窗口
 
@@ -393,7 +410,7 @@ H_A < E_102 < L_B == H_B
 
 ## 验证结论及下一篇的边界
 
-形式化推导本身不增加实验计数。原有覆盖为 5 个真实 Reader 用例与 8 个工具单测；随后执行迁移/对照 2 个 Reader 用例，另新增 2 个完整 MySQL → Paimon 作业场景。两层迁移组均确认缺行；本轮只新增后两项作业，没有重跑前述历史用例。重跑和新 JVM 回读不增加独立场景数，断言成功也不等于数据一致。
+形式化推导本身不增加实验计数。原有覆盖为 5 个真实 Reader 用例与 8 个工具单测；随后执行迁移/对照 2 个 Reader 用例，另新增 2 个完整 MySQL → Paimon 作业场景。两层迁移组均确认缺行；本次进一步新增迁移/对照 × 两个恢复点的 4 个真实 Paimon 故障场景，没有重跑前述历史用例。重跑和新 JVM 回读不增加独立场景数，断言成功也不等于数据一致。
 
 | 待核实问题 | 已确认的结论 | 证据层级 |
 | --- | --- | --- |
@@ -401,6 +418,7 @@ H_A < E_102 < L_B == H_B
 | 多 Chunk 何时对应共同切点 | `M(p)=Union_i S_i(max(H_i,p))`；完整边界 q 不早于全部 HIGH 时得到全表状态 | 条件化推导；顺序双 Chunk Reader 用例只覆盖其具体时序 |
 | 去掉前提后会怎样 | 陈旧视图、缺失/乱序日志、部分 after 和 HIGH 错配可破坏证明 | 模型反例；这些故障配置仍未运行 |
 | 跨 Chunk 修改键会否漏行 | 所测 B→A 迁移在两份快照中均缺失，UPDATE 被逐块 HIGH 过滤；H_B 处 Reader 重建缺少 id=102，完整作业完成 C2/C3 后真实 Paimon 仍缺该行 | 源码、独立 Reader 实验，以及另行执行的 p=1 MySQL → Paimon 作业；两层稳定键对照均完整 |
+| 迁移后故障恢复能否补回 | 从 A 已完成、B 未 LOW 的 C1 恢复只重扫 B；从迁移后 C2 恢复 binlog；两组真实目标仍缺 id102 | 另行执行 4 个完整故障作业（含两组稳定键对照）；限定恢复点，不证明任意旧 Checkpoint 的结果 |
 | LOW/HIGH 是否写入源库水位表 | 这条 MySQL 路径查询位置并产生本地队列信号 | 源码 |
 | HIGH 是否表示回填完成 | HIGH 先采集，BINLOG_END 后才完成归一输出 | 源码及单 Chunk 实测 |
 | 多次更新和删除如何处理 | 同键覆盖为最终 READ，删除后不输出该行 | 源码及真实 Reader 实测 |
@@ -413,7 +431,7 @@ H_A < E_102 < L_B == H_B
 
 实验证据保留了[测试源码](/assets/flink-cdc-series/article-02/ArticleIncrementalSnapshotITCase.java)、[通过数汇总](/assets/flink-cdc-series/article-02/test-summary.json)、Maven 完整日志、Surefire XML、MySQL 配置与镜像标识、DBLog 原论文及源码 SHA-256 清单。原实验通过数为 5 个真实数据库用例和 8 个工具单测；新增迁移实验的[独立结果摘要](/assets/flink-cdc-series/article-02-movement/test-summary.json)另行保存，不能把其行为刻画断言通过解释成数据一致。
 
-跨 Chunk 修改键已分别覆盖特定 B→A Reader 时序和单并行度真实 Paimon 提交后的缺行。其他迁移方向、主键更新、该迁移场景的失败恢复、并发 Chunk 调度、日志清理或主从切换、快照期间 DDL 与 Sink 故障组合仍未覆盖。文章的状态证明限定在明确的输入条件内；Reader 集成通过不等于端到端 exactly-once 通过。下一篇继续沿 Split 分配、完成报告、Checkpoint 状态和恢复位置，检查这些边界怎样在失败后保持成立。
+跨 Chunk 修改键已分别覆盖特定 B→A Reader 时序和单并行度真实 Paimon 提交后的缺行。该迁移场景又覆盖了上述两个恢复点的 task 故障。其他迁移方向、主键更新、A 未完成的恢复点、并发 Chunk 调度、日志清理或主从切换、快照期间 DDL 与 Sink 故障组合仍未覆盖。文章的状态证明限定在明确的输入条件内；Reader 集成通过不等于端到端 exactly-once 通过。下一篇继续沿 Split 分配、完成报告、Checkpoint 状态和恢复位置，检查这些边界怎样在失败后保持成立。
 
 ## 精读源码与论文的顺序
 

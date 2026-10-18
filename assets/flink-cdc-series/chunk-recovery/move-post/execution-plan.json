@@ -1,0 +1,119 @@
+{
+  "nodes" : [ {
+    "id" : 1,
+    "type" : "Source: MySQL fixed chunks",
+    "pact" : "Data Source",
+    "contents" : "Source: MySQL fixed chunks",
+    "parallelism" : 1
+  }, {
+    "id" : 2,
+    "type" : "Source observation only",
+    "pact" : "Operator",
+    "contents" : "Source observation only",
+    "parallelism" : 1,
+    "predecessors" : [ {
+      "id" : 1,
+      "ship_strategy" : "FORWARD",
+      "side" : "second"
+    } ]
+  }, {
+    "id" : 3,
+    "type" : "SchemaOperator",
+    "pact" : "Operator",
+    "contents" : "SchemaOperator",
+    "parallelism" : 1,
+    "predecessors" : [ {
+      "id" : 2,
+      "ship_strategy" : "FORWARD",
+      "side" : "second"
+    } ]
+  }, {
+    "id" : 4,
+    "type" : "PrePartition",
+    "pact" : "Operator",
+    "contents" : "PrePartition",
+    "parallelism" : 1,
+    "predecessors" : [ {
+      "id" : 3,
+      "ship_strategy" : "FORWARD",
+      "side" : "second"
+    } ]
+  }, {
+    "id" : 6,
+    "type" : "PostPartition",
+    "pact" : "Operator",
+    "contents" : "PostPartition",
+    "parallelism" : 1,
+    "predecessors" : [ {
+      "id" : 4,
+      "ship_strategy" : "CUSTOM",
+      "side" : "second"
+    } ]
+  }, {
+    "id" : 7,
+    "type" : "Assign Bucket",
+    "pact" : "Operator",
+    "contents" : "Assign Bucket",
+    "parallelism" : 1,
+    "predecessors" : [ {
+      "id" : 6,
+      "ship_strategy" : "FORWARD",
+      "side" : "second"
+    } ]
+  }, {
+    "id" : 9,
+    "type" : "FlushEventAlignment",
+    "pact" : "Operator",
+    "contents" : "FlushEventAlignment",
+    "parallelism" : 1,
+    "predecessors" : [ {
+      "id" : 7,
+      "ship_strategy" : "CUSTOM",
+      "side" : "second"
+    } ]
+  }, {
+    "id" : 10,
+    "type" : "Sink Writer: Real Paimon",
+    "pact" : "Operator",
+    "contents" : "Sink Writer: Real Paimon",
+    "parallelism" : 1,
+    "predecessors" : [ {
+      "id" : 9,
+      "ship_strategy" : "FORWARD",
+      "side" : "second"
+    } ]
+  }, {
+    "id" : 12,
+    "type" : "preCommit",
+    "pact" : "Operator",
+    "contents" : "preCommit",
+    "parallelism" : 1,
+    "predecessors" : [ {
+      "id" : 10,
+      "ship_strategy" : "shuffle by table",
+      "side" : "second"
+    } ]
+  }, {
+    "id" : 13,
+    "type" : "fault after real precommit",
+    "pact" : "Operator",
+    "contents" : "fault after real precommit",
+    "parallelism" : 1,
+    "predecessors" : [ {
+      "id" : 12,
+      "ship_strategy" : "FORWARD",
+      "side" : "second"
+    } ]
+  }, {
+    "id" : 14,
+    "type" : "Sink Committer: Real Paimon",
+    "pact" : "Operator",
+    "contents" : "Sink Committer: Real Paimon",
+    "parallelism" : 1,
+    "predecessors" : [ {
+      "id" : 13,
+      "ship_strategy" : "FORWARD",
+      "side" : "second"
+    } ]
+  } ]
+}

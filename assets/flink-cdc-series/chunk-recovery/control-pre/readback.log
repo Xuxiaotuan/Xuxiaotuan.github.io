@@ -1,0 +1,10 @@
+2026-10-18T17:14:26,730 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+phase=fresh-jvm
+snapshot=4
+columns=[id,c,amount]
+source_rows=20
+target_rows=20
+missing=[]
+extra=[]
+field_differences=[]
+data_equal=true

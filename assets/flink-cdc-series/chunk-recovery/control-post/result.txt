@@ -1,0 +1,12 @@
+mode=control-post
+assertions=PASS
+data_equal=true
+source_rows=20
+sink_rows=20
+missing_keys=[]
+completed=[1, 2, 4, 5]
+restored_checkpoint=2
+restored_observer_count=22
+failed_checkpoint=3
+attempt=1
+snapshot_executions=2

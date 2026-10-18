@@ -150,6 +150,35 @@ UPDATE cdc_article3.items SET amount=40 WHERE id=102;
 
 本轮故障发生在一个已提交事务的输出中间，但恢复用的 C3 在整个事务之前。因此实验确实验证了完整事务数据从旧恢复点重放，却没有验证“Checkpoint 正好保存事务中间的 event/row 位置，再从那里恢复”的全部边界。把这两种情况写成同一个实验结论，会夸大证据。
 
+<h2 id="chunk-recovery">跨 Chunk 迁移：更早的恢复点不等于整表重扫</h2>
+
+第二篇的漏行反例提出了一个不同的问题：如果 Source 的选择规则已遗漏一行，Checkpoint 恢复能否补回？原来的两项作业使用受管 ListState，不能回答真实目标表的结果。因此另行执行 **4 个 MySQL → Flink MiniCluster → Paimon 故障场景**，与第二、五篇共用证据，不计入原有 53 项。
+
+固定 CDC `045e8da…`、Flink 1.20.3、Paimon 2.0.0、MySQL 8.4.11；表有 20 行，主键 id 不变，非主键 c 用作 Chunk key。真实 Splitter/Assigner 生成 `A=(-∞,105)`、`B=[105,+∞)`；p=1、bucket=1。A HIGH 之后、B LOW 之前，将 id102 的 c110 改为 100；稳定键对照只将 amount20 改为 21。水位和原始 binlog 审计确认 `H_A < E_102 < L_B == H_B`。
+
+两个恢复点并非按编号猜测，而是这样建立：
+
+1. A 已输出 10 行，B 暂停在 pre-LOW，迁移尚未发生。完成 C1；Reader 实际保存 B 的 snapshot Split，HIGH 为 null。
+2. 释放 B、提交迁移，快照完成后等待持续日志输出 id103 amount=32。迁移后组再完成 C2；Reader 保存带实际 file/pos/GTID/event/row 的 binlog Split。迁移前组不完成这个额外 Checkpoint。
+3. 两组各触发下一次 Checkpoint，在真实 Paimon precommit 下游阻塞。独立 Catalog 确认新 snapshot 的 commitIdentifier 等于该 Checkpoint，而 Future 仍未完成、没有完成回调；随后抛异常，走 Flink 的 task 重启。
+
+| 观察项 | 迁移前恢复组 | 迁移后恢复组 |
+| --- | --- | --- |
+| Flink 初始化上下文给出的恢复点 | C1 | C2 |
+| 失败 Checkpoint | C2；未加入完成列表 | C3；未加入完成列表 |
+| 恢复的观察算子数据记录计数 | 10 | 迁移组 21、对照组 22；是事件数，不是目标行数 |
+| Reader 恢复入口收到的首个 Split | B snapshot，HIGH=null，与 C1 相同 | binlog Split，范围/位点文本与 C2 相同 |
+| 整次运行执行的 snapshot 扫描 | A、B、恢复后的 B，共 3 次 | A、B，共 2 次 |
+| 后续成功 Checkpoint | C3、C4 | C4、C5 |
+| 迁移组全量结果 | MySQL 20 行、Paimon 19 行，缺 id102 | 同左 |
+| 稳定键对照全量结果 | 20 行 × 3 列一致 | 20 行 × 3 列一致 |
+
+**实际结果**：四组均进入 attempt=1，并恢复预定的已完成 Checkpoint；没有让失败 Checkpoint 成为恢复点。恢复后在首个成功 Checkpoint、额外成功 Checkpoint、取消作业后及新 JVM 回读四个时点，对全部主键和 `id,c,amount` 逐字段比较。迁移组仅缺 `(102,100,20)`，其余 19 行一致；对照组全部一致。两个迁移场景的行为断言通过，数据正确性均为 false。[探针、状态轨迹及全量对账](/flink-cdc-series/#evidence-chunk-recovery)。
+
+**源码解释与实测范围**：前文所说“未完成范围重读”在 C1 恢复组表现为只重扫 B。迁移前并不意味着 A 的完成事实也被回滚；A 不重扫，B 中又已没有 id102，后续追赶继续受 before-key/HIGH 过滤。C2 恢复组则直接从保存的 binlog 进度继续。这说明恢复成功不自动证明输入选择完整，也不能用第五篇另一组“当前表收敛”的结果代替本组全量对账。
+
+本组未测试 A 尚未完成时的 Checkpoint、后续再次更新缺失行、全量重建、事务内部恢复、多并行度或物理进程退出。异常注入和状态观察位于独立探针，生产过滤、分配与提交代码未改。真实 Paimon 提交窗口的细节见[第五篇附录 H](/2026/10/18/flink-cdc-5-paimon-commit/#appendix-chunk-recovery)。
+
 ## 元数据何时才能安全释放
 
 快照结束后，Enumerator 保存的大量范围和 HIGH 仍可能被 binlog Reader 用来拼接过滤元数据。如果 Split 元数据较多，需要分组传输；收到 binlog Split 的壳，不等于 Reader 已经拿齐这些内容。
@@ -158,7 +187,7 @@ UPDATE cdc_article3.items SET amount=40 WHERE id=102;
 
 本轮执行了上游已有的 18 项元数据释放测试，覆盖未确认、Checkpoint 尚未完成、Split 退回、旧 generation、默认关闭、轻量状态恢复等分支。它们是内存协议测试；上面的两次作业实验使用默认配置，没有开启这一优化。因此，对“开启释放选项后的真实集群故障恢复”，证据仍不完整。
 
-## 本轮验证到哪里
+## 原始验证与新增覆盖
 
 | 测试类别 | 数量 | 结果 |
 | --- | ---: | --- |
@@ -169,9 +198,9 @@ UPDATE cdc_article3.items SET amount=40 WHERE id=102;
 | 上游 Split 序列化测试 | 3 | 全部通过 |
 | 新增真实 MySQL 与 MiniCluster 重启实验 | 2 | 全部通过 |
 
-合计 53 项，0 失败、0 错误、0 跳过。两项作业实验都是主动抛出异常后由 Flink 重启 task attempt，没有退出物理 TaskManager 或 JobManager 进程，也没有注入 JM leadership 切换。
+原始覆盖合计 53 项，0 失败、0 错误、0 跳过；本次没有重跑这些历史测试。另增上述 4 个真实 Paimon 故障场景，独立计数。原始两项作业实验都是主动抛出异常后由 Flink 重启 task attempt，没有退出物理 TaskManager 或 JobManager 进程，也没有注入 JM leadership 切换。
 
-尚未实测的关键边界包括：Checkpoint 中间位置的事务内恢复、ACK/Barrier 的 RPC 故障注入、并行度变化、savepoint 跨版本恢复、binlog 清理与 MySQL 主从切换、新增表和 DDL，以及真实外部 Sink 的提交可见性。这些范围标为 `evidence_incomplete`，不能从本轮通过数量外推。
+尚未实测的关键边界包括：Checkpoint 中间位置的事务内恢复、ACK/Barrier 的 RPC 故障注入、并行度变化、savepoint 跨版本恢复、binlog 清理与 MySQL 主从切换、新增表和 DDL。真实外部 Sink 的提交可见性现已补充上述 Paimon 特定窗口，其他 Sink、存储后端和故障位置仍未覆盖。这些范围标为 `evidence_incomplete`，不能从本轮通过数量外推。
 
 ## 沿源码继续精读
 

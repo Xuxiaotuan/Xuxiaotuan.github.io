@@ -1,0 +1,50 @@
+LOADED org.apache.flink.cdc.connectors.mysql.source.MySqlSource file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+LOADED org.apache.flink.cdc.connectors.mysql.debezium.reader.SnapshotSplitReader file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+LOADED org.apache.flink.cdc.connectors.mysql.debezium.reader.BinlogSplitReader file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+LOADED org.apache.flink.cdc.connectors.mysql.source.utils.RecordUtils file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+LOADED org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriter file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/target/classes/
+LOADED org.apache.flink.cdc.connectors.paimon.sink.v2.PreCommitOperator file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/target/classes/
+JOB_ID c8cf7c254c2abe9f6f02221ae0635777
+TASK_OPEN attempt=0
+READER_ADD attempt=0 splits=[MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:0', splitKeyType=[`c` INT NOT NULL], splitStart=null, splitEnd=[105], highWatermark=null}]
+PRE_LOW attempt=0 MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:0', splitKeyType=[`c` INT NOT NULL], splitStart=null, splitEnd=[105], highWatermark=null}
+POST_LOW cdc_chunk_e2e.items:0 offset={ts_sec=0, file=binlog.000003, pos=73242, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=0, event=0}
+POST_HIGH cdc_chunk_e2e.items:0 offset={ts_sec=0, file=binlog.000003, pos=73242, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=0, event=0}
+READER_ADD attempt=0 splits=[MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}]
+PRE_LOW attempt=0 MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}
+OBSERVER_STATE checkpoint=1 count=10
+READER_STATE checkpoint=1 splits=[MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}]
+CHECKPOINT_CALLBACK 1
+GLOBAL_CHECKPOINT_FUTURE_COMPLETED callbacks=[1]
+PRE_MIGRATION_COMPLETED checkpoint=1
+MUTATIONS_COMMITTED before B LOW
+POST_LOW cdc_chunk_e2e.items:1 offset={ts_sec=0, file=binlog.000003, pos=74184, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=0, event=0}
+POST_HIGH cdc_chunk_e2e.items:1 offset={ts_sec=0, file=binlog.000003, pos=74184, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=0, event=0}
+READER_ADD attempt=0 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[], offset={ts_sec=0, file=binlog.000003, pos=73242, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=0, event=0}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+OBSERVER_STATE checkpoint=2 count=22
+READER_STATE checkpoint=2 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314882, file=binlog.000003, pos=74263, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+CHECKPOINT_CALLBACK 2
+GLOBAL_CHECKPOINT_FUTURE_COMPLETED callbacks=[1, 2]
+POST_MIGRATION_COMPLETED checkpoint=2
+OBSERVER_STATE checkpoint=3 count=22
+READER_STATE checkpoint=3 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314882, file=binlog.000003, pos=74263, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+FAULT_HELD checkpoint=3
+EXTERNAL_SNAPSHOT_PUBLISHED snapshot=3 commitIdentifier=3 globalFuturePending=true
+FAILED_CHECKPOINT_EXCEPTION org.apache.flink.runtime.checkpoint.CheckpointException: Checkpoint Coordinator is suspending.
+RESTORED checkpoint=2 count=22
+TASK_OPEN attempt=1
+READER_ADD attempt=1 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314882, file=binlog.000003, pos=74263, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+RESTORED_READER_STATE_MATCH checkpoint=2
+OBSERVER_STATE checkpoint=4 count=23
+READER_STATE checkpoint=4 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314884, file=binlog.000003, pos=74577, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-265, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+CHECKPOINT_CALLBACK 4
+GLOBAL_CHECKPOINT_FUTURE_COMPLETED callbacks=[1, 2, 4]
+OBSERVER_STATE checkpoint=5 count=23
+READER_STATE checkpoint=5 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314884, file=binlog.000003, pos=74577, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-265, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+CHECKPOINT_CALLBACK 5
+GLOBAL_CHECKPOINT_FUTURE_COMPLETED callbacks=[1, 2, 4, 5]
+BOUNDARY_ASSERTIONS_PASS H_A={ts_sec=0, file=binlog.000003, pos=73242, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=0, event=0} E_102={transaction_id=null, ts_sec=1792314880, file=binlog.000003, pos=73321, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=1, event=2, server_id=8675322} L_B={ts_sec=0, file=binlog.000003, pos=74184, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=0, event=0} H_B={ts_sec=0, file=binlog.000003, pos=74184, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=0, event=0}
+AUDIT_RAW SourceRecord{sourcePartition={server=mysql_binlog_source}, sourceOffset={transaction_id=null, ts_sec=1792314880, file=binlog.000003, pos=73321, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=1, server_id=8675322, event=2}} ConnectRecord{topic='mysql_binlog_source.cdc_chunk_e2e.items', kafkaPartition=null, key=Struct{id=102}, keySchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Key:STRUCT}, value=Struct{before=Struct{id=102,c=110,amount=20},after=Struct{id=102,c=110,amount=21},source=Struct{version=1.9.8.Final,connector=mysql,name=mysql_binlog_source,ts_ms=1792314880000,db=cdc_chunk_e2e,table=items,server_id=8675322,gtid=cb0792da-cad3-11f1-9571-2658671ca05a:262,file=binlog.000003,pos=73463,row=0,thread=143},op=u,ts_ms=1792314885295}, valueSchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Envelope:STRUCT}, timestamp=null, headers=ConnectHeaders(headers=)}
+AUDIT_RAW SourceRecord{sourcePartition={server=mysql_binlog_source}, sourceOffset={transaction_id=null, ts_sec=1792314880, file=binlog.000003, pos=73635, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-262, row=1, server_id=8675322, event=2}} ConnectRecord{topic='mysql_binlog_source.cdc_chunk_e2e.items', kafkaPartition=null, key=Struct{id=101}, keySchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Key:STRUCT}, value=Struct{before=Struct{id=101,c=100,amount=10},after=Struct{id=101,c=100,amount=11},source=Struct{version=1.9.8.Final,connector=mysql,name=mysql_binlog_source,ts_ms=1792314880000,db=cdc_chunk_e2e,table=items,server_id=8675322,gtid=cb0792da-cad3-11f1-9571-2658671ca05a:263,file=binlog.000003,pos=73777,row=0,thread=143},op=u,ts_ms=1792314885295}, valueSchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Envelope:STRUCT}, timestamp=null, headers=ConnectHeaders(headers=)}
+AUDIT_RAW SourceRecord{sourcePartition={server=mysql_binlog_source}, sourceOffset={transaction_id=null, ts_sec=1792314880, file=binlog.000003, pos=73949, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-263, row=1, server_id=8675322, event=2}} ConnectRecord{topic='mysql_binlog_source.cdc_chunk_e2e.items', kafkaPartition=null, key=Struct{id=103}, keySchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Key:STRUCT}, value=Struct{before=Struct{id=103,c=114,amount=30},after=Struct{id=103,c=114,amount=31},source=Struct{version=1.9.8.Final,connector=mysql,name=mysql_binlog_source,ts_ms=1792314880000,db=cdc_chunk_e2e,table=items,server_id=8675322,gtid=cb0792da-cad3-11f1-9571-2658671ca05a:264,file=binlog.000003,pos=74091,row=0,thread=143},op=u,ts_ms=1792314885296}, valueSchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Envelope:STRUCT}, timestamp=null, headers=ConnectHeaders(headers=)}
+CHARACTERIZATION_ASSERTIONS_PASS data_equal=true

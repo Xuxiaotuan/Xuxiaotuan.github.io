@@ -1,0 +1,9 @@
+phase=fresh-jvm
+snapshot=4
+columns=[id,c,amount]
+source_rows=20
+target_rows=19
+missing=[102]
+extra=[]
+field_differences=[]
+data_equal=false

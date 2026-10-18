@@ -649,6 +649,886 @@
       "public_sha256": "3ac9c117cf47b2ed1b4f33800dcb9162fcf985d8f7d4339d7ff568bffcfef719",
       "machine_paths_normalized": false,
       "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/README.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/README.txt",
+      "source_sha256": "90fb4abc1d58fba5b870bceecaa73f74e202a9b11e9b30e7d2e18f28bfd06872",
+      "public_sha256": "90fb4abc1d58fba5b870bceecaa73f74e202a9b11e9b30e7d2e18f28bfd06872",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/environment.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/environment.json",
+      "source_sha256": "781d23c0603a92a15f2900f93f47eb08b69b727ff8f70502274f7b9be2296d42",
+      "public_sha256": "781d23c0603a92a15f2900f93f47eb08b69b727ff8f70502274f7b9be2296d42",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/result-summary.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/result-summary.json",
+      "source_sha256": "f737b71702dc21908dbcdadd755d9a51faf2af2c2939403cbb415c1ca91f323b",
+      "public_sha256": "f737b71702dc21908dbcdadd755d9a51faf2af2c2939403cbb415c1ca91f323b",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/production-verification.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/production-verification.json",
+      "source_sha256": "d60adae2bffdcca921874951cbdd5f6df636bcb2d19c2b6a33e08a30120a61d5",
+      "public_sha256": "d60adae2bffdcca921874951cbdd5f6df636bcb2d19c2b6a33e08a30120a61d5",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/dependencies.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/dependencies.txt",
+      "source_sha256": "bf01e9dad7ad4a42db14d6e79cfdd35fac17ad22870d85c78135cdd5fb4132c1",
+      "public_sha256": "bf01e9dad7ad4a42db14d6e79cfdd35fac17ad22870d85c78135cdd5fb4132c1",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/docker-command.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/docker-command.json",
+      "source_sha256": "65ebcdd1357e3887db59d0e7a0d761fbfdbafbae2e21d48cb7f7eeb21f0f1bec",
+      "public_sha256": "4341aa12d1e44f83c986cea4a850af1c7da7e690112f620014fd689a53547492",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/run.py",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/run.py",
+      "source_sha256": "c831496e87880c422d60bd5e6870a554577da877305d917715389e26ae6afb02",
+      "public_sha256": "cda666c61a76dd1f3f41e3cd42243c6cf27f0e8ec163485871298e0e52e61ed5",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/log4j2.properties",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/log4j2.properties",
+      "source_sha256": "77d029ec18eeae8f85b9034c1fbaf4ec2e66f993b2edec51d568a876947723fb",
+      "public_sha256": "77d029ec18eeae8f85b9034c1fbaf4ec2e66f993b2edec51d568a876947723fb",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/collect-evidence.py",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/collect-evidence.py",
+      "source_sha256": "1be5a0da3eb177b508e04ce32b2109b2ca3defd67ea0c946c921f960d3793b90",
+      "public_sha256": "dbbeb8db9573bd2fed9efa51512b150d9027921ef42987efc30f38247bcbb5c6",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/ChunkRecoveryJob.java",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/tests/ChunkRecoveryJob.java",
+      "source_sha256": "125cef31019857e1eb7e70b03fd0115a5d06c15926eb52e536ba0e81767813ff",
+      "public_sha256": "125cef31019857e1eb7e70b03fd0115a5d06c15926eb52e536ba0e81767813ff",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/mysql-before-failure.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/mysql-before-failure.tsv",
+      "source_sha256": "8d2438af7f2a0a9fa03d24b526969fea5c5f3f0c4aab05d515cc034072098aa1",
+      "public_sha256": "8d2438af7f2a0a9fa03d24b526969fea5c5f3f0c4aab05d515cc034072098aa1",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/after-cancel-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/after-cancel-paimon.tsv",
+      "source_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "public_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/mysql-initial.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/mysql-initial.tsv",
+      "source_sha256": "13663c746b6cac178b08e5b26dd8ccd5b2eb767b1032518d825c72b789dc62e9",
+      "public_sha256": "13663c746b6cac178b08e5b26dd8ccd5b2eb767b1032518d825c72b789dc62e9",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/source-events.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/source-events.txt",
+      "source_sha256": "f3913ff0755a1e16a22af57b5a9df980a211808a89e275d22e40884c419d67bd",
+      "public_sha256": "f3913ff0755a1e16a22af57b5a9df980a211808a89e275d22e40884c419d67bd",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/after-recovery-checkpoint-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/after-recovery-checkpoint-reconciliation.txt",
+      "source_sha256": "6f8ffa3e1cdfac2c88472a5137238669640496a2a4ccbb790055cf20dca6387f",
+      "public_sha256": "6f8ffa3e1cdfac2c88472a5137238669640496a2a4ccbb790055cf20dca6387f",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/result.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/result.txt",
+      "source_sha256": "1be9e538890b0658619135edba3e27411046b86f145af00b91c33c0770942fa1",
+      "public_sha256": "1be9e538890b0658619135edba3e27411046b86f145af00b91c33c0770942fa1",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/after-recovery-checkpoint-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/after-recovery-checkpoint-paimon.tsv",
+      "source_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "public_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/reconciliation.txt",
+      "source_sha256": "0c5f464c94b50dba0fca91ed07cafa4d9167f4d7f1ebd2f74a4abf372252cee2",
+      "public_sha256": "0c5f464c94b50dba0fca91ed07cafa4d9167f4d7f1ebd2f74a4abf372252cee2",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/published-before-global-failure-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/published-before-global-failure-reconciliation.txt",
+      "source_sha256": "6f0e88ba5ced7be160492b5e68f499a91ea80d59f049917e471ede05737a2fa3",
+      "public_sha256": "6f0e88ba5ced7be160492b5e68f499a91ea80d59f049917e471ede05737a2fa3",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/snapshots.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/snapshots.json",
+      "source_sha256": "4d813748071d55b068597d87f174fffd6ccdbe41a76a8907f46bf49d0e6d19da",
+      "public_sha256": "4d813748071d55b068597d87f174fffd6ccdbe41a76a8907f46bf49d0e6d19da",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/fresh-jvm-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/fresh-jvm-reconciliation.txt",
+      "source_sha256": "9b796b64c8ea49fc97772b22d6e59dc9581270f044d18563585807cfef5b0170",
+      "public_sha256": "9b796b64c8ea49fc97772b22d6e59dc9581270f044d18563585807cfef5b0170",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/fresh-jvm-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/fresh-jvm-paimon.tsv",
+      "source_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "public_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/after-cancel-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/after-cancel-reconciliation.txt",
+      "source_sha256": "10c2226d0b996b93d16ab2e7b1c8cdd2cd3dbaff9c269423013836dbb11ecef2",
+      "public_sha256": "10c2226d0b996b93d16ab2e7b1c8cdd2cd3dbaff9c269423013836dbb11ecef2",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/mysql-final.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/mysql-final.tsv",
+      "source_sha256": "0653d67b234c35d1564e9cd74f30a14c9ec41fb3a06e9fd96296d6782fb20bff",
+      "public_sha256": "0653d67b234c35d1564e9cd74f30a14c9ec41fb3a06e9fd96296d6782fb20bff",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/execution.log",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/execution.log",
+      "source_sha256": "e112ab1d8076a6e17c1c1538ecf0836e8d1cb541b18b8c438ad67c91f3ca102e",
+      "public_sha256": "0e31c29cbcecb950b56c26edbaa14a82d0c7dc3a3304b3de3d544cea4b952be5",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/readback.log",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/readback.log",
+      "source_sha256": "67bb8786c9e82f96b4f27b7e2c4d35d126f3acc74c4b6b181135046c204fb15f",
+      "public_sha256": "f9a241e94d304d65efa6baf321de3e7403f4b0f95cbdc74a75ca2ec6c0989614",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/execution-plan.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/execution-plan.json",
+      "source_sha256": "d07ad3f8bf5e22b0a71e5e67d189a6734b26318288a60c2658a8fcc145458e45",
+      "public_sha256": "74fddf10f45c7b13a234364af57947dbe24a63262c001add1e69b8718698324e",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/after-extra-checkpoint-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/after-extra-checkpoint-reconciliation.txt",
+      "source_sha256": "0c93ed77792a623e394b8132e3c6803f01abb9b4afd7d9472bfb5cd1ecfcccec",
+      "public_sha256": "0c93ed77792a623e394b8132e3c6803f01abb9b4afd7d9472bfb5cd1ecfcccec",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/state-watermark-verification.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/state-watermark-verification.json",
+      "source_sha256": "2dcc2b4262e704d2e8cd24e4468c90dc86435709b00a4fe5547d2b990106c9f1",
+      "public_sha256": "2dcc2b4262e704d2e8cd24e4468c90dc86435709b00a4fe5547d2b990106c9f1",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/after-extra-checkpoint-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/after-extra-checkpoint-paimon.tsv",
+      "source_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "public_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/readback-process-result.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/readback-process-result.json",
+      "source_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "public_sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/timeline.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/timeline.txt",
+      "source_sha256": "8b3132c97e09e2a19b4b7f1aaf4679e80dfe79c3d7f3e40a1b0f029e130a5344",
+      "public_sha256": "966e13da6b05608aff09ed574c54b8b49ea904b01741957f4685118a59d2ecc3",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/execution-process-result.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/execution-process-result.json",
+      "source_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "public_sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/mysql-environment.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/mysql-environment.txt",
+      "source_sha256": "cc6efefd3458de1ca4bcbfcf8fbfc377de2011f2660e883b44fd60e595157bb5",
+      "public_sha256": "cc6efefd3458de1ca4bcbfcf8fbfc377de2011f2660e883b44fd60e595157bb5",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-pre/published-before-global-failure-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-pre/published-before-global-failure-paimon.tsv",
+      "source_sha256": "a3c76aca962d3bbcac6775f7ebd631df364c26d928368ce982a9ad6e6e076289",
+      "public_sha256": "a3c76aca962d3bbcac6775f7ebd631df364c26d928368ce982a9ad6e6e076289",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/mysql-before-failure.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/mysql-before-failure.tsv",
+      "source_sha256": "8d2438af7f2a0a9fa03d24b526969fea5c5f3f0c4aab05d515cc034072098aa1",
+      "public_sha256": "8d2438af7f2a0a9fa03d24b526969fea5c5f3f0c4aab05d515cc034072098aa1",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/after-cancel-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/after-cancel-paimon.tsv",
+      "source_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "public_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/mysql-initial.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/mysql-initial.tsv",
+      "source_sha256": "13663c746b6cac178b08e5b26dd8ccd5b2eb767b1032518d825c72b789dc62e9",
+      "public_sha256": "13663c746b6cac178b08e5b26dd8ccd5b2eb767b1032518d825c72b789dc62e9",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/source-events.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/source-events.txt",
+      "source_sha256": "90a253471e6799b5288faf2d0a2b65dc65ece590343a59232a3e2827e041415f",
+      "public_sha256": "90a253471e6799b5288faf2d0a2b65dc65ece590343a59232a3e2827e041415f",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/after-recovery-checkpoint-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/after-recovery-checkpoint-reconciliation.txt",
+      "source_sha256": "33d4667f70036357522dd3fdffb437c26956b41fb718d1635f67808340ae3974",
+      "public_sha256": "33d4667f70036357522dd3fdffb437c26956b41fb718d1635f67808340ae3974",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/result.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/result.txt",
+      "source_sha256": "9519de5e99cc1b2f55ae26ea8c6f66195dd9df78febb844597db93fac0671bce",
+      "public_sha256": "9519de5e99cc1b2f55ae26ea8c6f66195dd9df78febb844597db93fac0671bce",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/after-recovery-checkpoint-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/after-recovery-checkpoint-paimon.tsv",
+      "source_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "public_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/reconciliation.txt",
+      "source_sha256": "4c226bd1e9d92c7ea41a4d4c2d49fb566be7f3028653565b1414b89b22be1de5",
+      "public_sha256": "4c226bd1e9d92c7ea41a4d4c2d49fb566be7f3028653565b1414b89b22be1de5",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/published-before-global-failure-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/published-before-global-failure-reconciliation.txt",
+      "source_sha256": "98e671cd00dedec41a22c67843a5320526eb786ccbb8195570f6dd98b3ee321f",
+      "public_sha256": "98e671cd00dedec41a22c67843a5320526eb786ccbb8195570f6dd98b3ee321f",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/snapshots.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/snapshots.json",
+      "source_sha256": "3db19a1c8497d76fd47efa940225b184398c203c592b59f96f3965b5c909c366",
+      "public_sha256": "3db19a1c8497d76fd47efa940225b184398c203c592b59f96f3965b5c909c366",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/fresh-jvm-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/fresh-jvm-reconciliation.txt",
+      "source_sha256": "9ee066c37a63346ea28f3460c9ff956d6518cb1a111448fffe746f196a635f5c",
+      "public_sha256": "9ee066c37a63346ea28f3460c9ff956d6518cb1a111448fffe746f196a635f5c",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/fresh-jvm-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/fresh-jvm-paimon.tsv",
+      "source_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "public_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/after-cancel-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/after-cancel-reconciliation.txt",
+      "source_sha256": "c8ae533af4ba0c64898f826becc012ba37cf81ac361fd3529af322dad93930f6",
+      "public_sha256": "c8ae533af4ba0c64898f826becc012ba37cf81ac361fd3529af322dad93930f6",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/mysql-final.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/mysql-final.tsv",
+      "source_sha256": "0653d67b234c35d1564e9cd74f30a14c9ec41fb3a06e9fd96296d6782fb20bff",
+      "public_sha256": "0653d67b234c35d1564e9cd74f30a14c9ec41fb3a06e9fd96296d6782fb20bff",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/execution.log",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/execution.log",
+      "source_sha256": "a1243a15d3f3bc2884dfb9318c43536e6e7a78fae5ab4722dc2f2e014cb59593",
+      "public_sha256": "6537c0dda06f0e7878ca67b2d2ca1072b6fabf20f5acb623e5de33170cab1783",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/readback.log",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/readback.log",
+      "source_sha256": "c20b8be44b8e28c46d3cf16c2ae3f84e8f44f9faf7e20ed39a4194e28668821c",
+      "public_sha256": "eefdfe7e58c6122e11202423b448af9cda950dffd3d7d1d436cf40679cac9ffa",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/execution-plan.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/execution-plan.json",
+      "source_sha256": "d07ad3f8bf5e22b0a71e5e67d189a6734b26318288a60c2658a8fcc145458e45",
+      "public_sha256": "74fddf10f45c7b13a234364af57947dbe24a63262c001add1e69b8718698324e",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/after-extra-checkpoint-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/after-extra-checkpoint-reconciliation.txt",
+      "source_sha256": "fb5f252557c0dcea71e5f5f4e3ab9ba4fb74e961cf25f788ca36c8a02bcf3078",
+      "public_sha256": "fb5f252557c0dcea71e5f5f4e3ab9ba4fb74e961cf25f788ca36c8a02bcf3078",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/state-watermark-verification.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/state-watermark-verification.json",
+      "source_sha256": "7d7eeb18e8304dcb3a4d9d2a22f203955d99138dc92d9c92ee3b01eb8fe48099",
+      "public_sha256": "7d7eeb18e8304dcb3a4d9d2a22f203955d99138dc92d9c92ee3b01eb8fe48099",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/after-extra-checkpoint-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/after-extra-checkpoint-paimon.tsv",
+      "source_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "public_sha256": "fb7679f259bffbc94413b00e455c950ebda0e37d65c33c0e203287f1efd39465",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/readback-process-result.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/readback-process-result.json",
+      "source_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "public_sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/timeline.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/timeline.txt",
+      "source_sha256": "c351afb3b45a8c10b37da84a4e6a5151cf57b2a1d1513b887b14f237ada9031d",
+      "public_sha256": "aacacb7084579afd1398e2206bf6ad3e1bdfc3c91f8b4aa56422e32a1794d43a",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/execution-process-result.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/execution-process-result.json",
+      "source_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "public_sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/mysql-environment.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/mysql-environment.txt",
+      "source_sha256": "cc6efefd3458de1ca4bcbfcf8fbfc377de2011f2660e883b44fd60e595157bb5",
+      "public_sha256": "cc6efefd3458de1ca4bcbfcf8fbfc377de2011f2660e883b44fd60e595157bb5",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/move-post/published-before-global-failure-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/move-post/published-before-global-failure-paimon.tsv",
+      "source_sha256": "a3c76aca962d3bbcac6775f7ebd631df364c26d928368ce982a9ad6e6e076289",
+      "public_sha256": "a3c76aca962d3bbcac6775f7ebd631df364c26d928368ce982a9ad6e6e076289",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/mysql-before-failure.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/mysql-before-failure.tsv",
+      "source_sha256": "44f575beff0debc29c0fd5c113c8d75f7ebec6e8de29eaf4ba3461aa84591d3b",
+      "public_sha256": "44f575beff0debc29c0fd5c113c8d75f7ebec6e8de29eaf4ba3461aa84591d3b",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/after-cancel-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/after-cancel-paimon.tsv",
+      "source_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "public_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/mysql-initial.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/mysql-initial.tsv",
+      "source_sha256": "13663c746b6cac178b08e5b26dd8ccd5b2eb767b1032518d825c72b789dc62e9",
+      "public_sha256": "13663c746b6cac178b08e5b26dd8ccd5b2eb767b1032518d825c72b789dc62e9",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/source-events.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/source-events.txt",
+      "source_sha256": "ec75823a27a130ceaa2004cd63463239eb9ebae323beec3141d089ca9da75dd8",
+      "public_sha256": "ec75823a27a130ceaa2004cd63463239eb9ebae323beec3141d089ca9da75dd8",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/after-recovery-checkpoint-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/after-recovery-checkpoint-reconciliation.txt",
+      "source_sha256": "791545b2162bed224540e24ae0565df313dff4f28741a1a2be7c0e03f937fe23",
+      "public_sha256": "791545b2162bed224540e24ae0565df313dff4f28741a1a2be7c0e03f937fe23",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/result.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/result.txt",
+      "source_sha256": "33be863ba0ed6fefed99575eef906559fa4503060a86d7370a456d8fa8401447",
+      "public_sha256": "33be863ba0ed6fefed99575eef906559fa4503060a86d7370a456d8fa8401447",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/after-recovery-checkpoint-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/after-recovery-checkpoint-paimon.tsv",
+      "source_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "public_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/reconciliation.txt",
+      "source_sha256": "a6eb5793282ff0658edd25ed3a3c9d339f7befbad7c869f4cdc5cda1fecd4b26",
+      "public_sha256": "a6eb5793282ff0658edd25ed3a3c9d339f7befbad7c869f4cdc5cda1fecd4b26",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/published-before-global-failure-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/published-before-global-failure-reconciliation.txt",
+      "source_sha256": "128b7e5adb3811d33038593642c1683a9f4aa99b18620bbb4def149155276bc2",
+      "public_sha256": "128b7e5adb3811d33038593642c1683a9f4aa99b18620bbb4def149155276bc2",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/snapshots.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/snapshots.json",
+      "source_sha256": "9e8462f63f09e61c3e93e1f113ffca974694dc653eb3bcfb063271781c620e45",
+      "public_sha256": "9e8462f63f09e61c3e93e1f113ffca974694dc653eb3bcfb063271781c620e45",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/fresh-jvm-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/fresh-jvm-reconciliation.txt",
+      "source_sha256": "3aa032f6d006636ca685be87cf5a95805df8a03ee45863b54560c850a200b822",
+      "public_sha256": "3aa032f6d006636ca685be87cf5a95805df8a03ee45863b54560c850a200b822",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/fresh-jvm-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/fresh-jvm-paimon.tsv",
+      "source_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "public_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/after-cancel-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/after-cancel-reconciliation.txt",
+      "source_sha256": "490f4746bb603d0c2fbd5b8f71c02992247a22d1f5875575185c28619033ebb4",
+      "public_sha256": "490f4746bb603d0c2fbd5b8f71c02992247a22d1f5875575185c28619033ebb4",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/mysql-final.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/mysql-final.tsv",
+      "source_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "public_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/execution.log",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/execution.log",
+      "source_sha256": "321d3be70fdac182679da85ccc025d156b39224302e3d9bd9bb73654d1b2fab2",
+      "public_sha256": "d5ba785b2f899a212d27e1ba7e3b80d85b78839c9c9c3a2f7ccf8d8ef6250594",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/readback.log",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/readback.log",
+      "source_sha256": "53e176e7568077d81aa57a07923518f0801166b34636eb23723aed9db97ddfbb",
+      "public_sha256": "be45329216c237f74d3a18256d2f04c4d951a4f1a470a4972e71a1e917b5b39c",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/execution-plan.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/execution-plan.json",
+      "source_sha256": "d07ad3f8bf5e22b0a71e5e67d189a6734b26318288a60c2658a8fcc145458e45",
+      "public_sha256": "74fddf10f45c7b13a234364af57947dbe24a63262c001add1e69b8718698324e",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/after-extra-checkpoint-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/after-extra-checkpoint-reconciliation.txt",
+      "source_sha256": "52ba0cffd2e6cf1aa6fb3559b4a3e0131c167da5e5b59f5343697e3add973dc3",
+      "public_sha256": "52ba0cffd2e6cf1aa6fb3559b4a3e0131c167da5e5b59f5343697e3add973dc3",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/state-watermark-verification.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/state-watermark-verification.json",
+      "source_sha256": "de74a1c50a0c9046f5349de21da3d9089f664fb2f8e749f86c8036dbb89d6ba1",
+      "public_sha256": "de74a1c50a0c9046f5349de21da3d9089f664fb2f8e749f86c8036dbb89d6ba1",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/after-extra-checkpoint-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/after-extra-checkpoint-paimon.tsv",
+      "source_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "public_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/readback-process-result.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/readback-process-result.json",
+      "source_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "public_sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/timeline.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/timeline.txt",
+      "source_sha256": "df00fdc4fc95c3127c935592266bcbed4df109c8cb5f82993498766f8fe84f3e",
+      "public_sha256": "4ab8110df6146574b95aaf35217979de1bb5b7fc0a4be3c475e032d2d1a22a60",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/execution-process-result.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/execution-process-result.json",
+      "source_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "public_sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/mysql-environment.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/mysql-environment.txt",
+      "source_sha256": "cc6efefd3458de1ca4bcbfcf8fbfc377de2011f2660e883b44fd60e595157bb5",
+      "public_sha256": "cc6efefd3458de1ca4bcbfcf8fbfc377de2011f2660e883b44fd60e595157bb5",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-pre/published-before-global-failure-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-pre/published-before-global-failure-paimon.tsv",
+      "source_sha256": "44f575beff0debc29c0fd5c113c8d75f7ebec6e8de29eaf4ba3461aa84591d3b",
+      "public_sha256": "44f575beff0debc29c0fd5c113c8d75f7ebec6e8de29eaf4ba3461aa84591d3b",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/mysql-before-failure.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/mysql-before-failure.tsv",
+      "source_sha256": "44f575beff0debc29c0fd5c113c8d75f7ebec6e8de29eaf4ba3461aa84591d3b",
+      "public_sha256": "44f575beff0debc29c0fd5c113c8d75f7ebec6e8de29eaf4ba3461aa84591d3b",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/after-cancel-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/after-cancel-paimon.tsv",
+      "source_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "public_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/mysql-initial.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/mysql-initial.tsv",
+      "source_sha256": "13663c746b6cac178b08e5b26dd8ccd5b2eb767b1032518d825c72b789dc62e9",
+      "public_sha256": "13663c746b6cac178b08e5b26dd8ccd5b2eb767b1032518d825c72b789dc62e9",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/source-events.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/source-events.txt",
+      "source_sha256": "7a11150f144e36d5d9dd07495d17ee58704ff3cc26cdecf9a13d3a4923c3e1cc",
+      "public_sha256": "7a11150f144e36d5d9dd07495d17ee58704ff3cc26cdecf9a13d3a4923c3e1cc",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/after-recovery-checkpoint-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/after-recovery-checkpoint-reconciliation.txt",
+      "source_sha256": "7901804bcf55c04b265ac08ef9eed79f9ae12691faf0236e8d171ef13e34c504",
+      "public_sha256": "7901804bcf55c04b265ac08ef9eed79f9ae12691faf0236e8d171ef13e34c504",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/result.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/result.txt",
+      "source_sha256": "79ced0277c23c004b5b41ee54920891720f7c8e2e57e6989a9ebbd18dceea302",
+      "public_sha256": "79ced0277c23c004b5b41ee54920891720f7c8e2e57e6989a9ebbd18dceea302",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/after-recovery-checkpoint-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/after-recovery-checkpoint-paimon.tsv",
+      "source_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "public_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/reconciliation.txt",
+      "source_sha256": "5ffdf6d6af17b6f0e44afa00339bee6d52815b70b093ccb6485c952c5b593d44",
+      "public_sha256": "5ffdf6d6af17b6f0e44afa00339bee6d52815b70b093ccb6485c952c5b593d44",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/published-before-global-failure-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/published-before-global-failure-reconciliation.txt",
+      "source_sha256": "6b1d04f0580ff11b0aa58b2f501d4cd2accd20499632fd2efd9e1ce62ffb28ab",
+      "public_sha256": "6b1d04f0580ff11b0aa58b2f501d4cd2accd20499632fd2efd9e1ce62ffb28ab",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/snapshots.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/snapshots.json",
+      "source_sha256": "142048105ad6ac2494ebe4376e5c12691f7707b9541a483b2f04e56e104f433d",
+      "public_sha256": "142048105ad6ac2494ebe4376e5c12691f7707b9541a483b2f04e56e104f433d",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/fresh-jvm-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/fresh-jvm-reconciliation.txt",
+      "source_sha256": "e9cc4241a7848db21c02ecedc3067ef853f4e9a567f0669c6d747ab99390c680",
+      "public_sha256": "e9cc4241a7848db21c02ecedc3067ef853f4e9a567f0669c6d747ab99390c680",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/fresh-jvm-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/fresh-jvm-paimon.tsv",
+      "source_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "public_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/after-cancel-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/after-cancel-reconciliation.txt",
+      "source_sha256": "fd9c9f15b295236d3862888900bad0cac7cce228d86e148e50ef7af2c9702821",
+      "public_sha256": "fd9c9f15b295236d3862888900bad0cac7cce228d86e148e50ef7af2c9702821",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/mysql-final.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/mysql-final.tsv",
+      "source_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "public_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/execution.log",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/execution.log",
+      "source_sha256": "eef578765867254d8e7fd26fa87b29db88ad3b3f30cf27091d23a4b75b9bb9ff",
+      "public_sha256": "b4b2cb84884b61137e292d56fc559ce073fae379b31abfa7196a7642bbede7e1",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/readback.log",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/readback.log",
+      "source_sha256": "e7539850c174b8a86bea2c6d78a12d26c1590d2c02c91ffc5b047315c81bfb27",
+      "public_sha256": "1cdb555f4442e311f6342ec4fb3365fba4fd7edffc341ca22a6b75d168bfebbf",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/execution-plan.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/execution-plan.json",
+      "source_sha256": "d07ad3f8bf5e22b0a71e5e67d189a6734b26318288a60c2658a8fcc145458e45",
+      "public_sha256": "74fddf10f45c7b13a234364af57947dbe24a63262c001add1e69b8718698324e",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/after-extra-checkpoint-reconciliation.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/after-extra-checkpoint-reconciliation.txt",
+      "source_sha256": "7555ba931368054e0e8f01d291b9dfcbfd35509a7589a1ac2159105e055ab4be",
+      "public_sha256": "7555ba931368054e0e8f01d291b9dfcbfd35509a7589a1ac2159105e055ab4be",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/state-watermark-verification.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/state-watermark-verification.json",
+      "source_sha256": "064416e541db6c584517a0c3d5b04051f9ea8541de6358deff702251b6a2144f",
+      "public_sha256": "064416e541db6c584517a0c3d5b04051f9ea8541de6358deff702251b6a2144f",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/after-extra-checkpoint-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/after-extra-checkpoint-paimon.tsv",
+      "source_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "public_sha256": "dca0266babe872506f589f9a535be69be94b1aa7b7026da98044552b34d057e0",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/readback-process-result.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/readback-process-result.json",
+      "source_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "public_sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/timeline.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/timeline.txt",
+      "source_sha256": "6a54fcb080cad42ee9280d5727716cd3ee6d6211f098b284499c40753982b9ba",
+      "public_sha256": "fa534491087068a543bfcf1d7027ce07d2841b0b1752a9e4686ec2ede3575d90",
+      "machine_paths_normalized": true,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/execution-process-result.json",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/execution-process-result.json",
+      "source_sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+      "public_sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/mysql-environment.txt",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/mysql-environment.txt",
+      "source_sha256": "cc6efefd3458de1ca4bcbfcf8fbfc377de2011f2660e883b44fd60e595157bb5",
+      "public_sha256": "cc6efefd3458de1ca4bcbfcf8fbfc377de2011f2660e883b44fd60e595157bb5",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
+    },
+    {
+      "file": "chunk-recovery/control-post/published-before-global-failure-paimon.tsv",
+      "source_file": "flink-cdc-chunk-recovery-e2e-20261018/final/control-post/published-before-global-failure-paimon.tsv",
+      "source_sha256": "44f575beff0debc29c0fd5c113c8d75f7ebec6e8de29eaf4ba3461aa84591d3b",
+      "public_sha256": "44f575beff0debc29c0fd5c113c8d75f7ebec6e8de29eaf4ba3461aa84591d3b",
+      "machine_paths_normalized": false,
+      "trailing_whitespace_normalized": true
     }
   ]
 }

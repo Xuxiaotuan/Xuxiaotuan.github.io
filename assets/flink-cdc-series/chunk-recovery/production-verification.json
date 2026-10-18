@@ -1,0 +1,7 @@
+{
+  "cdc_commit": "045e8da45df4b1017849b04e2d8bfe8f0ed7936d",
+  "production_java_files_compared": 1193,
+  "changed": [],
+  "probe_sha256": "125cef31019857e1eb7e70b03fd0115a5d06c15926eb52e536ba0e81767813ff",
+  "production_classes": "Reused fixed-source compiled target/classes, loaded locations in execution logs; no production source edits or recompilation."
+}

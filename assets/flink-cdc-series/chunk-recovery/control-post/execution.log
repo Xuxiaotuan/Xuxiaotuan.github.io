@@ -1,0 +1,276 @@
+2026-10-18T17:14:31,746 WARN  org.apache.flink.runtime.util.HadoopUtils - Could not find Hadoop configuration via any of the supported methods (Flink configuration, environment variables).
+2026-10-18T17:14:31,763 WARN  org.apache.flink.runtime.util.HadoopUtils - Could not find Hadoop configuration via any of the supported methods (Flink configuration, environment variables).
+WARNING: An illegal reflective access operation has occurred
+WARNING: Illegal reflective access by org.apache.hadoop.security.authentication.util.KerberosUtil (file:/home/author/.m2/repository/org/apache/hadoop/hadoop-auth/2.8.5/hadoop-auth-2.8.5.jar) to method sun.security.krb5.Config.getInstance()
+WARNING: Please consider reporting this to the maintainers of org.apache.hadoop.security.authentication.util.KerberosUtil
+WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
+WARNING: All illegal access operations will be denied in a future release
+2026-10-18T17:14:32,162 WARN  org.apache.hadoop.util.NativeCodeLoader - Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+2026-10-18T17:14:32,305 WARN  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager - No tokens obtained so skipping notifications
+2026-10-18T17:14:33,210 WARN  org.apache.flink.runtime.webmonitor.WebMonitorUtils - Log file environment variable 'log.file' is not set.
+2026-10-18T17:14:33,213 WARN  org.apache.flink.runtime.webmonitor.WebMonitorUtils - JobManager log files are unavailable in the web dashboard. Log file location not found in environment variable 'log.file' or configuration key 'web.log.path'.
+2026-10-18T17:14:33,658 WARN  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager - No tokens obtained so skipping notifications
+2026-10-18T17:14:33,658 WARN  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager - Tokens update task not started because either no tokens obtained or none of the tokens specified its renewal date
+2026-10-18T17:14:33,791 WARN  org.apache.flink.cdc.composer.utils.FactoryDiscoveryUtils - The factory class "org.apache.flink.cdc.connectors.mysql.factory.MySqlDataSourceFactory" is contained by directory "file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-mysql/target/classes/" instead of JAR. This might happen in integration test. Will ignore the directory.
+2026-10-18T17:14:33,990 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+2026-10-18T17:14:34,095 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+2026-10-18T17:14:34,364 WARN  org.apache.flink.cdc.composer.utils.FactoryDiscoveryUtils - The factory class "org.apache.flink.cdc.connectors.paimon.sink.PaimonDataSinkFactory" is contained by directory "file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/target/classes/" instead of JAR. This might happen in integration test. Will ignore the directory.
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.mysql.source.MySqlSource file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.mysql.debezium.reader.SnapshotSplitReader file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.mysql.debezium.reader.BinlogSplitReader file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.mysql.source.utils.RecordUtils file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/target/classes/
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.paimon.sink.v2.PaimonWriter file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/target/classes/
+CHUNK_E2E LOADED org.apache.flink.cdc.connectors.paimon.sink.v2.PreCommitOperator file:/work/flink-cdc-article1-06wcq8ar/flink-cdc-045e8da45df4b1017849b04e2d8bfe8f0ed7936d/flink-cdc-connect/flink-cdc-pipeline-connectors/flink-cdc-pipeline-connector-paimon/target/classes/
+CHUNK_E2E JOB_ID c8cf7c254c2abe9f6f02221ae0635777
+2026-10-18T17:14:35,043 WARN  org.apache.flink.metrics.MetricGroup - The operator name Source: MySQL fixed chunks -> Source observation only -> SchemaOperator -> PrePartition exceeded the 80 characters length limit and was truncated.
+2026-10-18T17:14:35,054 WARN  org.apache.flink.metrics.MetricGroup - The operator name Source: MySQL fixed chunks -> Source observation only -> SchemaOperator -> PrePartition exceeded the 80 characters length limit and was truncated.
+2026-10-18T17:14:35,741 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotSplitAssigner - Start splitting table cdc_chunk_e2e.items into chunks...
+CHUNK_E2E TASK_OPEN attempt=0
+2026-10-18T17:14:36,128 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:36,128 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:36,128 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:36,128 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:36,256 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:36,558 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlChunkSplitter - The distribution factor of table cdc_chunk_e2e.items is 1.0 according to the min split key 95, max split key 114 and approximate row count 20
+2026-10-18T17:14:36,558 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlChunkSplitter - The actual distribution factor for table cdc_chunk_e2e.items is 1.0, the lower bound of evenly distribution factor is 0.05, the upper bound of evenly distribution factor is 1000.0
+2026-10-18T17:14:36,558 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlChunkSplitter - Use evenly-sized chunk optimization for table cdc_chunk_e2e.items, the approximate row count is 20, the chunk size is 10, the dynamic chunk size is 10
+2026-10-18T17:14:36,561 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotSplitAssigner - Split table cdc_chunk_e2e.items into 2 chunks, time cost: 819ms.
+CHUNK_E2E READER_ADD attempt=0 splits=[MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:0', splitKeyType=[`c` INT NOT NULL], splitStart=null, splitEnd=[105], highWatermark=null}]
+2026-10-18T17:14:36,668 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+CHUNK_E2E PRE_LOW attempt=0 MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:0', splitKeyType=[`c` INT NOT NULL], splitStart=null, splitEnd=[105], highWatermark=null}
+2026-10-18T17:14:36,765 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 1 - Determining low watermark {ts_sec=0, file=binlog.000003, pos=73242, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=0, event=0} for split MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:0', splitKeyType=[`c` INT NOT NULL], splitStart=null, splitEnd=[105], highWatermark=null}
+CHUNK_E2E POST_LOW cdc_chunk_e2e.items:0 offset={ts_sec=0, file=binlog.000003, pos=73242, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=0, event=0}
+2026-10-18T17:14:36,769 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 2 - Snapshotting data
+2026-10-18T17:14:36,770 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Exporting data from split 'cdc_chunk_e2e.items:0' of table cdc_chunk_e2e.items
+2026-10-18T17:14:36,770 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - For split 'cdc_chunk_e2e.items:0' of table cdc_chunk_e2e.items using select statement: 'SELECT * FROM `cdc_chunk_e2e`.`items` WHERE `c` <= ? AND NOT (`c` = ?)'
+2026-10-18T17:14:36,790 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Finished exporting 10 records for split 'cdc_chunk_e2e.items:0', total duration '00:00:00.02'
+2026-10-18T17:14:36,796 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 3 - Determining high watermark {ts_sec=0, file=binlog.000003, pos=73242, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=0, event=0} for split MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:0', splitKeyType=[`c` INT NOT NULL], splitStart=null, splitEnd=[105], highWatermark=null}
+CHUNK_E2E POST_HIGH cdc_chunk_e2e.items:0 offset={ts_sec=0, file=binlog.000003, pos=73242, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=0, event=0}
+2026-10-18T17:14:37,432 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+CHUNK_E2E READER_ADD attempt=0 splits=[MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}]
+2026-10-18T17:14:38,492 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+CHUNK_E2E PRE_LOW attempt=0 MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}
+2026-10-18T17:14:38,575 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+CHUNK_E2E OBSERVER_STATE checkpoint=1 count=10
+CHUNK_E2E READER_STATE checkpoint=1 splits=[MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}]
+2026-10-18T17:14:39,590 WARN  org.apache.flink.metrics.MetricGroup - Name collision: Group already contains a Metric with the name 'pendingCommittables'. Metric will not be reported.[, taskmanager, 535b8d9d-d37f-45c1-8b58-979d55fd2191, chunk-key-control, Sink Committer: Real Paimon, 0]
+CHUNK_E2E CHECKPOINT_CALLBACK 1
+CHUNK_E2E GLOBAL_CHECKPOINT_FUTURE_COMPLETED callbacks=[1]
+CHUNK_E2E PRE_MIGRATION_COMPLETED checkpoint=1
+CHUNK_E2E MUTATIONS_COMMITTED before B LOW
+2026-10-18T17:14:40,535 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 1 - Determining low watermark {ts_sec=0, file=binlog.000003, pos=74184, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=0, event=0} for split MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}
+CHUNK_E2E POST_LOW cdc_chunk_e2e.items:1 offset={ts_sec=0, file=binlog.000003, pos=74184, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=0, event=0}
+2026-10-18T17:14:40,536 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 2 - Snapshotting data
+2026-10-18T17:14:40,536 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Exporting data from split 'cdc_chunk_e2e.items:1' of table cdc_chunk_e2e.items
+2026-10-18T17:14:40,536 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - For split 'cdc_chunk_e2e.items:1' of table cdc_chunk_e2e.items using select statement: 'SELECT * FROM `cdc_chunk_e2e`.`items` WHERE `c` >= ?'
+2026-10-18T17:14:40,539 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Finished exporting 10 records for split 'cdc_chunk_e2e.items:1', total duration '00:00:00.003'
+2026-10-18T17:14:40,540 INFO  org.apache.flink.cdc.connectors.mysql.debezium.task.MySqlSnapshotSplitReadTask - Snapshot step 3 - Determining high watermark {ts_sec=0, file=binlog.000003, pos=74184, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=0, event=0} for split MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}
+CHUNK_E2E POST_HIGH cdc_chunk_e2e.items:1 offset={ts_sec=0, file=binlog.000003, pos=74184, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=0, event=0}
+2026-10-18T17:14:41,539 INFO  org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlSnapshotSplitAssigner - Snapshot split assigner received all splits finished and the job parallelism is 1, snapshot split assigner is turn into finished status.
+CHUNK_E2E READER_ADD attempt=0 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[], offset={ts_sec=0, file=binlog.000003, pos=73242, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=0, event=0}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+2026-10-18T17:14:41,588 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+2026-10-18T17:14:41,630 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+10月 18, 2026 5:14:41 下午 com.github.shyiko.mysql.binlog.BinaryLogClient connect
+信息: Connected to 127.0.0.1:32785 at cb0792da-cad3-11f1-9571-2658671ca05a:1-261 (sid:8700, cid:153)
+CHUNK_E2E OBSERVER_STATE checkpoint=2 count=22
+CHUNK_E2E READER_STATE checkpoint=2 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314882, file=binlog.000003, pos=74263, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+2026-10-18T17:14:42,782 WARN  org.apache.flink.metrics.MetricGroup - Name collision: Group already contains a Metric with the name 'pendingCommittables'. Metric will not be reported.[, taskmanager, 535b8d9d-d37f-45c1-8b58-979d55fd2191, chunk-key-control, Sink Committer: Real Paimon, 0]
+CHUNK_E2E CHECKPOINT_CALLBACK 2
+CHUNK_E2E GLOBAL_CHECKPOINT_FUTURE_COMPLETED callbacks=[1, 2]
+CHUNK_E2E POST_MIGRATION_COMPLETED checkpoint=2
+CHUNK_E2E OBSERVER_STATE checkpoint=3 count=22
+CHUNK_E2E READER_STATE checkpoint=3 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314882, file=binlog.000003, pos=74263, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+2026-10-18T17:14:43,012 WARN  org.apache.flink.metrics.MetricGroup - Name collision: Group already contains a Metric with the name 'pendingCommittables'. Metric will not be reported.[, taskmanager, 535b8d9d-d37f-45c1-8b58-979d55fd2191, chunk-key-control, Sink Committer: Real Paimon, 0]
+CHUNK_E2E FAULT_HELD checkpoint=3
+2026-10-18T17:14:43,016 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:43,031 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:43,041 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+phase=published-before-global-failure
+snapshot=3
+columns=[id,c,amount]
+source_rows=20
+target_rows=20
+missing=[]
+extra=[]
+field_differences=[]
+data_equal=true
+
+2026-10-18T17:14:43,409 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+CHUNK_E2E EXTERNAL_SNAPSHOT_PUBLISHED snapshot=3 commitIdentifier=3 globalFuturePending=true
+2026-10-18T17:14:43,423 WARN  org.apache.flink.runtime.taskmanager.Task - fault after real precommit -> Sink Committer: Real Paimon (1/1)#0 (f7849cac1b296b29b12d9358d80d61d4_2e6e44e0f88ccace6aedab424831142d_0_0) switched from RUNNING to FAILED with failure cause:
+java.io.IOException: Could not perform checkpoint 3 for operator fault after real precommit -> Sink Committer: Real Paimon (1/1)#0.
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.triggerCheckpointOnBarrier(StreamTask.java:1394) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.checkpointing.CheckpointBarrierHandler.notifyCheckpoint(CheckpointBarrierHandler.java:147) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.checkpointing.SingleCheckpointBarrierHandler.triggerCheckpoint(SingleCheckpointBarrierHandler.java:287) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.checkpointing.SingleCheckpointBarrierHandler.access$100(SingleCheckpointBarrierHandler.java:64) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.checkpointing.SingleCheckpointBarrierHandler$ControllerImpl.triggerGlobalCheckpoint(SingleCheckpointBarrierHandler.java:488) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.checkpointing.AbstractAlignedBarrierHandlerState.triggerGlobalCheckpoint(AbstractAlignedBarrierHandlerState.java:74) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.checkpointing.AbstractAlignedBarrierHandlerState.barrierReceived(AbstractAlignedBarrierHandlerState.java:66) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.checkpointing.SingleCheckpointBarrierHandler.lambda$processBarrier$2(SingleCheckpointBarrierHandler.java:234) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.checkpointing.SingleCheckpointBarrierHandler.markCheckpointAlignedAndTransformState(SingleCheckpointBarrierHandler.java:262) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.checkpointing.SingleCheckpointBarrierHandler.processBarrier(SingleCheckpointBarrierHandler.java:231) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate.handleEvent(CheckpointedInputGate.java:181) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate.pollNext(CheckpointedInputGate.java:159) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.AbstractStreamTaskNetworkInput.emitNext(AbstractStreamTaskNetworkInput.java:122) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.io.StreamOneInputProcessor.processInput(StreamOneInputProcessor.java:65) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.processInput(StreamTask.java:638) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.mailbox.MailboxProcessor.runMailboxLoop(MailboxProcessor.java:231) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.runMailboxLoop(StreamTask.java:973) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.invoke(StreamTask.java:917) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.taskmanager.Task.runWithSystemExitMonitoring(Task.java:970) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.taskmanager.Task.restoreAndInvoke(Task.java:949) [flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.taskmanager.Task.doRun(Task.java:763) [flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.taskmanager.Task.run(Task.java:575) [flink-runtime-1.20.3.jar:1.20.3]
+	at java.lang.Thread.run(Thread.java:829) [?:?]
+Caused by: org.apache.flink.runtime.checkpoint.CheckpointException: Could not complete snapshot 3 for operator fault after real precommit -> Sink Committer: Real Paimon (1/1)#0. Failure reason: Checkpoint was declined.
+	at org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.snapshotState(StreamOperatorStateHandler.java:300) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.snapshotState(StreamOperatorStateHandler.java:204) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.api.operators.AbstractStreamOperator.snapshotState(AbstractStreamOperator.java:395) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.RegularOperatorChain.checkpointStreamOperator(RegularOperatorChain.java:228) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.RegularOperatorChain.buildOperatorSnapshotFutures(RegularOperatorChain.java:213) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.RegularOperatorChain.snapshotState(RegularOperatorChain.java:192) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.SubtaskCheckpointCoordinatorImpl.takeSnapshotSync(SubtaskCheckpointCoordinatorImpl.java:751) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.SubtaskCheckpointCoordinatorImpl.checkpointState(SubtaskCheckpointCoordinatorImpl.java:361) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.lambda$performCheckpoint$18(StreamTask.java:1437) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.StreamTaskActionExecutor$1.runThrowing(StreamTaskActionExecutor.java:50) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.performCheckpoint(StreamTask.java:1425) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.triggerCheckpointOnBarrier(StreamTask.java:1382) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	... 22 more
+Caused by: java.lang.RuntimeException: CHUNK_RECOVERY intentional task failure after Paimon publication before global checkpoint completion
+	at article2recovery.ChunkRecoveryJob$FaultProbe.snapshotState(ChunkRecoveryJob.java:419) ~[classes/:?]
+	at org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.snapshotState(StreamOperatorStateHandler.java:253) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.snapshotState(StreamOperatorStateHandler.java:204) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.api.operators.AbstractStreamOperator.snapshotState(AbstractStreamOperator.java:395) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.RegularOperatorChain.checkpointStreamOperator(RegularOperatorChain.java:228) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.RegularOperatorChain.buildOperatorSnapshotFutures(RegularOperatorChain.java:213) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.RegularOperatorChain.snapshotState(RegularOperatorChain.java:192) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.SubtaskCheckpointCoordinatorImpl.takeSnapshotSync(SubtaskCheckpointCoordinatorImpl.java:751) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.SubtaskCheckpointCoordinatorImpl.checkpointState(SubtaskCheckpointCoordinatorImpl.java:361) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.lambda$performCheckpoint$18(StreamTask.java:1437) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.StreamTaskActionExecutor$1.runThrowing(StreamTaskActionExecutor.java:50) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.performCheckpoint(StreamTask.java:1425) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.triggerCheckpointOnBarrier(StreamTask.java:1382) ~[flink-streaming-java-1.20.3.jar:1.20.3]
+	... 22 more
+2026-10-18T17:14:43,459 WARN  org.apache.flink.runtime.checkpoint.CheckpointFailureManager - Failed to trigger or complete checkpoint 3 for job c8cf7c254c2abe9f6f02221ae0635777. (0 consecutive failed attempts so far)
+org.apache.flink.runtime.checkpoint.CheckpointException: Checkpoint Coordinator is suspending.
+	at org.apache.flink.runtime.checkpoint.CheckpointCoordinator.stopCheckpointScheduler(CheckpointCoordinator.java:2068) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.checkpoint.CheckpointCoordinatorDeActivator.jobStatusChanges(CheckpointCoordinatorDeActivator.java:49) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.executiongraph.DefaultExecutionGraph.notifyJobStatusChange(DefaultExecutionGraph.java:1609) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.executiongraph.DefaultExecutionGraph.transitionState(DefaultExecutionGraph.java:1167) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.executiongraph.DefaultExecutionGraph.transitionState(DefaultExecutionGraph.java:1139) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.scheduler.SchedulerBase.transitionExecutionGraphState(SchedulerBase.java:601) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.scheduler.DefaultScheduler.addVerticesToRestartPending(DefaultScheduler.java:386) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.scheduler.DefaultScheduler.restartTasksWithDelay(DefaultScheduler.java:362) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.scheduler.DefaultScheduler.maybeRestartTasks(DefaultScheduler.java:330) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.scheduler.DefaultScheduler.handleTaskFailure(DefaultScheduler.java:272) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.scheduler.DefaultScheduler.onTaskFailed(DefaultScheduler.java:265) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.scheduler.SchedulerBase.onTaskExecutionStateUpdate(SchedulerBase.java:788) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.scheduler.SchedulerBase.updateTaskExecutionState(SchedulerBase.java:765) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.scheduler.SchedulerNG.updateTaskExecutionState(SchedulerNG.java:83) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.jobmaster.JobMaster.updateTaskExecutionState(JobMaster.java:515) ~[flink-runtime-1.20.3.jar:1.20.3]
+	at jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:?]
+	at jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[?:?]
+	at jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:?]
+	at java.lang.reflect.Method.invoke(Method.java:566) ~[?:?]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor.lambda$handleRpcInvocation$1(PekkoRpcActor.java:318) ~[flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.flink.runtime.concurrent.ClassLoadingUtils.runWithContextClassLoader(ClassLoadingUtils.java:83) ~[flink-rpc-core-1.20.3.jar:1.20.3]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor.handleRpcInvocation(PekkoRpcActor.java:316) ~[flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor.handleRpcMessage(PekkoRpcActor.java:229) ~[flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.flink.runtime.rpc.pekko.FencedPekkoRpcActor.handleRpcMessage(FencedPekkoRpcActor.java:88) ~[flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor.handleMessage(PekkoRpcActor.java:174) ~[flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:33) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:29) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at scala.PartialFunction.applyOrElse(PartialFunction.scala:127) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at scala.PartialFunction.applyOrElse$(PartialFunction.scala:126) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.applyOrElse(CaseStatements.scala:29) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:175) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:176) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:176) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.pekko.actor.Actor.aroundReceive(Actor.scala:547) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.pekko.actor.Actor.aroundReceive$(Actor.scala:545) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.pekko.actor.AbstractActor.aroundReceive(AbstractActor.scala:229) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.pekko.actor.ActorCell.receiveMessage(ActorCell.scala:590) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.pekko.actor.ActorCell.invoke(ActorCell.scala:557) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.pekko.dispatch.Mailbox.processMailbox(Mailbox.scala:272) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.pekko.dispatch.Mailbox.run(Mailbox.scala:233) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at org.apache.pekko.dispatch.Mailbox.exec(Mailbox.scala:245) [flink-rpc-akka3177130f-0fcb-4e42-8621-92453efbf18c.jar:1.20.3]
+	at java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:290) [?:?]
+	at java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1020) [?:?]
+	at java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1656) [?:?]
+	at java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1594) [?:?]
+	at java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:183) [?:?]
+CHUNK_E2E FAILED_CHECKPOINT_EXCEPTION org.apache.flink.runtime.checkpoint.CheckpointException: Checkpoint Coordinator is suspending.
+10月 18, 2026 5:14:43 下午 com.github.shyiko.mysql.binlog.BinaryLogClient$5 run
+信息: threadExecutor is shut down, terminating keepalive thread
+2026-10-18T17:14:44,232 ERROR org.apache.flink.cdc.runtime.operators.schema.common.SchemaRegistry - Subtask 0 reset at checkpoint 2.
+2026-10-18T17:14:44,246 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:44,247 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:44,247 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:44,251 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:44,251 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+CHUNK_E2E RESTORED checkpoint=2 count=22
+CHUNK_E2E TASK_OPEN attempt=1
+2026-10-18T17:14:44,252 WARN  org.apache.flink.metrics.MetricGroup - Name collision: Group already contains a Metric with the name 'pendingCommittables'. Metric will not be reported.[, taskmanager, 535b8d9d-d37f-45c1-8b58-979d55fd2191, chunk-key-control, Sink Committer: Real Paimon, 0]
+CHUNK_E2E READER_ADD attempt=1 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314882, file=binlog.000003, pos=74263, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+2026-10-18T17:14:44,253 WARN  org.apache.flink.cdc.connectors.mysql.source.reader.MySqlSourceReader - Source reader 0 skip the table schema discovery, the binlog split MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314882, file=binlog.000003, pos=74263, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false} has table schemas yet.
+2026-10-18T17:14:44,255 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+CHUNK_E2E RESTORED_READER_STATE_MATCH checkpoint=2
+10月 18, 2026 5:14:44 下午 com.github.shyiko.mysql.binlog.BinaryLogClient connect
+信息: Connected to 127.0.0.1:32785 at cb0792da-cad3-11f1-9571-2658671ca05a:1-264 (sid:8700, cid:155)
+CHUNK_E2E OBSERVER_STATE checkpoint=4 count=23
+CHUNK_E2E READER_STATE checkpoint=4 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314884, file=binlog.000003, pos=74577, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-265, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+2026-10-18T17:14:44,979 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+2026-10-18T17:14:45,014 WARN  org.apache.flink.metrics.MetricGroup - Name collision: Group already contains a Metric with the name 'pendingCommittables'. Metric will not be reported.[, taskmanager, 535b8d9d-d37f-45c1-8b58-979d55fd2191, chunk-key-control, Sink Committer: Real Paimon, 0]
+CHUNK_E2E CHECKPOINT_CALLBACK 4
+CHUNK_E2E GLOBAL_CHECKPOINT_FUTURE_COMPLETED callbacks=[1, 2, 4]
+2026-10-18T17:14:45,092 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+phase=after-recovery-checkpoint
+snapshot=4
+columns=[id,c,amount]
+source_rows=20
+target_rows=20
+missing=[]
+extra=[]
+field_differences=[]
+data_equal=true
+
+CHUNK_E2E OBSERVER_STATE checkpoint=5 count=23
+CHUNK_E2E READER_STATE checkpoint=5 splits=[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314884, file=binlog.000003, pos=74577, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-265, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]
+2026-10-18T17:14:45,120 WARN  org.apache.flink.metrics.MetricGroup - Name collision: Group already contains a Metric with the name 'pendingCommittables'. Metric will not be reported.[, taskmanager, 535b8d9d-d37f-45c1-8b58-979d55fd2191, chunk-key-control, Sink Committer: Real Paimon, 0]
+CHUNK_E2E CHECKPOINT_CALLBACK 5
+CHUNK_E2E GLOBAL_CHECKPOINT_FUTURE_COMPLETED callbacks=[1, 2, 4, 5]
+2026-10-18T17:14:45,175 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+phase=after-extra-checkpoint
+snapshot=5
+columns=[id,c,amount]
+source_rows=20
+target_rows=20
+missing=[]
+extra=[]
+field_differences=[]
+data_equal=true
+
+2026-10-18T17:14:45,206 WARN  org.apache.paimon.utils.HadoopUtils - Could not find Hadoop configuration via any of the supported methods
+phase=after-cancel
+snapshot=5
+columns=[id,c,amount]
+source_rows=20
+target_rows=20
+missing=[]
+extra=[]
+field_differences=[]
+data_equal=true
+
+2026-10-18T17:14:45,243 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+2026-10-18T17:14:45,259 WARN  io.debezium.connector.mysql.MySqlConnection - Database configuration option 'serverTimezone' is set but is obsolete, please use 'connectionTimeZone' instead
+10月 18, 2026 5:14:45 下午 com.github.shyiko.mysql.binlog.BinaryLogClient connect
+信息: Connected to 127.0.0.1:32785 at cb0792da-cad3-11f1-9571-2658671ca05a:1-261 (sid:8800, cid:158)
+10月 18, 2026 5:14:45 下午 com.github.shyiko.mysql.binlog.BinaryLogClient$5 run
+信息: threadExecutor is shut down, terminating keepalive thread
+10月 18, 2026 5:14:45 下午 com.github.shyiko.mysql.binlog.BinaryLogClient$5 run
+信息: threadExecutor is shut down, terminating keepalive thread
+CHUNK_E2E BOUNDARY_ASSERTIONS_PASS H_A={ts_sec=0, file=binlog.000003, pos=73242, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=0, event=0} E_102={transaction_id=null, ts_sec=1792314880, file=binlog.000003, pos=73321, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=1, event=2, server_id=8675322} L_B={ts_sec=0, file=binlog.000003, pos=74184, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=0, event=0} H_B={ts_sec=0, file=binlog.000003, pos=74184, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-264, row=0, event=0}
+CHUNK_E2E AUDIT_RAW SourceRecord{sourcePartition={server=mysql_binlog_source}, sourceOffset={transaction_id=null, ts_sec=1792314880, file=binlog.000003, pos=73321, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-261, row=1, server_id=8675322, event=2}} ConnectRecord{topic='mysql_binlog_source.cdc_chunk_e2e.items', kafkaPartition=null, key=Struct{id=102}, keySchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Key:STRUCT}, value=Struct{before=Struct{id=102,c=110,amount=20},after=Struct{id=102,c=110,amount=21},source=Struct{version=1.9.8.Final,connector=mysql,name=mysql_binlog_source,ts_ms=1792314880000,db=cdc_chunk_e2e,table=items,server_id=8675322,gtid=cb0792da-cad3-11f1-9571-2658671ca05a:262,file=binlog.000003,pos=73463,row=0,thread=143},op=u,ts_ms=1792314885295}, valueSchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Envelope:STRUCT}, timestamp=null, headers=ConnectHeaders(headers=)}
+CHUNK_E2E AUDIT_RAW SourceRecord{sourcePartition={server=mysql_binlog_source}, sourceOffset={transaction_id=null, ts_sec=1792314880, file=binlog.000003, pos=73635, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-262, row=1, server_id=8675322, event=2}} ConnectRecord{topic='mysql_binlog_source.cdc_chunk_e2e.items', kafkaPartition=null, key=Struct{id=101}, keySchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Key:STRUCT}, value=Struct{before=Struct{id=101,c=100,amount=10},after=Struct{id=101,c=100,amount=11},source=Struct{version=1.9.8.Final,connector=mysql,name=mysql_binlog_source,ts_ms=1792314880000,db=cdc_chunk_e2e,table=items,server_id=8675322,gtid=cb0792da-cad3-11f1-9571-2658671ca05a:263,file=binlog.000003,pos=73777,row=0,thread=143},op=u,ts_ms=1792314885295}, valueSchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Envelope:STRUCT}, timestamp=null, headers=ConnectHeaders(headers=)}
+CHUNK_E2E AUDIT_RAW SourceRecord{sourcePartition={server=mysql_binlog_source}, sourceOffset={transaction_id=null, ts_sec=1792314880, file=binlog.000003, pos=73949, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-263, row=1, server_id=8675322, event=2}} ConnectRecord{topic='mysql_binlog_source.cdc_chunk_e2e.items', kafkaPartition=null, key=Struct{id=103}, keySchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Key:STRUCT}, value=Struct{before=Struct{id=103,c=114,amount=30},after=Struct{id=103,c=114,amount=31},source=Struct{version=1.9.8.Final,connector=mysql,name=mysql_binlog_source,ts_ms=1792314880000,db=cdc_chunk_e2e,table=items,server_id=8675322,gtid=cb0792da-cad3-11f1-9571-2658671ca05a:264,file=binlog.000003,pos=74091,row=0,thread=143},op=u,ts_ms=1792314885296}, valueSchema=Schema{mysql_binlog_source.cdc_chunk_e2e.items.Envelope:STRUCT}, timestamp=null, headers=ConnectHeaders(headers=)}
+CHUNK_E2E CHARACTERIZATION_ASSERTIONS_PASS data_equal=true

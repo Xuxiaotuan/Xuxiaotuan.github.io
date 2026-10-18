@@ -1,0 +1,99 @@
+{
+  "restored_checkpoint": 2,
+  "failed_checkpoint": 3,
+  "checkpoint_state": "[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314835, file=binlog.000003, pos=57675, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-206, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]",
+  "restored_first_split": "[MySqlBinlogSplit{splitId='binlog-split', tables=[cdc_chunk_e2e.items], offset={transaction_id=null, ts_sec=1792314835, file=binlog.000003, pos=57675, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-206, row=1, event=2, server_id=8675322}, endOffset={ts_sec=0, file=, pos=-9223372036854775808, kind=NON_STOPPING, row=0, event=0}, isSuspended=false}]",
+  "split_text_matches": true,
+  "external_published_snapshot": 3,
+  "external_commit_identifier": 3,
+  "global_checkpoint_pending_at_independent_scan": true,
+  "watermarks": [
+    {
+      "kind": "low",
+      "split": "cdc_chunk_e2e.items:0",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=56654, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-203, row=0, event=0}",
+      "post_hook_matches": true
+    },
+    {
+      "kind": "high",
+      "split": "cdc_chunk_e2e.items:0",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=56654, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-203, row=0, event=0}",
+      "post_hook_matches": true
+    },
+    {
+      "kind": "low",
+      "split": "cdc_chunk_e2e.items:1",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=57596, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-206, row=0, event=0}",
+      "post_hook_matches": true
+    },
+    {
+      "kind": "high",
+      "split": "cdc_chunk_e2e.items:1",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=57596, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-206, row=0, event=0}",
+      "post_hook_matches": true
+    }
+  ],
+  "original_migration_relation": "H_A < E_102 < L_B == H_B verified by real raw binlog and Java BinlogOffset; original B watermarks retained separately from recovery B",
+  "independent_tsv_recheck": [
+    {
+      "phase": "published-before-global-failure",
+      "source_file": "mysql-before-failure.tsv",
+      "source_rows": 20,
+      "target_rows": 19,
+      "missing": [
+        102
+      ],
+      "extra": [],
+      "field_difference_keys": [],
+      "data_equal": false
+    },
+    {
+      "phase": "after-recovery-checkpoint",
+      "source_file": "mysql-final.tsv",
+      "source_rows": 20,
+      "target_rows": 19,
+      "missing": [
+        102
+      ],
+      "extra": [],
+      "field_difference_keys": [],
+      "data_equal": false
+    },
+    {
+      "phase": "after-extra-checkpoint",
+      "source_file": "mysql-final.tsv",
+      "source_rows": 20,
+      "target_rows": 19,
+      "missing": [
+        102
+      ],
+      "extra": [],
+      "field_difference_keys": [],
+      "data_equal": false
+    },
+    {
+      "phase": "after-cancel",
+      "source_file": "mysql-final.tsv",
+      "source_rows": 20,
+      "target_rows": 19,
+      "missing": [
+        102
+      ],
+      "extra": [],
+      "field_difference_keys": [],
+      "data_equal": false
+    },
+    {
+      "phase": "fresh-jvm",
+      "source_file": "mysql-final.tsv",
+      "source_rows": 20,
+      "target_rows": 19,
+      "missing": [
+        102
+      ],
+      "extra": [],
+      "field_difference_keys": [],
+      "data_equal": false
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+phase=after-recovery-checkpoint
+snapshot=3
+columns=[id,c,amount]
+source_rows=20
+target_rows=20
+missing=[]
+extra=[]
+field_differences=[]
+data_equal=true

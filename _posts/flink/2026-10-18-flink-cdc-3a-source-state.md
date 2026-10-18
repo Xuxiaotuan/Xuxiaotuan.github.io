@@ -142,7 +142,7 @@ notifyCheckpointComplete(C)：
 
 在本文默认对齐 Checkpoint 的范围内，这个完成点把之前各快照输出纳入同一个成功状态切面，然后才允许后续 binlog 输出进入下一阶段。它不要求所有外部系统此时都已经提交可见结果；外部提交仍取决于 Sink 自己的协议。
 
-并行度为 1 的特例跳过的是这个阶段切换等待门槛。快照与随后 binlog 由同一个 Source Reader 的输出序列衔接，不需要再用该门槛协调多个 Reader 的快照输出。它没有关闭 Flink 的故障恢复 Checkpoint，也没有赋予外部 Sink 额外保证。
+并行度为 1 的特例跳过的是这个阶段切换等待门槛。快照与随后 binlog 由同一个 Source Reader 的输出序列衔接，不需要再用该门槛协调多个 Reader 的快照输出。它没有关闭 Flink 的故障恢复 Checkpoint，也没有赋予外部 Sink 额外保证。 新增跨 Chunk 恢复实验实际利用了这个 p=1 分支：A 已完成的 C1 之后，不再完成新 Checkpoint 也能继续读 binlog；故障后从 C1 只重扫 B，真实 Paimon 仍缺迁移行。具体状态与对账见[下篇新增实验](/2026/10/18/flink-cdc-3b-checkpoint-recovery/#chunk-recovery)，不能推广到 p>1 的切换门槛。
 
 ## binlog Split 是怎样组装出来的
 

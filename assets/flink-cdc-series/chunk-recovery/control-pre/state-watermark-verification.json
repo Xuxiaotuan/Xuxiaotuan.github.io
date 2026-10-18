@@ -1,0 +1,101 @@
+{
+  "restored_checkpoint": 1,
+  "failed_checkpoint": 2,
+  "checkpoint_state": "[MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}]",
+  "restored_first_split": "[MySqlSnapshotSplit{tableId=cdc_chunk_e2e.items, splitId='cdc_chunk_e2e.items:1', splitKeyType=[`c` INT NOT NULL], splitStart=[105], splitEnd=null, highWatermark=null}]",
+  "split_text_matches": true,
+  "external_published_snapshot": 2,
+  "external_commit_identifier": 2,
+  "global_checkpoint_pending_at_independent_scan": true,
+  "watermarks": [
+    {
+      "kind": "low",
+      "split": "cdc_chunk_e2e.items:0",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=64948, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-232, row=0, event=0}",
+      "post_hook_matches": true
+    },
+    {
+      "kind": "high",
+      "split": "cdc_chunk_e2e.items:0",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=64948, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-232, row=0, event=0}",
+      "post_hook_matches": true
+    },
+    {
+      "kind": "low",
+      "split": "cdc_chunk_e2e.items:1",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=65890, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-235, row=0, event=0}",
+      "post_hook_matches": true
+    },
+    {
+      "kind": "high",
+      "split": "cdc_chunk_e2e.items:1",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=65890, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-235, row=0, event=0}",
+      "post_hook_matches": true
+    },
+    {
+      "kind": "low",
+      "split": "cdc_chunk_e2e.items:1",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=66204, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-236, row=0, event=0}",
+      "post_hook_matches": true
+    },
+    {
+      "kind": "high",
+      "split": "cdc_chunk_e2e.items:1",
+      "actual_task_watermark": "{ts_sec=0, file=binlog.000003, pos=66204, kind=SPECIFIC, gtids=cb0792da-cad3-11f1-9571-2658671ca05a:1-236, row=0, event=0}",
+      "post_hook_matches": true
+    }
+  ],
+  "original_migration_relation": "H_A < E_102 < L_B == H_B verified by real raw binlog and Java BinlogOffset; original B watermarks retained separately from recovery B",
+  "independent_tsv_recheck": [
+    {
+      "phase": "published-before-global-failure",
+      "source_file": "mysql-before-failure.tsv",
+      "source_rows": 20,
+      "target_rows": 20,
+      "missing": [],
+      "extra": [],
+      "field_difference_keys": [],
+      "data_equal": true
+    },
+    {
+      "phase": "after-recovery-checkpoint",
+      "source_file": "mysql-final.tsv",
+      "source_rows": 20,
+      "target_rows": 20,
+      "missing": [],
+      "extra": [],
+      "field_difference_keys": [],
+      "data_equal": true
+    },
+    {
+      "phase": "after-extra-checkpoint",
+      "source_file": "mysql-final.tsv",
+      "source_rows": 20,
+      "target_rows": 20,
+      "missing": [],
+      "extra": [],
+      "field_difference_keys": [],
+      "data_equal": true
+    },
+    {
+      "phase": "after-cancel",
+      "source_file": "mysql-final.tsv",
+      "source_rows": 20,
+      "target_rows": 20,
+      "missing": [],
+      "extra": [],
+      "field_difference_keys": [],
+      "data_equal": true
+    },
+    {
+      "phase": "fresh-jvm",
+      "source_file": "mysql-final.tsv",
+      "source_rows": 20,
+      "target_rows": 20,
+      "missing": [],
+      "extra": [],
+      "field_difference_keys": [],
+      "data_equal": true
+    }
+  ]
+}

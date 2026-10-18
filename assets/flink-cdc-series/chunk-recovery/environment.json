@@ -1,0 +1,18 @@
+{
+  "cdc": "release-3.7.0 / 045e8da45df4b1017849b04e2d8bfe8f0ed7936d",
+  "flink": "1.20.3",
+  "paimon": "2.0.0 / 604e6d5e131c74a8d127333a2a3ad6d0319732bf",
+  "debezium": "1.9.8.Final plus fixed CDC in-tree overrides",
+  "java": "Temurin 11.0.29",
+  "mysql": "8.4.11 InnoDB ROW FULL GTID ON REPEATABLE-READ",
+  "container": "cb3499c37b77be22fda135e04c4f108fcfe3810cc8da9891a517c82e431d319d sha256:cc52b8b5900d106bc482241091cfa7496d830280868e19aca8a24e8e7086568e",
+  "parallelism": 1,
+  "bucket": 1,
+  "chunk_size": 10,
+  "schema": "fixed (id INT PRIMARY KEY,c INT NOT NULL,amount INT NOT NULL)",
+  "checkpoint_interval_ms": 600000,
+  "manual_checkpoints": true,
+  "restart": "fixedDelayRestart(1,200ms)",
+  "backend": "filesystem Paimon in same host",
+  "fault": "one task RuntimeException in operator snapshotState after real precommit publication, before global completion; no process kill"
+}
