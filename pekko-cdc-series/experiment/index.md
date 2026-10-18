@@ -162,3 +162,7 @@ sbt -java-home /Users/xujiawei/Library/Java/JavaVirtualMachines/ms-17.0.14/Conte
 证据包包含各轮 `environment.json`、原进程/恢复进程日志、T/J/D、完整行数据和字段差异、事务审计、数据库 SQL 导出、执行日志、测试源码副本与哈希。`verified-test.log` 记录最终 `2 succeeded, 0 failed`。`manifest.json` 记录生产代码差异为空。
 
 目前可以据此确认：现有批次身份把回调分组当成恢复后不变的边界，完整重放和拆批重放会走出不同结果。下一步应针对这个已经复现的窗口讨论身份与恢复协议；本轮没有实施那个改造。
+
+## 重写稿的补充核验
+
+[第三篇正文](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/)展开故障窗口的因果关系；[历史证据复算与有限模型](/pekko-cdc-series/series-review/)保留复算程序、结果和模型边界。这里的真实数据库实验没有因文章重写而重跑，原始数据与失败记录保持不变。

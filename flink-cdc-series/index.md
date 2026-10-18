@@ -11,9 +11,9 @@ permalink: /flink-cdc-series/
 
 ## 从原理研究到 Pekko 项目
 
-研究这组 Flink CDC 源码，是为了把可靠 CDC 能力引入自己的 Pekko 项目。新系列 [从 Flink CDC 到 Pekko：面向海量常驻同步任务的设计与验证](/pekko-cdc-series/) 已整理成五篇：从 70 多万表的业务背景进入当前源码、T/J/D 协议与真实 MySQL/Actor Journal 故障实验，最后比较两种方案的取舍。
+研究这组 Flink CDC 源码，是为了把可靠 CDC 能力引入自己的 Pekko 项目。[从 Flink CDC 到 Pekko：海量常驻任务的执行模型与恢复协议](/pekko-cdc-series/)的五篇正文已重写：从 [Actor 执行模型与资源优势](/2026/10/18/pekko-cdc-1-resident-tasks/)进入 T/J/D 恢复契约、真实 MySQL / Actor Journal 故障证据和不变量推导，最后[比较两套系统的工程取舍](/2026/10/18/pekko-cdc-5-flink-comparison/)。
 
-两个系列的证据分开统计：本组固定 CDC 3.7.0 源码与 Flink/Paimon 实验；新组是 Pekko 1.1.3、Debezium 3.6.1.Final 的 MySQL→MySQL 实验，其上游能力比较引用 CDC 3.6 文档。Pekko 的 70 万表容量、同负载性能对照和新恢复协议均未验证。
+两个系列的版本与证据分别统计：本组固定 CDC 3.7.0 源码与 Reader / Flink / Paimon 实验；Pekko 系列固定 Pekko 1.1.3、Debezium 3.6.1.Final，并对照 CDC **3.6.0** 固定源码。新增 Actor 机制实验、历史数据复算和有限模型检查，各自的范围见[验证汇总表](/pekko-cdc-series/#全系列验证范围汇总)。这些材料不证明 70 万表容量、同负载性能优势或新恢复协议已实现。
 
 ## 阅读路线
 
