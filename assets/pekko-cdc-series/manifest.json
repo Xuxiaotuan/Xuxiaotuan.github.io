@@ -1,12 +1,12 @@
 {
   "date": "2026-10-18",
   "source_repository": "https://github.com/Xuxiaotuan/pekko-reference",
-  "article_commit": "6de457206c71649beee5ea6ad7478194ef05c9ee",
+  "article_commit": "3cdca8df22ad753838acad4462f2542ce68311d6",
   "experiment_commit": "ad58cf3d861597b577e2f5745584fe56e81fb621",
-  "linked_production_commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+  "linked_production_commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
   "experiment_rerun_for_publication": false,
-  "production_protocol_changed": false,
-  "scope": "Original evidence archive copied byte-for-byte. Selected JSON and log members extracted without modification. Passing reproduction assertions include an expected recovery failure, not a correctness certification. No 700k-table capacity or comparative performance results.",
+  "production_protocol_changed": true,
+  "scope": "Historical evidence retained. Latest production complete-group protocol and three real recovery scenarios are separate from Reader/Bridge probes. Publication does not rerun databases or establish all-window, DDL, multi-owner, snapshot or 700k-table guarantees.",
   "archive": {
     "path": "2026-10-18-cdc-journal-window.tar.gz",
     "sha256": "6ed9a39afef5f70c591d9a1545f5b9cd034ead88e3d02495304562afa9b52e0d"
@@ -48,7 +48,7 @@
       "sha256": "8a0c3473cb84c6f2cf4d4ef0b4d50c8337f83e7df2dbab4d6aff770cfa2acaa4"
     }
   ],
-  "previous_article_commit": "ed006e36a89ff747e949601e3adab76c315f9c29",
+  "previous_article_commit": "6de457206c71649beee5ea6ad7478194ef05c9ee",
   "rewrite_materials": [
     {
       "path": "2026-10-18-actor-execution/ActorExecutionProbe.java",
@@ -126,7 +126,7 @@
       "sha256": "440e449af105b40f6babeeeca16de36d9635f6d2ee4d7ec6f2ee2d34297bd500"
     }
   ],
-  "rewrite_scope": "Actor mechanism experiment, historical evidence recomputation and finite model checks are distinct evidence levels. Publishing does not rerun experiments. No production recovery protocol implementation, 700k-table capacity or same-load comparison is claimed.",
+  "rewrite_scope": "Historical Actor mechanisms, evidence recomputation and finite model checks retain their original scope. Latest production recovery evidence is listed separately.",
   "updated": "2026-10-19",
   "source_ack_materials": [
     {
@@ -215,5 +215,54 @@
     "deferred_ack": "real Engine/unchanged Bridge, 2 scenarios/6 JVM; TEST assembler and manual coverage signals; no target/Journal or production Source Stream",
     "database_experiments_rerun_for_publication": false,
     "production_protocol_changed": false
+  },
+  "historical_linked_production_commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+  "publication_modifies_production": false,
+  "group_recovery_materials": [
+    {
+      "path": "2026-10-19-group-recovery/README.md",
+      "source_path": "docs/experiments/2026-10-19-group-recovery/README.md",
+      "source_commit": "3cdca8df22ad753838acad4462f2542ce68311d6",
+      "sha256": "2277f22a2f4a5185d2ecbdba3950c810d8919662d4912efb9e8953eeae56faad"
+    },
+    {
+      "path": "2026-10-19-group-recovery/SHA256SUMS",
+      "source_path": "docs/experiments/2026-10-19-group-recovery/SHA256SUMS",
+      "source_commit": "3cdca8df22ad753838acad4462f2542ce68311d6",
+      "sha256": "90e05416da016faddc47c94fdd89dc361e827c1bcfd1dc0339842819e33ae7c6"
+    },
+    {
+      "path": "2026-10-19-group-recovery/evidence.tar.gz",
+      "source_path": "docs/experiments/2026-10-19-group-recovery/evidence.tar.gz",
+      "source_commit": "3cdca8df22ad753838acad4462f2542ce68311d6",
+      "sha256": "f5ebcc750ad468ea77dca4d93223c6cf5dae5972aedd8b57388852f88125a857"
+    },
+    {
+      "path": "2026-10-19-group-recovery/result.json",
+      "source_path": "docs/experiments/2026-10-19-group-recovery/result.json",
+      "source_commit": "3cdca8df22ad753838acad4462f2542ce68311d6",
+      "sha256": "41fba52386aa16e782e28a38ad6a6628daef2ed55ac449286fc491d5192543a1"
+    },
+    {
+      "path": "2026-10-19-group-recovery/source-manifest.json",
+      "source_path": "docs/experiments/2026-10-19-group-recovery/source-manifest.json",
+      "source_commit": "3cdca8df22ad753838acad4462f2542ce68311d6",
+      "sha256": "4461017e42d36e435f338ecca54ce28cccfb91147fe2dda968b283ed67d7b46e"
+    },
+    {
+      "path": "2026-10-19-group-recovery/verify.py",
+      "source_path": "docs/experiments/2026-10-19-group-recovery/verify.py",
+      "source_commit": "3cdca8df22ad753838acad4462f2542ce68311d6",
+      "sha256": "b6722828282447670e8277fd776722302c03c24e943c60cbac008ec32dbbdf5a"
+    }
+  ],
+  "group_recovery_scope": {
+    "recovery_scenarios": 3,
+    "real_suite_tests": 4,
+    "non_recovery_test": "MyISAM rejection",
+    "source_capture_baseline": "2274691 with then-uncommitted changes",
+    "published_production_commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+    "database_experiments_rerun_for_publication": false,
+    "full_module_gate": "evidence_incomplete"
   }
 }
