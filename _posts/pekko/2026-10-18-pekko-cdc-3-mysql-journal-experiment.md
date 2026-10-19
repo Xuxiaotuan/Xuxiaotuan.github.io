@@ -226,7 +226,17 @@ Actor 将第 6 批写入 Journal → Source ACK → 后续继续
 
 最终测试日志 `2 succeeded, 0 failed` 的准确翻译是：成功对照符合预期，失败反例也符合预期。它不是“两个恢复场景都正确”，不是修复验收，更不是整个仓库的测试结果。
 
-## 9. 从反例得到协议约束，而不是立即删掉保护
+## 9. 继续缩小假设：真实 SourceRecord 与确认分组
+
+前文仍是 2026-10-18 的真实 Source/Sink/Actor Journal 实验；它没有因下列补充而被重跑。2026-10-19 的两组新材料回答的是更低一层的问题。
+
+[身份实验](/pekko-cdc-series/source-record-identity/)用 9 个 JVM 观察一笔事务的 39 条逻辑记录，实际 `[16,16,7]`、单条回调、`[39]` 及事务内多行事件的后缀恢复，候选身份和规范化内容均一致。其中主键 d/c 共享完整 offset；只确认 d 后重启，c 不再交付。这是读取器反例，没有运行目标表，不能写成目标缺行证明。
+
+[延迟确认实验](/pekko-cdc-series/deferred-ack/)另用两组、六 JVM，连接真实 Engine 和未修改的 Bridge，在测试装配器中把完整组发布给下游，再手动发出覆盖信号。实际 `[d][c]` 和 `[u,d][c,d][c,d][c,u]` 都完成；原始 ACK 分别为 0→1 和 0→1→2→3，保留句柄在后续回调中按序调用。配对后覆盖前的 D 等于基线，覆盖前崩溃恢复仍可配齐，全部确认后新 JVM 能读到新变更。
+
+这里的覆盖信号不是 T/J 提交，不能把“探针推进成功”写成生产协议已修复。两组报告保存原始回调、完整 headers/offset、线程与调用顺序、独立 D 快照和可只读核验的归档。它们与前文的 64 行六列端到端对账分别计量。
+
+## 10. 从反例得到协议约束，而不是立即删掉保护
 
 本次实验反驳的是一个具体隐含前提：在当前恢复策略下，回调序号可以无条件充当稳定批次身份。原批内容与恢复内容变化后，账本保护能识别冲突，但缺少安全继续的协议。
 
@@ -247,5 +257,5 @@ Actor 将第 6 批写入 Journal → Source ACK → 后续继续
 
 上一篇：[三个进度的恢复契约](/2026/10/18/pekko-cdc-2-recovery-contract/)；下一篇：[从重放不变量构造恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/)。
 
-[test-process]: https://github.com/Xuxiaotuan/pekko-reference/blob/ed006e36a89ff747e949601e3adab76c315f9c29/pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowProcess.scala
-[test-spec]: https://github.com/Xuxiaotuan/pekko-reference/blob/ed006e36a89ff747e949601e3adab76c315f9c29/pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowSpec.scala
+[test-process]: https://github.com/Xuxiaotuan/pekko-reference/blob/6de457206c71649beee5ea6ad7478194ef05c9ee/pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowProcess.scala
+[test-spec]: https://github.com/Xuxiaotuan/pekko-reference/blob/6de457206c71649beee5ea6ad7478194ef05c9ee/pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowSpec.scala

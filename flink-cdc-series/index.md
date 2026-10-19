@@ -13,7 +13,7 @@ permalink: /flink-cdc-series/
 
 研究这组 Flink CDC 源码，是为了把可靠 CDC 能力引入自己的 Pekko 项目。[从 Flink CDC 到 Pekko：海量常驻任务的执行模型与恢复协议](/pekko-cdc-series/)的五篇正文已重写：从 [Actor 执行模型与资源优势](/2026/10/18/pekko-cdc-1-resident-tasks/)进入 T/J/D 恢复契约、真实 MySQL / Actor Journal 故障证据和不变量推导，最后[比较两套系统的工程取舍](/2026/10/18/pekko-cdc-5-flink-comparison/)。
 
-两个系列的版本与证据分别统计：本组固定 CDC 3.7.0 源码与 Reader / Flink / Paimon 实验；Pekko 系列固定 Pekko 1.1.3、Debezium 3.6.1.Final，并对照 CDC **3.6.0** 固定源码。新增 Actor 机制实验、历史数据复算和有限模型检查，各自的范围见[验证汇总表](/pekko-cdc-series/#全系列验证范围汇总)。这些材料不证明 70 万表容量、同负载性能优势或新恢复协议已实现。
+两个系列的版本与证据分别统计：本组固定 CDC 3.7.0 源码与 Reader / Flink / Paimon 实验；Pekko 系列固定 Pekko 1.1.3、Debezium 3.6.1.Final，并对照 CDC **3.6.0** 固定源码。新增 Actor 机制实验、历史数据复算和有限模型检查，各自的范围见[验证汇总表](/pekko-cdc-series/#全系列验证范围汇总)。这些材料不证明 70 万表容量、同负载性能优势或新恢复协议已实现。 2026-10-19 又补充了[真实 SourceRecord 身份与主键 ACK 反例](/pekko-cdc-series/source-record-identity/)及[延迟句柄/跨回调装配探针](/pekko-cdc-series/deferred-ack/)；后者以测试信号代替 T/J 覆盖，不与本系列 Flink/Paimon 作业证据合并计数。
 
 ## 阅读路线
 

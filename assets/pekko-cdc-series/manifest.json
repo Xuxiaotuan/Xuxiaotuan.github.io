@@ -1,7 +1,7 @@
 {
   "date": "2026-10-18",
   "source_repository": "https://github.com/Xuxiaotuan/pekko-reference",
-  "article_commit": "ed006e36a89ff747e949601e3adab76c315f9c29",
+  "article_commit": "6de457206c71649beee5ea6ad7478194ef05c9ee",
   "experiment_commit": "ad58cf3d861597b577e2f5745584fe56e81fb621",
   "linked_production_commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
   "experiment_rerun_for_publication": false,
@@ -48,7 +48,7 @@
       "sha256": "8a0c3473cb84c6f2cf4d4ef0b4d50c8337f83e7df2dbab4d6aff770cfa2acaa4"
     }
   ],
-  "previous_article_commit": "4a519d947e3b809b34d08e4fc13332cf7871b804",
+  "previous_article_commit": "ed006e36a89ff747e949601e3adab76c315f9c29",
   "rewrite_materials": [
     {
       "path": "2026-10-18-actor-execution/ActorExecutionProbe.java",
@@ -126,5 +126,94 @@
       "sha256": "440e449af105b40f6babeeeca16de36d9635f6d2ee4d7ec6f2ee2d34297bd500"
     }
   ],
-  "rewrite_scope": "Actor mechanism experiment, historical evidence recomputation and finite model checks are distinct evidence levels. Publishing does not rerun experiments. No production recovery protocol implementation, 700k-table capacity or same-load comparison is claimed."
+  "rewrite_scope": "Actor mechanism experiment, historical evidence recomputation and finite model checks are distinct evidence levels. Publishing does not rerun experiments. No production recovery protocol implementation, 700k-table capacity or same-load comparison is claimed.",
+  "updated": "2026-10-19",
+  "source_ack_materials": [
+    {
+      "path": "2026-10-19-source-record-identity/README.md",
+      "source_path": "docs/experiments/2026-10-19-source-record-identity/README.md",
+      "sha256": "63985b1e5e16e38352b8b1fe9d901f695dbaeb127ea1c44256375ae65dad1c84"
+    },
+    {
+      "path": "2026-10-19-source-record-identity/SHA256SUMS",
+      "source_path": "docs/experiments/2026-10-19-source-record-identity/SHA256SUMS",
+      "sha256": "28651155984166594ed3fe1a00f33fee868a9483d45e0087d5f85865a3574974"
+    },
+    {
+      "path": "2026-10-19-source-record-identity/evidence.tar.gz",
+      "source_path": "docs/experiments/2026-10-19-source-record-identity/evidence.tar.gz",
+      "sha256": "4bee2081bde83334062e5c55906cfc0c657dd2cb2db485f7d9a3c6d5c0721acc"
+    },
+    {
+      "path": "2026-10-19-source-record-identity/evidence.tar.gz.sha256",
+      "source_path": "docs/experiments/2026-10-19-source-record-identity/evidence.tar.gz.sha256",
+      "sha256": "7fc8ae9f4819616833c10c5de394289588226ff04d905a1888eb38c5a5428ec1"
+    },
+    {
+      "path": "2026-10-19-source-record-identity/result.json",
+      "source_path": "docs/experiments/2026-10-19-source-record-identity/result.json",
+      "sha256": "cc640c8853c842cbb53dadcd6a42d4e94047427a3250f94a15b9671e98b14c6a"
+    },
+    {
+      "path": "2026-10-19-source-record-identity/run.py",
+      "source_path": "docs/experiments/2026-10-19-source-record-identity/run.py",
+      "sha256": "2f1731def5e60083d89728947b27f9a59573c98bdc7384d0ef340440c21f6c83"
+    },
+    {
+      "path": "2026-10-19-source-record-identity/source-manifest.json",
+      "source_path": "docs/experiments/2026-10-19-source-record-identity/source-manifest.json",
+      "sha256": "72454e239b9855cd61dab6f348b5ff28d075a5d2c53c0a363ab5ad6f5b605a43"
+    },
+    {
+      "path": "2026-10-19-source-record-identity/verify.py",
+      "source_path": "docs/experiments/2026-10-19-source-record-identity/verify.py",
+      "sha256": "fe3036cc132ef40f27d3ba558e01ffbd55d208fc1f9df69a798bc721ebad44ec"
+    },
+    {
+      "path": "2026-10-19-deferred-ack/README.md",
+      "source_path": "docs/experiments/2026-10-19-deferred-ack/README.md",
+      "sha256": "32a866654cedb6ec75e6962d1fa68a55f435d602c1d8a4b253fa4ffeafdc0988"
+    },
+    {
+      "path": "2026-10-19-deferred-ack/SHA256SUMS",
+      "source_path": "docs/experiments/2026-10-19-deferred-ack/SHA256SUMS",
+      "sha256": "6dcdcd3d872acfa8b6208d81b97f4201dc60d27e8fae45be4bbe1b7d30d558de"
+    },
+    {
+      "path": "2026-10-19-deferred-ack/evidence.tar.gz",
+      "source_path": "docs/experiments/2026-10-19-deferred-ack/evidence.tar.gz",
+      "sha256": "3070e4b1c429fe2fce1a65c9028be0f4d72df455a154131349d703fe8a0eeb94"
+    },
+    {
+      "path": "2026-10-19-deferred-ack/evidence.tar.gz.sha256",
+      "source_path": "docs/experiments/2026-10-19-deferred-ack/evidence.tar.gz.sha256",
+      "sha256": "00eb2a893222de9ba99b903a4a338cb739c6aebdb643b841e47a97347024b924"
+    },
+    {
+      "path": "2026-10-19-deferred-ack/result.json",
+      "source_path": "docs/experiments/2026-10-19-deferred-ack/result.json",
+      "sha256": "89b65c2f934934282ddd2247134d4914407fb93cb0dc27a8daf75f067c80a610"
+    },
+    {
+      "path": "2026-10-19-deferred-ack/run.py",
+      "source_path": "docs/experiments/2026-10-19-deferred-ack/run.py",
+      "sha256": "510114b61ddfc9d80ea62a21506343478e9028ac8a6658a1b19f51dd3306f98a"
+    },
+    {
+      "path": "2026-10-19-deferred-ack/verification.json",
+      "source_path": "docs/experiments/2026-10-19-deferred-ack/verification.json",
+      "sha256": "88adf386033c8451634c31942e9646736d847605b023f884ad0e30da1ead938c"
+    },
+    {
+      "path": "2026-10-19-deferred-ack/verify.py",
+      "source_path": "docs/experiments/2026-10-19-deferred-ack/verify.py",
+      "sha256": "000b510a965218c5315cd32590b498d01b7b82204f5698cbdc80191b01e3eccf"
+    }
+  ],
+  "source_ack_scope": {
+    "source_record_identity": "real MySQL SourceRecord and ACK counterexample, formal 9 JVM; no target/Journal",
+    "deferred_ack": "real Engine/unchanged Bridge, 2 scenarios/6 JVM; TEST assembler and manual coverage signals; no target/Journal or production Source Stream",
+    "database_experiments_rerun_for_publication": false,
+    "production_protocol_changed": false
+  }
 }
