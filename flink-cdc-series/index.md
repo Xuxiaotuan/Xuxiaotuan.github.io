@@ -138,3 +138,8 @@ permalink: /flink-cdc-series/
 - [Paimon 2.0.0 固定提交](https://github.com/apache/paimon/tree/604e6d5e131c74a8d127333a2a3ad6d0319732bf)：第五篇的文件、Schema 与 snapshot 提交依据。
 
 2026-10-19 后续完成了 Pekko 的[完整组生产改造及真实恢复验收](/pekko-cdc-series/group-recovery/)：指定 T 已提交/J 未持久化窗口的拆批、合批和主键跨回调三组恢复，均为 64 行、6 字段零差异，已提交组重放没有新增审计。该结果单独计入 Pekko [验证范围汇总](/pekko-cdc-series/#全系列验证范围汇总)，不扩大本系列 Flink/Paimon 证据，也不覆盖 DDL、多 owner、共享读取、快照初始化或其余故障窗口。
+
+
+## Pekko 共享捕获阶段一（2026-10-25）
+
+[Pekko 五篇正文与验证范围](/pekko-cdc-series/)已补充共享 Reader、B/K 动态订阅、持久化 L 和表级 T/J。对应[真实实验材料](/pekko-cdc-series/shared-capture/)保留源码 `00ad18e`、31 项共享矩阵、27 项原路径回归、失败记录及逐字段对账；捕获就绪不等于初始化完成，LOW/HIGH 全量转流和 70 万表容量仍未验证。两系列保留各自版本与证据，不合并计算保证。

@@ -14,9 +14,11 @@ tags:
 mermaid: true
 ---
 
-[系列导读与验证范围](/pekko-cdc-series/) · [一：Actor 执行与资源](/2026/10/18/pekko-cdc-1-resident-tasks/) · [二：T/J/D 恢复契约](/2026/10/18/pekko-cdc-2-recovery-contract/) · [三：真实故障实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [四：不变量与恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [五：与 Flink CDC 的取舍](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](/flink-cdc-series/)
+[系列导读与验证范围](/pekko-cdc-series/) · [一：Actor 执行与资源](/2026/10/18/pekko-cdc-1-resident-tasks/) · [二：T/J/D 恢复契约](/2026/10/18/pekko-cdc-2-recovery-contract/) · [三：真实故障实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [四：不变量与恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [五：与 Flink CDC 的取舍](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](/flink-cdc-series/) · [共享捕获实验材料](/pekko-cdc-series/shared-capture/)
 
----
+> **本轮发布版本：**[Pekko 源码 `00ad18e`](https://github.com/Xuxiaotuan/pekko-reference/tree/00ad18e624568ef595bd90e2d6ac00008bd235a0)。真实实验运行于 `cc1c43d` 加工作区改动；316 个文件的冻结清单与发布源码逐字节核对。运行 HEAD、发布提交和保存证据复算分别记账，详见[本轮报告](/pekko-cdc-series/shared-capture/)。
+
+> **2026-10-25 状态更新：**下文保留原版本的源码分析与历史实验。新增共享捕获路径、真实故障结果及当前限制见文末“共享捕获阶段一”部分和[本轮证据报告](/pekko-cdc-series/shared-capture/)。旧单表路径的历史限制不能直接套用到新增路径；新增路径也不代表 LOW/HIGH 初始化已经完成。
 
 上一家公司有 70 多万张表，需要长期管理数据同步任务。对这样的系统，启动一次同步并不难，难的是让大量任务持续存在：每张表有自己的配置、进度和异常，能够单独暂停、恢复；多数任务没有控制操作时，又不应各自占着一条执行线程。
 
@@ -426,3 +428,30 @@ Bridge 的 `publish` 会等待批次确认，Engine 中的 `mapAsync(1)` 又限�
 [project-batch]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/engine/WorkflowExecutionEngine.scala#L289
 
 [group-assembler]: https://github.com/Xuxiaotuan/pekko-reference/blob/65ab5410c32933d0aa3d23510e6c62252d84009b/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcGroupAssembler.scala#L34
+
+## 共享捕获阶段一：表的身份不再等于 Reader 的数量
+
+70 万张候选表位于一个 MySQL 实例，而今天只选择五张、明天再增加两张。此时需要长期保留的是订阅身份与恢复事实，不是同时为全部候选表启动 Stream、建立连接或加载 Actor。上一版单表 Engine 的成本分析仍适用于旧 `mysql.cdc` 路径；新增路径开始将捕获与应用分开。
+
+**源码结论：**`SharedMySQLCapture` 管理一个真实 Debezium Engine，捕获数据库内的 Schema 和变更。`MySQLCaptureStore` 在持久化日志 L 中保留选中订阅区间内的完整组；`CapturedLogSource` 按订阅独立分页读取 L。表级工作流 Actor 沿用既有目标组账本和 Checkpoint，不再拥有原始 SDK 回调。
+
+```mermaid
+flowchart LR
+  M[一个业务 MySQL 实例] --> R[一个共享 Reader]
+  C[源端控制表 B/K] --> R
+  R --> L[(独立状态实例：L / Schema / Offset)]
+  L --> A[表 A 的有界消费会话]
+  L --> B[表 B 的有界消费会话]
+  A --> TA[目标事务 T → Actor Journal J]
+  B --> TB[目标事务 T → Actor Journal J]
+```
+
+这里有两种不同的资源共享。Actor 的 Dispatcher 复用消息执行线程；共享 Reader 复用源连接、binlog 解码和捕获会话。前者不能推导后者，只有实际拆开 Source 所有权才能减少每表 Engine。L 也不是免费资源：它承担持久写放大、慢表积压、校验和恢复扫描。
+
+当前 Store 最多准入四个并发操作连接；Reader 保留的原始回调最多八个、按 value 序列化内容计最多 16 MiB，SDK 队列另有 16 MiB 配置。消费者单次最多读 1,000 组。这些是实现中的预算，**不是整个 JVM 的内存上界**：Schema History、数据库表发现、Java 对象开销、消费者数量和目标连接池仍在预算之外。现阶段每个活跃消费者使用周期读取，不适合将 70 万个消费者全部激活。
+
+**实验结果：**本轮真实多表样本验证了同一个 Reader 先服务五张表、再加入两张表，以及一张表应用被暂停时另一张表继续提交。七张表每张四行、每行六字段，目标已有可信基线。它证明小样本中的捕获复用与进度分离，不证明 70 万表容量，也不证明“空闲表零成本”。
+
+还有一个影响部署的实测条件。Offset 和 L 与源共用物理实例时，即使写入不同 Schema，事务元数据仍可能交付零行 BEGIN/END；处理这些回调又引发 Offset 写，形成反馈循环。失败材料保留在[报告](/pekko-cdc-series/shared-capture/)。当前 profile 要求源与状态服务器 UUID 不同；它服务一个业务源实例，但额外需要状态基础设施。
+
+**未验证边界：**70 万表的 Schema 发现/缓存成本、长期日志增长、活跃消费者准入、自动 GC、共享 Reader 接管和 LOW/HIGH 初始化。下一阶段的资源验收应分别测候选表数、订阅数、活跃消费者数和变更速率，不能再用一个“任务数”掩盖四种不同成本。

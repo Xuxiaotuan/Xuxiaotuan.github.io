@@ -1,0 +1,320 @@
+{
+  "projectCommit": "00ad18e624568ef595bd90e2d6ac00008bd235a0",
+  "runtimeHead": "cc1c43dd7176057976af1c11375443e24206ac16",
+  "frozenSourceManifestSha256": "310fabe7d526c290659a7e96fb82d3aa996d8b7cebe4bc8756211c279925264c",
+  "assetSource": "docs/experiments/2026-10-25-shared-capture",
+  "assets": {
+    "README.md": "47010a08a8560a7341bfd00916264d2659902093c8a8333c03b1667aa8641021",
+    "SHA256SUMS": "e092248741a034e83bf99592890b3abfe5acf123a09fc6d864e0edd90085d179",
+    "archive-verification.json": "d0788cc536c9be36aa7f914cfca70e3c00327d5f9ebe2887dc69ea3883844f02",
+    "artifact-manifest.json": "4f8bd047637f3fbc41c673ec594557ba7a4d1779aafbaddf83eb6712a66ef0bd",
+    "evidence.tar.gz": "be5df31f0dcdb305ebfa06dc1c689dad38f73b93d083b27a2fcc496e69315e7f",
+    "failed-wire-01/callbacks.log": "fe9b152c3dd7d7289971f0a4ba7a798abdf64f8cc5d4d9a269e2e638d4deebc7",
+    "failed-wire-01/runner.log": "a47cdaedbb7f521fd3228dae8f3e4e6207c6557bacc615c251e3ec0f723e1e37",
+    "frozen-runtime-check.json": "f24557e21272a1d2dcf51c86fea4aee6943aa7b8203d479da5fe277a91a73452",
+    "lab-cleanup-transient.json": "be46816af88d4204536947e5aa69ff2391cae98309a3518648ee6f0435399f73",
+    "lab-cleanup.json": "9868d95e0bc0c99d3a06ff7247fa19b6431d908ecbf5a34743dcb27505d121ac",
+    "private-binlog-archive.json": "b63381d4fb2e3462f93f2d9042dc2ee544da96cf20736da6cb59110332691f28",
+    "regression-verification.json": "af47dda604feb8a6c02a370e3cbfebd88da7f51035fd229834a1c09f6610fd2a",
+    "result.json": "8d33c39f789490abccae03738270a55e55a41e94d6689f7867eb6725fda16d3e",
+    "review.md": "1d1ce4944ed75e2aeb1e22956db6981b8d15bc2399eeab425673f0b3bda30864",
+    "run.py": "7b8611b39cbf0b41831c3a22b1023409d6fb708476d5861d58067475ec10a1a5",
+    "runtime-manifest.json": "14084ed481e53f85bd4f226888f0785961844ca8260c3c64d6d22b04f9f1e91e",
+    "source-manifest.json": "310fabe7d526c290659a7e96fb82d3aa996d8b7cebe4bc8756211c279925264c",
+    "verification.json": "cab26804c77a6610017750db305b6ef585aafb1609513b7740f3c9308a2cbfdc",
+    "verify-regressions.py": "36a83a1421b33583ad981fcccbf37b60e0091397a75c97680914664500dad797",
+    "verify.py": "0572f4829486beb0befe75f99ebf77192adefa1be0da09240bbfa3e63fc7ef21"
+  },
+  "articles": {
+    "pekko-cdc-1-resident-tasks": "e61992e0212533adde6d866ff240d7b94f5def2243817338fe4579df9eec8389",
+    "pekko-cdc-2-recovery-contract": "2e285c52dbbb7d60d531cc37edda0a825575d49145412edddaa536bc24a168c3",
+    "pekko-cdc-3-mysql-journal-experiment": "b4486df4f5b4c87ca3e3a2115ff7077750b32d3ae53658e8eef1ad17e2277c7d",
+    "pekko-cdc-4-protocol-design": "0f889f2c4a60df820ec6a94c1840432ae8a58fb02105f452820a8569f38ada90",
+    "pekko-cdc-5-flink-comparison": "b140a91d3ab37ba2fbcb39e7918072562ffa4a5435198e641c167c72ccd6b58c"
+  },
+  "evidenceBoundary": "Publication only; saved evidence recomputed, no new database runs.",
+  "historicalSourceLinkRepairs": [
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/checkpoint/CheckpointModels.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/checkpoint/CheckpointModels.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/cdc/MySQLCdcEnvelope.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/cdc/MySQLCdcEnvelope.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/sink/MySQLCdcApplySinkNode.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sinks/MySQLCdcApplySinkNode.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/execution/WorkflowExecutionEngine.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/engine/WorkflowExecutionEngine.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLSnapshotSourceNode.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLSnapshotSourceNode.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/cdc/MySQLCdcGroup.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/cdc/MySQLCdcGroup.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcGroupAssembler.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcGroupAssembler.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/sink/MySQLCdcApplySinkNode.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sinks/MySQLCdcApplySinkNode.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/execution/WorkflowValidator.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/engine/WorkflowValidator.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/infrastructure/cluster/sharding/WorkflowSharding.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/sharding/WorkflowSharding.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcSourceNode.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcSourceNode.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/DebeziumEngineAccess.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/DebeziumEngineAccess.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/checkpoint/CheckpointModels.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/checkpoint/CheckpointModels.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcSourceNode.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcSourceNode.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/DebeziumBatchBridge.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/DebeziumBatchBridge.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/cdc/MySQLCdcEnvelope.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/cdc/MySQLCdcEnvelope.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/execution/WorkflowExecutionEngine.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/engine/WorkflowExecutionEngine.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/sink/MySQLCdcApplySinkNode.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sinks/MySQLCdcApplySinkNode.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/DebeziumEngineAccess.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/DebeziumEngineAccess.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcSourceNode.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcSourceNode.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcGroupAssembler.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcGroupAssembler.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/cdc/MySQLCdcGroup.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/cdc/MySQLCdcGroup.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/sink/MySQLCdcApplySinkNode.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sinks/MySQLCdcApplySinkNode.scala"
+    },
+    {
+      "commit": "00ad18e624568ef595bd90e2d6ac00008bd235a0",
+      "oldPath": "docs/server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowProcess.scala",
+      "actualPath": "server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowProcess.scala"
+    },
+    {
+      "commit": "00ad18e624568ef595bd90e2d6ac00008bd235a0",
+      "oldPath": "docs/server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowSpec.scala",
+      "actualPath": "server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowSpec.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "oldPath": "server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcGroupRecoveryProcess.scala",
+      "actualPath": "pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcGroupRecoveryProcess.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "oldPath": "server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcGroupRecoverySpec.scala",
+      "actualPath": "pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcGroupRecoverySpec.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/infrastructure/cluster/sharding/WorkflowSharding.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/sharding/WorkflowSharding.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcSourceNode.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcSourceNode.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcSourceNode.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcSourceNode.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/DebeziumBatchBridge.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/DebeziumBatchBridge.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/DebeziumEngineAccess.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/DebeziumEngineAccess.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/workflow/execution/WorkflowExecutionEngine.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/engine/WorkflowExecutionEngine.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "oldPath": "server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcGroupAssembler.scala",
+      "actualPath": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcGroupAssembler.scala"
+    }
+  ],
+  "verifiedProjectBlobLinks": [
+    {
+      "commit": "00ad18e624568ef595bd90e2d6ac00008bd235a0",
+      "path": "docs/experiments/2026-10-19-recovery-windows/README.md"
+    },
+    {
+      "commit": "00ad18e624568ef595bd90e2d6ac00008bd235a0",
+      "path": "server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowProcess.scala"
+    },
+    {
+      "commit": "00ad18e624568ef595bd90e2d6ac00008bd235a0",
+      "path": "server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowSpec.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/cdc/MySQLCdcGroup.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sinks/MySQLCdcApplySinkNode.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcGroupAssembler.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcSourceNode.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "path": "pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcGroupRecoveryProcess.scala"
+    },
+    {
+      "commit": "65ab5410c32933d0aa3d23510e6c62252d84009b",
+      "path": "pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcGroupRecoverySpec.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/checkpoint/CheckpointModels.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/engine/WorkflowExecutionEngine.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/engine/WorkflowValidator.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/cdc/MySQLCdcEnvelope.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sinks/MySQLCdcApplySinkNode.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/DebeziumBatchBridge.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/DebeziumEngineAccess.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcSourceNode.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLSnapshotSourceNode.scala"
+    },
+    {
+      "commit": "d88ec80f2a7166cfdaddf1284cc268a68bc62e28",
+      "path": "pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/sharding/WorkflowSharding.scala"
+    }
+  ]
+}

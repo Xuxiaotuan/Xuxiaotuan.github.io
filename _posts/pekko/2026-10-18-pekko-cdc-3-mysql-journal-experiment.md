@@ -14,9 +14,11 @@ tags:
 mermaid: true
 ---
 
-[系列导读与验证范围](/pekko-cdc-series/) · [一：Actor 执行与资源](/2026/10/18/pekko-cdc-1-resident-tasks/) · [二：T/J/D 恢复契约](/2026/10/18/pekko-cdc-2-recovery-contract/) · [三：真实故障实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [四：不变量与恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [五：与 Flink CDC 的取舍](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](/flink-cdc-series/)
+[系列导读与验证范围](/pekko-cdc-series/) · [一：Actor 执行与资源](/2026/10/18/pekko-cdc-1-resident-tasks/) · [二：T/J/D 恢复契约](/2026/10/18/pekko-cdc-2-recovery-contract/) · [三：真实故障实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [四：不变量与恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [五：与 Flink CDC 的取舍](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](/flink-cdc-series/) · [共享捕获实验材料](/pekko-cdc-series/shared-capture/)
 
----
+> **本轮发布版本：**[Pekko 源码 `00ad18e`](https://github.com/Xuxiaotuan/pekko-reference/tree/00ad18e624568ef595bd90e2d6ac00008bd235a0)。真实实验运行于 `cc1c43d` 加工作区改动；316 个文件的冻结清单与发布源码逐字节核对。运行 HEAD、发布提交和保存证据复算分别记账，详见[本轮报告](/pekko-cdc-series/shared-capture/)。
+
+> **2026-10-25 状态更新：**下文保留原版本的源码分析与历史实验。新增共享捕获路径、真实故障结果及当前限制见文末“共享捕获阶段一”部分和[本轮证据报告](/pekko-cdc-series/shared-capture/)。旧单表路径的历史限制不能直接套用到新增路径；新增路径也不代表 LOW/HIGH 初始化已经完成。
 
 第二篇给出了一条可被推翻的假设：旧协议的批次 ID 由回调序号生成，如果恢复后回调重新分组，同一个 ID 就可能指向不同内容。源码能说明这条路径存在，却还不能回答真实 Debezium 会交出什么、目标事务是否已经提交、Actor 是否真的从 Journal 恢复。
 
@@ -301,8 +303,24 @@ Actor 将第 6 批写入 Journal → Source ACK → 后续继续
 
 上一篇：[三个进度的恢复契约](/2026/10/18/pekko-cdc-2-recovery-contract/)；下一篇：[从重放不变量构造恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/)。
 
-[test-process]: https://github.com/Xuxiaotuan/pekko-reference/blob/3cdca8df22ad753838acad4462f2542ce68311d6/pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowProcess.scala
-[test-spec]: https://github.com/Xuxiaotuan/pekko-reference/blob/3cdca8df22ad753838acad4462f2542ce68311d6/pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowSpec.scala
+[test-process]: https://github.com/Xuxiaotuan/pekko-reference/blob/00ad18e624568ef595bd90e2d6ac00008bd235a0/server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowProcess.scala
+[test-spec]: https://github.com/Xuxiaotuan/pekko-reference/blob/00ad18e624568ef595bd90e2d6ac00008bd235a0/server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcJournalWindowSpec.scala
 
 [group-process]: https://github.com/Xuxiaotuan/pekko-reference/blob/65ab5410c32933d0aa3d23510e6c62252d84009b/pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcGroupRecoveryProcess.scala
 [group-spec]: https://github.com/Xuxiaotuan/pekko-reference/blob/65ab5410c32933d0aa3d23510e6c62252d84009b/pekko-server/src/test/scala/cn/xuyinyin/magic/workflow/integration/RealMySQLCdcGroupRecoverySpec.scala
+
+## 共享捕获阶段一：把源侧持久化与目标恢复分别取证
+
+新增实验没有把旧单表恢复样本改名。它使用一个真实业务源 MySQL、另一个独立 MySQL 承载状态和目标，独立 worker JVM 中运行生产共享 Reader、L 消费 Source、目标 Sink 和 EventSourcedWorkflowActor。Actor Journal 使用真实 JDBC 插件。版本、完整矩阵、原始失败与源码摘要统一放在[本轮报告](/pekko-cdc-series/shared-capture/)。
+
+实验先为七张源表及其目标复制已知基线，每张四行、每行六字段，再开始订阅。R01 按五张到七张推进，七张都有实际变更；其他用例只计其实际操作的表，不能把未变化的夹具表累计成七表恢复覆盖。对账保留源/目标完整行、缺键、多键与逐字段差异，包含 DECIMAL、NULL/空串和微秒时间值。
+
+故障切点有三个观察面。源 marker 的提交代理保留实际事务结果，区分提交前失败、已提交回复丢失、延迟提交与延迟回滚。L 的代理在 B 状态事务处截获，确保不是误截获 Schema 写入。原始 ACK 的代理则调用真实 SDK 后再设闸，分别覆盖 `markProcessed` 已返回和两回调 ACK 之间；它不制造 SourceRecord 或代替数据库提交。
+
+目标侧仍沿用真实 T/J 缺口：生产 Sink 提交后阻止完成 Future，硬停 JVM，再以不同批量上限恢复。Journal 既保留序列化原文，也用真实 serializer 解码 Checkpoint，核对它引用的 L GROUP。正常收敛用例等 J 追上已消费的 L 后再取终态。不能仅凭目标值先追平就宣布恢复闭环。
+
+**负例的 PASS 不是数据一致：**容量耗尽、活动表 DDL/DROP/TRUNCATE、显式 Checkpoint 拒绝、历史/日志/源身份/所需 binlog 缺失，验收目标是保留上下文并暂停。取消后的区间空档也允许目标落后。报告分别展示这些状态和对应差异，不把它们混进“全量一致”的成功分母。
+
+本轮保留了几类容易误判的失败。初始同实例状态写入触发事务元数据反馈循环，是部署前提的反例；早期 ACK 闸门用字符串引用做 CAS，导致切点未命中，是测试设施缺陷；持久化元数据被修改后未拒绝，是覆盖校验的真实缺口。修正后的最终矩阵与这些失败分别归档，不能删除失败记录后只展示绿灯。
+
+**证据上限：**这是受控数据和故障点的运行结果，不是长期压力、全部 MySQL 类型或 70 万表验证。新增矩阵以组账本、真实 Journal 和全字段终值为主要证据；它不自动继承旧实验的审计触发器覆盖，不能宣称所有目标外部副作用都已验证恰好一次。

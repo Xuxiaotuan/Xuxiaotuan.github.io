@@ -5,6 +5,10 @@ description: "五篇源码深读：Actor 执行模型、T/J/D 恢复契约、真
 permalink: /pekko-cdc-series/
 ---
 
+[系列导读与验证范围](/pekko-cdc-series/) · [一：Actor 执行与资源](/2026/10/18/pekko-cdc-1-resident-tasks/) · [二：T/J/D 恢复契约](/2026/10/18/pekko-cdc-2-recovery-contract/) · [三：真实故障实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [四：不变量与恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [五：与 Flink CDC 的取舍](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](/flink-cdc-series/) · [共享捕获实验材料](/pekko-cdc-series/shared-capture/)
+
+> **本轮发布版本：**[Pekko 源码 `00ad18e`](https://github.com/Xuxiaotuan/pekko-reference/tree/00ad18e624568ef595bd90e2d6ac00008bd235a0)。真实实验运行于 `cc1c43d` 加工作区改动；316 个文件的冻结清单与发布源码逐字节核对。运行 HEAD、发布提交和保存证据复算分别记账，详见[本轮报告](/pekko-cdc-series/shared-capture/)。
+
 我研究 Flink CDC，是为了判断怎样把可靠的数据同步能力引入 `pekko-reference`。业务起点是上一家公司 70 多万张表、需要长期管理同步任务的场景。这个数量是需求背景，不是本项目已经通过的容量测试。
 
 五篇文章沿同一条主线展开：Actor 如何复用执行资源；现有代码如何提交与恢复；真实故障怎样反驳隐含假设；新协议应满足哪些不变量；最终如何在同一业务约束下比较 Pekko 与 Flink CDC。文章于 **2026-10-18** 重写，**2026-10-19** 先补充 SourceRecord 身份与跨回调探针，再完成[完整组生产改造及真实恢复实验](/pekko-cdc-series/group-recovery/)。本次更新保留旧协议失败反例，同时将新协议的源码结论、运行样本与尚未验证的窗口分开。
@@ -39,7 +43,7 @@ permalink: /pekko-cdc-series/
 | Flink CDC | 3.6.0 / `bf160337ff558d70302e7884f68937611873117e` | 第五篇 SourceReader、split 分配和快照交接源码对照 |
 | Flink | 1.20 文档分支，本轮页面显示 1.20.3 | 执行架构、托管状态与连接器容错边界 |
 
-前一组 [Flink CDC 深入系列](/flink-cdc-series/) 使用自己的 3.7.0 研究基线与 Reader/Flink/Paimon 实验。本组没有将那些实验重新标为 3.6.0 结果，也没有进行 Flink 与 Pekko 同负载基准。Pekko 在线 1.1 文档不作为项目运行版本，具体机制以固定 1.1.3 源码为准。
+前一组 [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/) 使用自己的 3.7.0 研究基线与 Reader/Flink/Paimon 实验。本组没有将那些实验重新标为 3.6.0 结果，也没有进行 Flink 与 Pekko 同负载基准。Pekko 在线 1.1 文档不作为项目运行版本，具体机制以固定 1.1.3 源码为准。
 
 全文区分以下证据层级：
 
@@ -49,7 +53,9 @@ permalink: /pekko-cdc-series/
 - **模型推导 / 有限模型检查**：依赖显式假设的推理和枚举；不是生产协议实现验证。
 - **设计提案 / 未验证**：尚未实现或证据不足，保留 `evidence_incomplete`。
 
-## 全系列验证范围汇总
+<a id="全系列验证范围汇总"></a>
+
+## 历史验证范围汇总（2026-10-19 基线）
 
 | 判断对象 | 当前证据 | 支持的结论 | 未覆盖边界 |
 |---|---|---|---|
@@ -89,14 +95,22 @@ permalink: /pekko-cdc-series/
 - [延迟句柄与跨回调装配](/pekko-cdc-series/deferred-ack/)：两组、六 JVM、实际确认顺序和 D；覆盖来自测试信号。
 - [完整组生产恢复报告](/pekko-cdc-series/group-recovery/)、[运行结果](/assets/pekko-cdc-series/2026-10-19-group-recovery/result.json)、[原始回调/T/J/D/源码归档](/assets/pekko-cdc-series/2026-10-19-group-recovery/evidence.tar.gz)、[SHA256SUMS](/assets/pekko-cdc-series/2026-10-19-group-recovery/SHA256SUMS)、[独立核验脚本](/assets/pekko-cdc-series/2026-10-19-group-recovery/verify.py)：真实提交、Journal 与 Sink 的指定恢复样本。
 
-旧 `docs/blog` 是另一组调度平台文章，其中历史性能数字和“生产就绪”等表述不作为本系列证据。本次已完成的是收窄范围内的完整组生产实现与指定窗口验收；DDL、多 owner、共享读取、快照初始化和其余故障窗口仍未完成。文章或代码发布不会扩大这些保证。
+以下结论保留在 2026-10-19 基线上；当前进度见下方补充。旧 `docs/blog` 是另一组调度平台文章，其中历史性能数字和“生产就绪”等表述不作为本系列证据。本次已完成的是收窄范围内的完整组生产实现与指定窗口验收；DDL、多 owner、共享读取、快照初始化和其余故障窗口仍未完成。文章或代码发布不会扩大这些保证。
 
-## 网站材料与发布口径
 
-网站正文对应项目提交 [`3cdca8d`](https://github.com/Xuxiaotuan/pekko-reference/tree/3cdca8df22ad753838acad4462f2542ce68311d6/docs/cdc-design)，新增生产实现固定为 [`65ab541`](https://github.com/Xuxiaotuan/pekko-reference/tree/65ab5410c32933d0aa3d23510e6c62252d84009b)。本次仅同步正文、导航与原始材料，没有重跑数据库或修改生产协议。
+## 2026-10-25：共享捕获阶段一验证范围
 
-- [完整组恢复报告](/pekko-cdc-series/group-recovery/)、[原始 README](/assets/pekko-cdc-series/2026-10-19-group-recovery/README.md)、[文件校验表](/assets/pekko-cdc-series/2026-10-19-group-recovery/SHA256SUMS)。
-- [网站材料清单及哈希](/assets/pekko-cdc-series/manifest.json)：保留历史材料，并追加本次六个原始文件的来源和摘要。
-- [Flink CDC 深入系列](/flink-cdc-series/)：两个系列的源码版本、Reader 探针与真实作业证据分别统计。
+[本轮报告、复跑入口和原始材料](/pekko-cdc-series/shared-capture/)记录新增实现。上面的历史表描述其当时版本，不表示此后 C2、执行会话、静态快照 Split/调度和受管接管等工作没有发生；这些各有独立实验，适用范围不自动扩展到共享 Reader。
 
-原始材料与项目仓库逐字节相同，README 的相对链接与复跑命令以项目目录结构为准；网页阅读入口已转换为本站地址。可下载不等于独立环境复现通过。完整测试门仍为 `evidence_incomplete`；DDL、多 owner、共享读取、快照初始化、其他故障窗口和 70 万表容量均不因发布而获得保证。
+| 对象 | 源码结论 | 本轮实验结果 | 未验证 / 限制 |
+|---|---|---|---|
+| 共享 Reader | 一个捕获会话，独立 L，与表级 Actor/消费者分离 | 同一 Reader 五表增至七表，实际变更后全字段核对 | 单实例 70 万表元数据、吞吐与内存容量未验 |
+| 新增订阅 B | Reader Schema + JDBC 结构校验；持久意图、唯一源 marker、事务 END 和原子 B 绑定 | marker/L 提交前后、回复丢失、延迟提交/回滚、重启 | CAPTURE_READY ≠ 初始化完成；没有 B 前全量数据导入 |
+| 完整组与原始 ACK | d/c 跨回调先完整落 L，再按原始回调前缀确认 | 真实主键修改、多行/多次更新、ACK 中途与两 ACK 之间硬停恢复 | 固定版本、受控样本；不是任意重排序或全类型保证 |
+| L 与实际 D | 不可变帧与 ACK 引用链；启动核验 D 的实际覆盖 | 缺 D/History/GROUP、谱系/源 UUID、必需 binlog 缺失走拒绝/暂停 | 无自动重建 D、GC 或任意旧点恢复 |
+| 表级 T/J | 独立 L cursor；沿用稳定组账本与 T→J | 真实 Actor Journal/Sink，1→128 重批与 T/J 缺口对账，J 明确拒绝 blocked | 不自动继承原单表全部故障结果；不宣称外部副作用恰好一次 |
+| 取消、Schema | `(B,K]`，保留旧 Schema 帧及历史区间，新 generation 不补空档 | K、待生效取消、停订后 DDL 的旧日志恢复检查；活动 DDL/DROP/TRUNCATE 暂停 | 无 DDL 演进，停订空档允许目标不一致 |
+| 慢表、容量、资源 | 分表进度独立；回调/单页/Store 并发有预算；关闭未知阻断 | A 暂停时 B 继续；容量暂停；自有 worker 和连接清理 | L 总容量共享，无永久慢表隔离；非全进程内存上界 |
+| 部署前提 | L 实际 UUID/数据库与 owner 状态库绑定，源/状态物理实例不同 | 同实例反馈循环失败保留；错误 Store 连接拒绝检查 | 单业务源仍需独立状态基础设施；控制面 API/启动编排未产品化 |
+
+最新结果以本轮报告和源码清单为准。五篇文章的新增部分解释以上变化；历史失败材料和原固定版本分析继续保留。下一阶段仍是 LOW/HIGH、窗口回填和在线全量转流，不能把捕获阶段通过写成“新增表已经全量同步”。
