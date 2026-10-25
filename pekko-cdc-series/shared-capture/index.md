@@ -4,6 +4,8 @@ title: "共享捕获阶段一：动态订阅、L 与真实恢复验证"
 permalink: /pekko-cdc-series/shared-capture/
 ---
 
+> **阶段边界：**本页为共享捕获阶段一的历史报告。后来新增的 LOW/HIGH 初始化见[初始化材料](/pekko-cdc-series/bootstrap/)，已知 INITIAL-D 启动反例见[启动恢复探针](/pekko-cdc-series/capture-startup/)。当前能力与未验证边界以[最新验证表](/pekko-cdc-series/#全系列验证范围汇总)为准。
+
 [系列导读与验证范围](/pekko-cdc-series/) · [一：Actor 执行与资源](/2026/10/18/pekko-cdc-1-resident-tasks/) · [二：T/J/D 恢复契约](/2026/10/18/pekko-cdc-2-recovery-contract/) · [三：真实故障实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [四：不变量与恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [五：与 Flink CDC 的取舍](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](/flink-cdc-series/) · [共享捕获实验材料](/pekko-cdc-series/shared-capture/)
 
 > **本轮发布版本：**[Pekko 源码 `00ad18e`](https://github.com/Xuxiaotuan/pekko-reference/tree/00ad18e624568ef595bd90e2d6ac00008bd235a0)。真实实验运行于 `cc1c43d` 加工作区改动；316 个文件的冻结清单与发布源码逐字节核对。运行 HEAD、发布提交和保存证据复算分别记账，详见[本轮报告](/pekko-cdc-series/shared-capture/)。

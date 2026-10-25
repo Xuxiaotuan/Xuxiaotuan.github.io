@@ -11,7 +11,7 @@ permalink: /flink-cdc-series/
 
 ## 从原理研究到 Pekko 项目
 
-研究这组 Flink CDC 源码，是为了把可靠 CDC 能力引入自己的 Pekko 项目。[从 Flink CDC 到 Pekko：海量常驻任务的执行模型与恢复协议](/pekko-cdc-series/)的五篇正文已重写：从 [Actor 执行模型与资源优势](/2026/10/18/pekko-cdc-1-resident-tasks/)进入 T/J/D 恢复契约、真实 MySQL / Actor Journal 故障证据和不变量推导，最后[比较两套系统的工程取舍](/2026/10/18/pekko-cdc-5-flink-comparison/)。
+研究这组 Flink CDC 源码，是为了把可靠 CDC 能力引入自己的 Pekko 项目。[从 Flink CDC 到 Pekko：共享捕获、全量转流与恢复协议](/pekko-cdc-series/)的五篇正文已按当前源码重排：从 [共享 Reader 与 Actor 资源模型](/2026/10/18/pekko-cdc-1-resident-tasks/)进入 [Split 分页、LOW/HIGH 与 B→F 源码](/2026/10/18/pekko-cdc-2-recovery-contract/)，再核对真实实验、恢复协议，最后[比较两套系统的工程取舍](/2026/10/18/pekko-cdc-5-flink-comparison/)。
 
 两个系列的版本与证据分别统计：本组固定 CDC 3.7.0 源码与 Reader / Flink / Paimon 实验；Pekko 系列固定 Pekko 1.1.3、Debezium 3.6.1.Final，并对照 CDC **3.6.0** 固定源码。新增 Actor 机制实验、历史数据复算和有限模型检查，各自的范围见[验证汇总表](/pekko-cdc-series/#全系列验证范围汇总)。这些历史材料不证明 70 万表容量或同负载性能优势。 2026-10-19 又补充了[真实 SourceRecord 身份与主键 ACK 反例](/pekko-cdc-series/source-record-identity/)及[延迟句柄/跨回调装配探针](/pekko-cdc-series/deferred-ack/)；后者以测试信号代替 T/J 覆盖，不与本系列 Flink/Paimon 作业证据合并计数。
 
@@ -140,6 +140,8 @@ permalink: /flink-cdc-series/
 2026-10-19 后续完成了 Pekko 的[完整组生产改造及真实恢复验收](/pekko-cdc-series/group-recovery/)：指定 T 已提交/J 未持久化窗口的拆批、合批和主键跨回调三组恢复，均为 64 行、6 字段零差异，已提交组重放没有新增审计。该结果单独计入 Pekko [验证范围汇总](/pekko-cdc-series/#全系列验证范围汇总)，不扩大本系列 Flink/Paimon 证据，也不覆盖 DDL、多 owner、共享读取、快照初始化或其余故障窗口。
 
 
-## Pekko 共享捕获阶段一（2026-10-25）
+## Pekko 批转流内核与恢复边界（2026-10-25）
 
-[Pekko 五篇正文与验证范围](/pekko-cdc-series/)已补充共享 Reader、B/K 动态订阅、持久化 L 和表级 T/J。对应[真实实验材料](/pekko-cdc-series/shared-capture/)保留源码 `00ad18e`、31 项共享矩阵、27 项原路径回归、失败记录及逐字段对账；捕获就绪不等于初始化完成，LOW/HIGH 全量转流和 70 万表容量仍未验证。两系列保留各自版本与证据，不合并计算保证。
+[Pekko 五篇正文与验证范围](/pekko-cdc-series/)现固定源码 `55fad0c`，讲解共享 Reader、范围分页、LOW/HIGH、窗口回填封存、完整 B→F 回放、激活与 tail。[初始化矩阵](/pekko-cdc-series/bootstrap/)的61项预期检查通过；后续[启动恢复探针](/pekko-cdc-series/capture-startup/)仍复现 B 已绑定且 D=INITIAL 后越过更新的五字段差异，整体验收保持 `evidence_incomplete`。
+
+[共享捕获阶段一](/pekko-cdc-series/shared-capture/)及其 `00ad18e`、31项原结果仍保留；不把它改成在线初始化实验。两系列继续分别统计版本、Sink与运行证据：Pekko/MySQL结果不扩大本组Flink/Paimon保证，也不证明70万真实表、DDL或自动接管。
