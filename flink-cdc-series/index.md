@@ -140,8 +140,13 @@ permalink: /flink-cdc-series/
 2026-10-19 后续完成了 Pekko 的[完整组生产改造及真实恢复验收](/pekko-cdc-series/group-recovery/)：指定 T 已提交/J 未持久化窗口的拆批、合批和主键跨回调三组恢复，均为 64 行、6 字段零差异，已提交组重放没有新增审计。该结果单独计入 Pekko [验证范围汇总](/pekko-cdc-series/#全系列验证范围汇总)，不扩大本系列 Flink/Paimon 证据，也不覆盖 DDL、多 owner、共享读取、快照初始化或其余故障窗口。
 
 
-## Pekko 批转流内核与恢复边界（2026-10-25）
+## Pekko 批转流内核与恢复边界（历史 2026-10-25）
 
 [Pekko 五篇正文与验证范围](/pekko-cdc-series/)现固定源码 `55fad0c`，讲解共享 Reader、范围分页、LOW/HIGH、窗口回填封存、完整 B→F 回放、激活与 tail。[初始化矩阵](/pekko-cdc-series/bootstrap/)的61项预期检查通过；后续[启动恢复探针](/pekko-cdc-series/capture-startup/)仍复现 B 已绑定且 D=INITIAL 后越过更新的五字段差异，整体验收保持 `evidence_incomplete`。
 
 [共享捕获阶段一](/pekko-cdc-series/shared-capture/)及其 `00ad18e`、31项原结果仍保留；不把它改成在线初始化实验。两系列继续分别统计版本、Sink与运行证据：Pekko/MySQL结果不扩大本组Flink/Paimon保证，也不证明70万真实表、DDL或自动接管。
+
+
+## Pekko 持久平台与受管释放（2026-10-27）
+
+[Pekko 五篇正文](/pekko-cdc-series/)已更新共享 Reader、SQL 冷索引、活动 Journal、有界步骤和动态订阅入口。[本轮平台报告](/pekko-cdc-series/cdc-platform/)分别记录动态 5→7、十一表、取消、干净重启、未知 owner 拒绝、真实 L 事务资源归属与 700,000 条冷元数据。保留原始失败、源码摘要和未验证边界；冷索引不是 70 万真实源表，正确暂停不是自动恢复，MySQL Sink 结果也不扩大本系列 Flink/Paimon 结论。

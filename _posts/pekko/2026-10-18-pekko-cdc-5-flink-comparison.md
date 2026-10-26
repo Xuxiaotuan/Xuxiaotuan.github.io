@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "从 Flink CDC 到 Pekko（五）：自建批转流之后——Pekko 与 Flink CDC 的能力、成本和边界"
-description: "在已有共享捕获与批转流内核之后，比较Pekko和Flink CDC的状态机、恢复责任、资源成本与未验证边界。"
+title: "从 Flink CDC 到 Pekko（五）：海量常驻 CDC 的自建边界——Pekko 控制面与数据运行时的取舍"
+description: "在动态常驻 CDC 场景下比较 Pekko 与 Flink CDC 的工程取舍，保留规模、DDL、HA 和性能边界。"
 permalink: /2026/10/18/pekko-cdc-5-flink-comparison/
 keywords: Pekko, Flink CDC, MySQL, Actor Journal, 故障恢复
 categories:
@@ -12,92 +12,134 @@ tags:
   - Flink CDC
   - 源码分析
 mermaid: true
-last_modified_at: 2026-10-25
+last_modified_at: 2026-10-27
 ---
 
-[系列导读与验证范围](/pekko-cdc-series/) · [1：目标架构](/2026/10/18/pekko-cdc-1-resident-tasks/) · [2：批转流源码](/2026/10/18/pekko-cdc-2-recovery-contract/) · [3：真实实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [4：恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [5：框架比较](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](/flink-cdc-series/) · [初始化实验](/pekko-cdc-series/bootstrap/) · [启动恢复反例](/pekko-cdc-series/capture-startup/)
+[系列导读与验证范围](/pekko-cdc-series/) · [1：目标架构](/2026/10/18/pekko-cdc-1-resident-tasks/) · [2：批转流源码](/2026/10/18/pekko-cdc-2-recovery-contract/) · [3：真实实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [4：恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [5：自建与复用](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
-> **当前主文基线：2026-10-25，源码 [`55fad0c`](https://github.com/Xuxiaotuan/pekko-reference/tree/55fad0cf27f3a289dbb5d4fb4f2a31d60a661059)。** 文章依据当前源码和已保存实验重排；改稿不构成数据库重跑。整体验收仍为 `evidence_incomplete`。源码结论、真实实验、条件性推理和设计提案分别标明；历史版本放在文末可展开附录，不能套作当前能力。
+> **文章修订：2026-10-27。** 已提交的启动准入与五个 Bootstrap 定点结果见 [`74b6d9a`](https://github.com/Xuxiaotuan/pekko-reference/tree/74b6d9ad1ebcfe19a786f4e1869aed276a63bb52)及[A1/A2 报告](/pekko-cdc-series/capture-admission/)；本轮平台候选的源码版本、实测与未验证项见[平台实验报告](/pekko-cdc-series/cdc-platform/)。没有 Pekko/Flink 同负载 benchmark，也没有 70 万真实源表容量结果。
 
-项目已经有 LOW/HIGH、窗口封存和 B→F 回放，再比较 Pekko 与 Flink CDC，就不能继续沿用“一个只有分页查询，另一个已有增量快照”的旧表格。但也不能因为出现了相同术语，就宣布数据运行时和恢复成熟度已经相当。
+一个实例的表目录很大，今天同步五张，明天增加两张，还要单独取消、恢复。本文回答：为这种长期复制任务，哪些控制与数据职责值得自建，哪些应复用成熟运行时？前四篇的源码与故障证据支持若干机制选择，但没有提供 Pekko 与 Flink CDC 同负载的总体成本或性能胜负。
 
-本篇固定同一业务：一个 MySQL 实例的大目录中动态选择少量表，先同步已有数据，再长期持续，允许取消。比较分别落到当前代码、真实实验、目标架构和仍需承担的工程责任；没有同负载性能对照，不宣布吞吐或内存胜负。
+本项目按各实验的冻结版本分别判断，不能把旧通过数当作新候选已回归；Flink CDC 源码对照沿用 3.6.0 固定提交 `bf160337ff558d70302e7884f68937611873117e`。另一组[Flink CDC 系列](https://xuyinyin.cn/flink-cdc-series/)使用自己的 3.7.0、Flink/Paimon 实验，不能混作同版本、同 Sink 的对照。
 
-## 1. 两个项目版本与两套 Flink 基线分开
+## 1. 先给双方相同的业务承诺
 
-本项目当前实现固定为 `55fad0c`，真实初始化运行来自原冻结工作区，第三篇给出对应材料。本文沿用原比较的 Flink CDC **3.6.0** 固定源码 `bf160337ff558d70302e7884f68937611873117e`，Flink 的状态恢复概念参照 1.20 文档。
+两种方案都应允许合理共享：表目录 N 约 70 万，订阅 S 由 5 增加到 7，活动写入速率和事务大小另外固定。新增 f/g 先初始化再跟随，其他表继续推进；取消的含义、可接受积压和故障恢复结果也必须一致。
 
-网站另一组 [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)使用自己的 3.7.0 研究与 MySQL/Paimon 实验；它的跨 Chunk 迁移、Checkpoint 恢复结果不改名为 3.6.0 结果，也不作为 Pekko/MySQL Sink 的结果。两边 Sink 不同，尤其不能直接比较提交和恢复开销。
+Flink CDC 的 MySQL Pipeline 可以选择多表，表与 Job、slot、子任务没有固定的一一对应。[官方多表配置](https://nightlies.apache.org/flink/flink-cdc-docs-release-3.6/docs/connectors/pipeline-connectors/mysql/)因此，“70 万个 Actor 对比 70 万个 Flink Job”不是这个业务的有效实验输入。
 
-## 2. 批转流现在已经缩小了哪项差距
+公平比较还要固定目标语义。本项目的当前样本使用 MySQL Apply 和独占空目标；Flink 系列中的 Paimon 提交与快照机制不能直接作为同一种 Sink 成本。最终行值、业务副作用次数、跨表事务可见性也是不同承诺。
 
-| 问题 | 当前 Pekko 实现 | Flink CDC 3.6.0 对照路径 |
+## 2. 现有正面证据支持哪些自建动机
+
+| 业务需要 | 当前可复查证据 | 得到的结论 |
 |---|---|---|
-| 如何组织存量 | 冻结 U、持久化范围 spec、keyset 分页；同表串行窗口 | snapshot split 的生成、分配和 Reader 状态 |
-| 如何处理读中变化 | 真实控制表 LOW/HIGH、L 覆盖、窗口 fold、FINAL 封存 | 增量快照读取与 snapshot/binlog 交接机制 |
-| 如何完成整表追赶 | 所有窗口之后完整回放 B→F，再审计激活 | binlog split 携带已完成 snapshot split 的范围/水位信息 |
-| 如何恢复进度 | 页 receipt、完整组账本、Actor Journal、保留的 L/spool | 分配器/Reader 状态与 Flink Checkpoint 协调 |
-| 如何处理外部目标 | 本次实现和实测为 MySQL Apply；需要验证事务、幂等及关闭 | 必须按具体 Sink 的提交契约分别判断 |
+| 订阅变化不等于再复制一套采集器 | 共享 capture 的动态 B/K/L 路径与阶段一指定实验 | 采集身份可以与表消费者分离；不是全实例 Reader 数已有全局上限 |
+| 新表先全量再持续 | I01 五表后新增 f/g；第二篇的 LOW/HIGH、封存、B→F 路径 | 当前受限数据集已跑通这条组合 |
+| 范围和输出有独立恢复依据 | [I11](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/#e-i11)、[I16](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/#e-i16)的原 spec、新 attempt 和原 receipt | 能把恢复决策变成持久化事实核对 |
+| 一张表短期落后时另一张继续 | 共享捕获 R14 中表级 T/J 分别推进 | L 在有限积压内解耦目标应用；未证明无限隔离 |
+| 冷身份不占一份活动执行资源 | 当前 SQL 索引、分池 grant、活动 Journal Actor 与 bounded step 源码 | 支持资源按活动量分配的设计；真实成本以新报告为准，不能由普通 Actor 机制实验推算 |
 
-这张表是职责对应，不是算法等价。当前 `Split` 没有实现 Flink 的并行领取/确认协议；当前 F 也不是 Flink 全局 Checkpoint 或事件时间 Watermark。
+这些证据说明自建方向有具体抓手：独立身份、动态控制和显式恢复事实。它们没有比较同负载内存、吞吐、控制延迟和长期维护成本，因而还不能证明经济性优势。
 
-例如固定源码的 [MySqlHybridSplitAssigner.createBinlogSplit](https://github.com/apache/flink-cdc/blob/bf160337ff558d70302e7884f68937611873117e/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/assigners/MySqlHybridSplitAssigner.java#L207)会读取已分配 snapshot split 的范围、完成 offset，构造 `FinishedSnapshotSplitInfo` 与 binlog split。它不等于本项目在所有窗口之后，把选中表 B→F 的完整组都提交一遍。
+## 3. 当前实现选择了 SQL 冷控制与活动 Actor，而非每表常驻 Actor
 
-## 3. 自建算法换来了什么，也承担了什么
+一张表的控制状态不只是 RUNNING。新增请求可能尚未获得 B，初始化可能已封存但未激活，实时可能已暂停，取消可能已受理但资源尚未排空。Actor 可以按身份串行接受命令，Event Sourcing 可以保存接受事实；但这不要求把所有冷身份实例化成 Actor。
 
-本项目把初始化输入和输出持久化，封存后重放同一 FINAL 页；未封存窗口则保留范围、重建读视图。原始 CDC 组另外保存在 L 中，目标页与原始组账本分开。这使目标提交、Actor 接受和 SDK 确认可以分别取证，恢复责任相对显式。
+本轮平台的[实际装配](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/cdc/CdcBootstrapKernel.scala)是：SQL 保存定义、期望状态、候选索引、owner 与 grant；少量活动任务创建 `BootstrapJournal` Actor；阻塞 JDBC/Sink 工作在受预算限制的 step worker 上执行。一个共享 Reader 继续捕获源变化，L 解耦采集与每表应用。控制台从持久投影分页查询，不遍历所有 Actor 发 ask。
 
-代价也明确：RAW/FINAL 和完整日志有额外写入；B→F 全量回放有额外应用工作；初始化中可能暂时回退，不能直接业务发布。恢复审计还依赖保留的历史材料。算法不是用更轻的 Actor 消除了这些成本，而是用状态存储和显式协议承担它们。
+```mermaid
+flowchart LR
+  Command[HTTP 持久受理] --> Index[SQL task 索引 / owner / grant]
+  Index --> Workers[有限 snapshot 与 tail workers]
+  Workers --> Actor[活动 BootstrapJournal Actor]
+  Reader[共享 Debezium Reader] --> Log[持久日志 L]
+  Log --> Workers
+  Workers --> Sink[目标页 receipt / 组账本 T]
+  Sink --> Actor
+  Log --> Wake[有界 GROUP 扫描与持久唤醒游标]
+  Wake --> Index
+```
 
-Flink 的优势在于已有的分布式状态执行、Checkpoint 和连接器状态机可以复用。[Flink 状态恢复说明](https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/concepts/stateful-stream-processing/)描述了状态快照和恢复关系；它不使外部数据库自动回滚，Sink 仍需自己的事务或幂等契约。
+Actor 在这里承担活动执行的串行接受边界，SQL 承担可检索的冷事实与事务准入。这是一次明确的架构取舍：冷表数量增长不应直接增加 Actor、Future、线程、RR 事务与会话锁。动态 5→7 的 HTTP 请求返回 202，只表示定义已持久受理；它要经过捕获准入、初始化、审计激活，才可能进入持续同步。
 
-## 4. 70 万表更能说明控制模型，不能直接说明数据吞吐
+过去持续占据线程、会话锁与默认八个 run 许可的实现已不适合作为本轮资源模型。新的 `step` 以一个完整窗口、一次组批或一次有界审计单元让出。快照和 tail 使用独立预算；已审计且无输入的实时任务退出活动会话，由 L 的新 GROUP 唤醒。新变化与 worker 完成竞争时，用持久 wake_seq 保留后续工作，不能依赖一个可能丢失的内存消息。
 
-对本业务，表级身份应能表达“未订阅、初始化、追赶、实时、取消、暂停、释放未知”。Actor 串行处理该表控制命令的模型与这些需求匹配，不必让每个身份永久绑定独立线程。
+这还不是“70 万表已经跑通”。它把需要随总身份数增长的状态压到持久索引，把活动资源限制在预算内；索引扫描、状态写入、读视图时长和唤醒延迟是否可接受，必须实测。即使 70 万条冷索引被顺序遍历，也只证明那个元数据负载，不证明 70 万源表的采集、初始化或持续同步容量。
 
-但当前 bootstrap 还不是这个完整平台：Runner 持续占用阻塞执行上下文和 run 许可，默认 8 个；旧静态调度器只接 `mysql.snapshot → mysql.write`，新链路没有 API/UI 闭环。冷索引、表级控制 Actor 与有界执行步骤仍是[设计提议](https://github.com/Xuxiaotuan/pekko-reference/blob/55fad0cf27f3a289dbb5d4fb4f2a31d60a661059/docs/development/specs/2026-10-25-cdc-platform-lifecycle-contract.md)。
+## 4. 数据面已经复用了什么，自建又增加了什么责任
 
-同样，不能假定 Flink 必须每表一个 Job。其 MySQL Pipeline 可选择多表，作业、算子、并行子任务与表没有固定的一一映射。[官方多表配置](https://nightlies.apache.org/flink/flink-cdc-docs-release-3.6/docs/connectors/pipeline-connectors/mysql/)
+本项目没有从零编写 MySQL binlog 解析器。它复用 Debezium SDK、JDBC 和 Pekko 持久化能力，自建的是它们之间的持久日志、完整组确认、范围封存与目标证据协议。
 
-合理的对照应允许双方共享采集与批量执行，再测动态控制、变更速率、活跃比例、积压和恢复时限。没有这些输入，比较“70 万个 Actor”和“70 万个 Flink Job”没有意义。
+| 层次 | 当前复用或自建 | 继续维护的责任 |
+|---|---|---|
+| 原始采集 | 复用 Debezium；自建共享 capture、L 与原始 ACK 前缀协调 | SDK 启动/offset 阶段、Schema 与日志保留成本，版本兼容 |
+| 初始化 | 自建固定范围、LOW/HIGH、fold、FINAL 与 B→F | 读视图丢失、完整日志前提、类型/约束和激活恢复 |
+| 表执行进度 | 复用 Actor Journal，自建 BootstrapProgress 与 receipt 协调 | 明确拒绝、结果未知、seal 丢失、同 owner 缓存重建与跨 owner 重验 |
+| 控制调度 | SQL 持久 task/grant、有限 step worker、活动 Journal Actor | 未决 grant 计预算、命令幂等、健康过期、物理释放未知与停机恢复 |
+| 分布式状态运行时 | 当前没有通用执行图 Checkpoint | 若加入 Join、窗口、定时器等状态计算，需要额外一致恢复设计 |
 
-## 5. 共享 Reader 缓解了源连接，未消除共享故障域
+Flink 的价值包括现有的 Source 分配、Reader 状态、Checkpoint 及运行时协调；外部 Sink 仍需各自的事务/幂等提交契约。[Flink 状态恢复说明](https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/concepts/stateful-stream-processing/)若复制需求很快扩展为复杂状态计算，自建范围会明显变大，目标组账本不能替代算子状态的一致恢复。
 
-当前新路径已经不必每表一个 Engine，但共享 Reader 覆盖业务数据库，Schema/history 成本、解码与事务元数据仍可能受大目录影响。表级 L 游标允许目标在有限积压内独立追赶，不能自动隔离捕获域的 Schema 异常或日志容量不足。
+## 5. 用一次批转流比较责任位置，而非比较术语数量
 
-如果只暂停一张坏表而其他表永远不受影响，必须说明其日志放在哪里、保留多久、谁承担空间，超过上限时如何处理。没有 GC 和容量协议时，“L 先存着”只是把阻塞转成持久积压。
+当前 Pekko 路径是固定 U、串行范围、LOW/HIGH 局部回填、FINAL 封存，再完整回放 B→F 并审计激活。Flink CDC 3.6.0 的[MySqlHybridSplitAssigner.createBinlogSplit](https://github.com/apache/flink-cdc/blob/bf160337ff558d70302e7884f68937611873117e/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/assigners/MySqlHybridSplitAssigner.java#L207)则使用 snapshot split 范围与完成 offset 构造 binlog split 及完成信息，并与其 Reader/分配器状态衔接。
 
-Flink 同样有作业边界、共享算子和背压域，需要合理分组。是否值得为表级灵活性自建控制层，要结合实际失败隔离要求；不能从一个慢表样本推导任一方案具有无限隔离。
+这些机制承担相近问题，但不是相同算法。本项目的 F 不是全局 Checkpoint；当前范围窗口也没有 Flink 的并行领取与完成确认协议。保存 FINAL 和完整 L 使恢复材料显式，却增加持久写入、保留空间、恢复审计和 B→F 应用工作。
 
-## 6. 恢复成熟度：先看失败窗口，再看类名
+[第四篇 G4](/2026/10/18/pekko-cdc-4-protocol-design/#g4)给出当前算法在明确前提下的逐键推理；[第三篇 E0](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/#e-startup)又显示旧 INITIAL-D 恢复可以越过必要输入。新版 A1/A2 已实测拒绝已识别的不安全重入，旧五字段差异没有被修补。局部算法存在证明、危险状态被拒绝、业务数据已经修复，是三种不同结论；其他系统也应按固定版本和同一故障窗口分别判断。
 
-当前证据支持 61 项初始化检查和相关 80 项测试；旧回归仍有 R02 失败。后续确定性探针已观察到 B 绑定、D=INITIAL 重启越过更新，witness 到目标后仍留下五字段差异。Reader 启动连续性门没有实施，短 suite 的 5 秒服务端释放检查也未通过。
+## 6. 一台实例的 70 万表，成本不会随冷 Actor 消失
 
-这些事实意味着当前项目不能按“已等同 Flink CDC 的成熟替代品”交付。但也不应再写成“没有 LOW/HIGH 或批转流”：相关内核、真实 SQL 和故障材料已存在。
+令 N 为源表目录数，S 为订阅表数，A 为有待处理工作的表数。当前方案试图把 Actor/worker 的活动成本约束在配置预算附近，而不是随 N 或 S 线性实例化；但系统总成本还包括下列几项：
 
-旧静态快照已经做过 guardian/worker 隔离实验，不自动覆盖新的共享 Reader、L、初始化和多表配额。要实现新链路自动接管，仍需恢复许可、旧 owner 隔离、遗留事务确认及捕获域配额协议。Actor 的重新分配不等于旧数据库连接已失去写权限。
+| 成本 | 主要由什么决定 | 当前架构能否直接消除 |
+|---|---|---|
+| 冷控制索引与持久意图 | 任务数、版本数、索引与保留策略 | 不能；只是避免实例化同数量活动 Actor |
+| binlog 读取与解析 | 源实例写入量、事务大小、SDK 过滤位置 | 共享 Reader 减少重复读取，不等于未订阅写入零成本 |
+| Schema 获取、解析及 history | 实际捕获数据库的目录、DDL 历史、SDK 启动策略 | 不能靠减少 Actor 消除 |
+| 初始化 | 选定表行数、窗口大小、并发写入与目标速度 | 有界分片限制峰值，但增加次数与追赶工作 |
+| L、spool、receipt 与 Journal | 变化率、积压、封存页数、验证与保留时长 | 这是显式恢复证据的成本，不能忽略 |
+| 服务端资源核实 | capture 数、专属账号、observer 权限与故障状态 | 必须为正确释放付费，超时不能直接回收 |
 
-## 7. 在什么条件下继续选择 Pekko
+当前 [`SharedMySQLCapture`](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)使用数据库内全表匹配来支持运行时新增订阅，`no_data` 也不表示没有 Schema 工作。若源库有 70 万表，即使今天只订阅五表，Debezium 的目录、Schema 与 history 成本仍需真实测量。冷调度实验没有执行这一步，不能据此声称整体内存已按五表计。
 
-如果业务核心是大量可独立寻址的复制任务、动态增减订阅、细粒度控制，并能接受单主键、固定 Schema、MySQL 目标等首版约束，继续以 Pekko 承载控制、逐步完善这个受限数据内核有工程动机。这里的判断基于需求匹配与可见实现，不是成本已经更低的实测结论。
+共享还扩大了故障域。假设 a 目标暂停十分钟，b 仍有写入。L 可以让 b 独立提交，但 a 恢复所需的历史不能被删掉。隔离的代价是积压字节、保留时长和后续追赶；L 达到上限时，整个捕获域可能承压。若 Reader、Schema 或 history 异常，表级 Actor 也不能独立修复采集连续性。
 
-如果需要更广的连接器、成熟分布式状态运行时、窗口/Join/定时器等有状态计算，单靠目标组账本无法替代执行图的一致恢复；复用 Flink 运行时更能减少自建范围。也可以让 Pekko 管理任务，而数据面由成熟 CDC 运行时承载，但那是另一种集成方案，当前项目未实现。
+当前没有完成长期 GC、新共享链路的多 owner 自动接管或 guardian 恢复。旧静态快照的隔离实验不覆盖这些新资源。SQL owner 与 UNKNOWN grant 的保留，是防止未经证明的替代执行；它可以选择停住业务，不能因此称作已经实现自动 HA。
 
-## 8. 下一轮对照实验应如何设计
+## 7. 高可用的成本，首先是区分“未知”与“失败”
 
-先把 Pekko 启动准入与同一候选版本验收闭合，再固定相同源数据、目标语义、活跃表比例、事务大小、并行预算和停止阈值，逐级测量：
+单机进程退出并不意味着服务端 dump 连接、事务和命名锁都已经结束。本轮受管 close 将本地 runner/executor 终止、服务端会话/事务排空、owner 释放和 reusable 分开记录。它用原始 observer 连接、server UUID 与 canary 约束观察连续性，账号也按 capture 隔离，且必须覆盖 SDK 与全部 L 连接。旧装配漏掉共享控制账号下的 L，真实事务仍在却提前宣布可复用；修复及同窗口的 UNKNOWN/最终释放证据均单列保留。无法观察时持久保留占用，不能只凭 PID 或经过一段时间开替代 Reader。
 
-- 冷目录/冷元数据成本，与真实源表发现成本分开。
-- 活跃复制的线程、连接、RSS、L/spool 写入与追赶延迟。
-- 动态五表增加到七表，以及初始化中取消对已有表的影响。
-- 相同 T/J 或 Checkpoint 窗口的恢复时长、重放工作量和最终全字段差异。
-- 固定时长下日志保留与磁盘增长；无 GC 时按阈值停止，不删除证据续跑。
+这使控制面的状态更多，却比一个 running 布尔值准确。API 分开返回捕获准入、初始化历史证明、当前 runtime health 和 release 状态；超龄观察为 STALE，查询失败显示 UNKNOWN。PAUSED 没有普通 Resume 按钮，202 不是初始化完成，PREEXEC_CANCEL 也不是初始化证明。
 
-本系列目前能提供源码级职责对照和限定故障证据，不能提供同负载资源胜负。下一步最重要的是堵住已知启动连续性缺口，然后把已测内核接入有界平台；不是为已有局部通过再换一个更大的能力标签。
+Flink 的成熟协调机制可以减少一部分自建工作，但它与具体 MySQL Reader、外部 Sink 的协议仍需在相同故障窗口检验。本项目自建之后，必须自己维护源提交不确定、目标 T/J 缺口、原始 ACK、SDK D、资源释放与调度资格之间的证明链。新增一层 SQL 不能自动把这些不确定性变成事务原子性。
 
-## 附录：历史源码分析、完整组协议与原始实验
+## 8. 怎样用共同负载判断这项取舍是否值得
 
-以下保留本篇此前的完整技术分析，原题为“五：70 万表的 CDC 平台，Pekko 与 Flink CDC 各自解决什么”。其中的“当前”“尚未实现”均指各段明确标注的历史版本；2026-10-25 的阶段一补充也只描述当时共享捕获，不覆盖后来新增的 LOW/HIGH 内核。当前结论以本文主文和系列验证表为准，历史失败及证据链接不删除。
+下一项有意义的比较应固定同一 MySQL 版本、源目录和写入分布、相同目标类型及业务语义，而不是只固定表数量。至少分别报告：
+
+| 维度 | 应测的量 | 关键限定 |
+|---|---|---|
+| 冷目录 | 控制索引、SDK Schema/history 的内存、启动时长、存储与查询计划 | 真实目录与合成元数据分别计 |
+| 5→7 动态订阅 | 受理延迟、捕获准入延迟、初始化完成时长、对既有表延迟的影响 | 202、B、STREAMING 三个时点分开 |
+| 活跃数据 | 吞吐、端到端延迟、连接/事务峰值、L/spool 增长 | 同事务规模、类型、热点分布与目标速率 |
+| 故障恢复 | 安全暂停率、自动恢复范围、重放量、逐字段终值与恢复时长 | 正确拒绝不计作恢复成功 |
+| 长期运行 | 日志保留、GC、反压、失联资源、升级与人工处置成本 | 短期全量对账不能代替长期 SLA |
+
+本轮已经取得三类相互独立的正面证据：P01 的动态 5→7 经过真实平台链路逐字段相等；P02 在十表 tail 之后仍能初始化第十一表，活动步骤不超过四；H 写入并遍历 700,000 条冷控制记录，但不创建 ActorSystem 或 Reader。它们分别支持控制入口、有限执行和冷索引的可行性。受管 close、读视图重建、干净 owner 恢复与未知 owner 暂停又约束了这些资源能够怎样复用。
+
+[本轮报告](/pekko-cdc-series/cdc-platform/)同时保留 gate 未命中、磁盘采样竞争、旧 marker 自动收敛期待失败和自然释放迟延。没有同负载 Flink benchmark，没有 70 万真实源表目录或长期活跃 CDC 结论。用这些局部证据支持具体架构决策是合理的，将它们合并成“比 Flink 更省资源、更高可用”则越过了验证范围。
+
+如果主要问题是少量持续活跃表与海量长期控制身份、细粒度动态选择，SQL 冷索引加 Pekko 活动执行值得继续验证。如果需要广泛连接器、复杂 Join/窗口、跨算子一致恢复，成熟数据运行时能减少自建责任。把 Pekko 仅作为控制面、数据交给现成 CDC 运行时也可评估，但当前没有实现该组合。
+
+因此本文支持的是一种有边界的架构选择：让长期身份与活动计算分开，让动态控制与数据正确性分别取证。它尚未支持“比 Flink CDC 更省资源”或“已适合 70 万表生产常驻”的总体结论。
+
+## 技术附录与证据入口
+
+[历史源码分析与实验档案](https://github.com/Xuxiaotuan/pekko-reference/blob/0690063b9111017c64684623ecbfce16247716ad/docs/articles/cdc-design/appendices/05-framework-comparison-history.md)保留本篇此前全文；[附录索引](https://github.com/Xuxiaotuan/pekko-reference/blob/0690063b9111017c64684623ecbfce16247716ad/docs/articles/cdc-design/appendices/README.md)集中提供版本、完整矩阵和原始材料入口。当前主文只保留支撑核心论点所需的实现、代表性证据和边界。
 
 <details markdown="1">
 <summary>展开历史基线分析与实验细节</summary>
@@ -188,7 +230,7 @@ Flink 的托管状态则通过 Checkpoint 建立执行图的恢复关系：Sourc
 
 例如累计金额保存在某个中间对象里：源重放了，累计状态却没有回到同一恢复点，可能重复累加；累计状态回退了，Sink 却已经保留新结果，又需要提交协调。每增加一类状态，就增加一致恢复的证明义务。
 
-项目当前 CDC 可靠路径限制为直连 MySQL Apply，[WorkflowValidator 的显式校验](https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/server/src/main/scala/cn/xuyinyin/magic/workflow/execution/WorkflowValidator.scala#L78)拒绝内联 Transform；项目没有实现任意分布式算子状态快照。Pekko Stream 提供数据流组织能力，不意味着自动获得 Flink 的有状态计算恢复协议。若业务很快要进入复杂计算，自建范围会从“复制协议”扩展到“数据执行运行时”。
+项目当前 CDC 可靠路径限制为直连 MySQL Apply，[WorkflowValidator 的显式校验](https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/engine/WorkflowValidator.scala#L78)拒绝内联 Transform；项目没有实现任意分布式算子状态快照。Pekko Stream 提供数据流组织能力，不意味着自动获得 Flink 的有状态计算恢复协议。若业务很快要进入复杂计算，自建范围会从“复制协议”扩展到“数据执行运行时”。
 
 ## 5. 资源成本应看曲线，而不是比较框架空载大小
 
@@ -312,10 +354,10 @@ Flink 的恢复同样要承担状态加载、Source 重读和 Sink 协调成本�
 
 上一篇：[恢复协议与验证矩阵](/2026/10/18/pekko-cdc-4-protocol-design/)；[返回系列目录与验证范围](/pekko-cdc-series/)；[Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)。
 
-[sharding]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/server/src/main/scala/cn/xuyinyin/magic/infrastructure/cluster/sharding/WorkflowSharding.scala#L38
-[actor]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala#L164
-[source]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcSourceNode.scala#L129
-[engine-access]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/DebeziumEngineAccess.scala#L185
+[sharding]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/sharding/WorkflowSharding.scala#L38
+[actor]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala#L164
+[source]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcSourceNode.scala#L129
+[engine-access]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/DebeziumEngineAccess.scala#L185
 [flink-assigner]: https://github.com/apache/flink-cdc/blob/bf160337ff558d70302e7884f68937611873117e/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/assigners/MySqlSnapshotSplitAssigner.java#L420
 [flink-reader]: https://github.com/apache/flink-cdc/blob/bf160337ff558d70302e7884f68937611873117e/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/reader/MySqlSourceReader.java#L124
 [flink-hybrid]: https://github.com/apache/flink-cdc/blob/bf160337ff558d70302e7884f68937611873117e/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/assigners/MySqlHybridSplitAssigner.java#L207
