@@ -383,3 +383,12 @@ Flink CDC 的快照 split、LOW/HIGH 对齐和完成交接，解决的正是最�
 这一阶段的价值是把下一步变成可检验的问题：在可靠捕获层之上增加 LOW/HIGH 初始化时，如何安排分页快照、窗口变更保留与回填，如何在初始化期间取消并恢复订阅，以及怎样让慢表的 L 积压和源 binlog 保留都落在预算内。当前[真实结果与验证范围](/pekko-cdc-series/shared-capture/)只支持其已列明的部分。
 
 </details>
+
+
+## 2026-11-09 持久化切换授权与运行时账号
+
+本轮把 guardian 隔离、旧账号事务排空、旧准入拒绝、配额迁移和恢复 permit 接到运行时凭据重绑定。真实 MySQL、Actor Journal 和 MySQL Sink 的 `KILL_T_BEFORE_J` 复测中，源表 10 行、目标表 10 行、6 个投影字段逐字段一致，恢复后的第一批 T 以 replay 方式再次确认。
+
+`KILL_J_AFTER_STORE`、`FENCE_COMMIT_REPLY_LOST`、`STARTUP_COMMIT_REPLY_LOST`、`B_RECOVERY_CRASH`、`DRAIN_COMMIT_REPLY_LOST`、`QUOTA_COMMIT_REPLY_LOST`、`REVOKE_COMMIT_REPLY_LOST`、`OBSERVER_DENIED` 和 `STALE_GRANT` 也完成了本轮固定窗口验证。完整证据见[持久化切换授权实验](/pekko-cdc-series/persistent-cutover/)。
+
+代码结论、真实结果和未验证边界保持分开：密码不入库，原始 Workflow/Split 指纹不变；DDL、多 owner、共享 CDC、跨实例迁移和全部历史场景仍不在本轮保证范围。

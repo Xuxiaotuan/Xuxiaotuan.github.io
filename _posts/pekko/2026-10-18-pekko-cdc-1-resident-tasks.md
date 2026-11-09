@@ -573,3 +573,12 @@ flowchart LR
 **未验证边界：**70 万表的 Schema 发现/缓存成本、长期日志增长、活跃消费者准入、自动 GC、共享 Reader 接管和 LOW/HIGH 初始化。下一阶段的资源验收应分别测候选表数、订阅数、活跃消费者数和变更速率，不能再用一个“任务数”掩盖四种不同成本。
 
 </details>
+
+
+## 2026-11-09 持久化切换授权与运行时账号
+
+本轮把 guardian 隔离、旧账号事务排空、旧准入拒绝、配额迁移和恢复 permit 接到运行时凭据重绑定。真实 MySQL、Actor Journal 和 MySQL Sink 的 `KILL_T_BEFORE_J` 复测中，源表 10 行、目标表 10 行、6 个投影字段逐字段一致，恢复后的第一批 T 以 replay 方式再次确认。
+
+`KILL_J_AFTER_STORE`、`FENCE_COMMIT_REPLY_LOST`、`STARTUP_COMMIT_REPLY_LOST`、`B_RECOVERY_CRASH`、`DRAIN_COMMIT_REPLY_LOST`、`QUOTA_COMMIT_REPLY_LOST`、`REVOKE_COMMIT_REPLY_LOST`、`OBSERVER_DENIED` 和 `STALE_GRANT` 也完成了本轮固定窗口验证。完整证据见[持久化切换授权实验](/pekko-cdc-series/persistent-cutover/)。
+
+代码结论、真实结果和未验证边界保持分开：密码不入库，原始 Workflow/Split 指纹不变；DDL、多 owner、共享 CDC、跨实例迁移和全部历史场景仍不在本轮保证范围。

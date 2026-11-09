@@ -532,3 +532,12 @@ Schema 变化也会改变事件解释。旧 Schema 数据仍在 writer 缓冲时
 **实验结果：**真实矩阵检查 B 提交与回复、回调前缀、重新分批、T/J 缺口和缺失证据拒绝；独立脚本复算保存的帧摘要、引用、D、Journal cursor 与全字段对账。脚本成功属于保存材料的再验证，不是又一次数据库运行。详细结果见[本轮报告](/pekko-cdc-series/shared-capture/)。共享捕获没有扩展到 LOW/HIGH 回填、在线初始化、DDL 演进或自动接管。
 
 </details>
+
+
+## 2026-11-09 持久化切换授权与运行时账号
+
+本轮把 guardian 隔离、旧账号事务排空、旧准入拒绝、配额迁移和恢复 permit 接到运行时凭据重绑定。真实 MySQL、Actor Journal 和 MySQL Sink 的 `KILL_T_BEFORE_J` 复测中，源表 10 行、目标表 10 行、6 个投影字段逐字段一致，恢复后的第一批 T 以 replay 方式再次确认。
+
+`KILL_J_AFTER_STORE`、`FENCE_COMMIT_REPLY_LOST`、`STARTUP_COMMIT_REPLY_LOST`、`B_RECOVERY_CRASH`、`DRAIN_COMMIT_REPLY_LOST`、`QUOTA_COMMIT_REPLY_LOST`、`REVOKE_COMMIT_REPLY_LOST`、`OBSERVER_DENIED` 和 `STALE_GRANT` 也完成了本轮固定窗口验证。完整证据见[持久化切换授权实验](/pekko-cdc-series/persistent-cutover/)。
+
+代码结论、真实结果和未验证边界保持分开：密码不入库，原始 Workflow/Split 指纹不变；DDL、多 owner、共享 CDC、跨实例迁移和全部历史场景仍不在本轮保证范围。

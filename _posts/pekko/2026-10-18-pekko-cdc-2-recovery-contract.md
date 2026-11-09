@@ -583,3 +583,12 @@ L 中的 ACK 证据引用本回调依赖的 PROFILE、SCHEMA、BARRIER 和 GROUP
 还要保留一个语义边界：完整组保证 PK 的 d/c 不被拆成独立恢复单位，不代表保留整个源事务。分表消费有各自的 T/J，跨表可见时刻可以不同。同事务多行实验的逐字段终值一致，不能升级为源事务在目标端原子可见。
 
 </details>
+
+
+## 2026-11-09 持久化切换授权与运行时账号
+
+本轮把 guardian 隔离、旧账号事务排空、旧准入拒绝、配额迁移和恢复 permit 接到运行时凭据重绑定。真实 MySQL、Actor Journal 和 MySQL Sink 的 `KILL_T_BEFORE_J` 复测中，源表 10 行、目标表 10 行、6 个投影字段逐字段一致，恢复后的第一批 T 以 replay 方式再次确认。
+
+`KILL_J_AFTER_STORE`、`FENCE_COMMIT_REPLY_LOST`、`STARTUP_COMMIT_REPLY_LOST`、`B_RECOVERY_CRASH`、`DRAIN_COMMIT_REPLY_LOST`、`QUOTA_COMMIT_REPLY_LOST`、`REVOKE_COMMIT_REPLY_LOST`、`OBSERVER_DENIED` 和 `STALE_GRANT` 也完成了本轮固定窗口验证。完整证据见[持久化切换授权实验](/pekko-cdc-series/persistent-cutover/)。
+
+代码结论、真实结果和未验证边界保持分开：密码不入库，原始 Workflow/Split 指纹不变；DDL、多 owner、共享 CDC、跨实例迁移和全部历史场景仍不在本轮保证范围。

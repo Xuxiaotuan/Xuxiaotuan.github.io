@@ -213,3 +213,7 @@ last_modified_at: 2026-10-27
 最新结果以本轮报告和源码清单为准。五篇文章的新增部分解释以上变化；历史失败材料和原固定版本分析继续保留。下一阶段仍是 LOW/HIGH、窗口回填和在线全量转流，不能把捕获阶段通过写成“新增表已经全量同步”。
 
 </details>
+
+## 2026-11-09 持久化切换授权
+
+真实旧 Workflow、独立 GuardianMain/SupervisorMain、Actor Journal 和 MySQL Sink 的切换授权与运行时账号重绑定结果见[实验材料](/pekko-cdc-series/persistent-cutover/)。`KILL_T_BEFORE_J` 最终 10 行、6 字段逐字段一致；固定故障矩阵和未验证边界单独列出。
