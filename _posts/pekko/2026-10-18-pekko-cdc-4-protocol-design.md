@@ -12,8 +12,14 @@ tags:
   - Flink CDC
   - 源码分析
 mermaid: true
-last_modified_at: 2026-10-27
+last_modified_at: 2026-11-11
 ---
+
+> 源码与本轮材料固定到 [f6313c0](https://github.com/Xuxiaotuan/pekko-reference/tree/f6313c0)。历史实验继续使用各自冻结版本。
+
+> **2026-11-11 当前源码与证据：** 生产证明链保留 BootstrapJournal 实际签发的进程内对象身份，并在投影事务中核验对应 Journal 的精确内容、最新序列和删除标记。进程内登记不能跨 JVM 搬运；恢复后的 Actor 必须从持久 Journal 重新签发。独立 JVM 实测拒绝同字段伪造对象，真实重签后才推进 journal_floor。同一 JVM 持有的旧对象在 Journal 未变化时仍可能有效，它不是随 Actor 停止自动撤销的能力。旧 Workflow receipt、兼容适配器及投影只留在历史测试设施。当前 L 没有生产删除路径，归档校验和 floor 推进不等于安全 GC 已实现；不能据此声称已经闭合保留期、容量或清理证明。 [拆分与验证记录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)。
+
+以下技术正文保留各自冻结版本的源码与实验口径；当前生产目录和本轮验证结论以上段及链接报告为准。
 
 [系列导读与验证范围](/pekko-cdc-series/) · [1：目标架构](/2026/10/18/pekko-cdc-1-resident-tasks/) · [2：批转流源码](/2026/10/18/pekko-cdc-2-recovery-contract/) · [3：真实实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [4：恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [5：自建与复用](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 

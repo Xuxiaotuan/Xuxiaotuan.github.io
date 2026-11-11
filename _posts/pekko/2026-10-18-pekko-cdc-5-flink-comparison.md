@@ -12,8 +12,14 @@ tags:
   - Flink CDC
   - 源码分析
 mermaid: true
-last_modified_at: 2026-10-27
+last_modified_at: 2026-11-11
 ---
+
+> 源码与本轮材料固定到 [f6313c0](https://github.com/Xuxiaotuan/pekko-reference/tree/f6313c0)。历史实验继续使用各自冻结版本。
+
+> **2026-11-11 当前源码与证据：** 当前工程的产品范围是独立 CDC Runtime，而不是工作流平台。生产包已排除旧 Actor、旧执行器与旧 receipt 适配器；保留兼容状态模型、旧表互斥锁和配额迁移，是维护历史状态的成本。C0 的实际证据支持一个指定 worker 故障窗口中的隔离、接管和逐字段追平，不支持 guardian 自身重启、未知 B 自动恢复或 70 万活跃表的容量承诺。L 自动安全删除尚未实现，也没有 Pekko/Flink 同负载基准，因此不能把目录收敛或局部恢复成功写成与 Flink CDC 等价。 [拆分与验证记录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)。
+
+以下技术正文保留各自冻结版本的源码与实验口径；当前生产目录和本轮验证结论以上段及链接报告为准。
 
 [系列导读与验证范围](/pekko-cdc-series/) · [1：目标架构](/2026/10/18/pekko-cdc-1-resident-tasks/) · [2：批转流源码](/2026/10/18/pekko-cdc-2-recovery-contract/) · [3：真实实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [4：恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [5：自建与复用](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 

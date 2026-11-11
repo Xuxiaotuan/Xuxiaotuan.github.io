@@ -3,14 +3,27 @@ layout: page
 title: "从 Flink CDC 到 Pekko：共享捕获、全量转流与恢复协议"
 description: "五篇源码与实验文章：共享Reader、Split分页、LOW/HIGH、B到F、T/J/D恢复及Flink CDC比较。"
 permalink: /pekko-cdc-series/
-last_modified_at: 2026-10-27
+last_modified_at: 2026-11-11
 ---
-
-[系列导读与验证范围](/pekko-cdc-series/) · [1：目标架构](/2026/10/18/pekko-cdc-1-resident-tasks/) · [2：批转流源码](/2026/10/18/pekko-cdc-2-recovery-contract/) · [3：真实实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [4：恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [5：自建与复用](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
 一个 MySQL 实例有 70 多万张表，按需选择其中几张，先同步已有数据再持续追实时，并允许不停其他表地增加、取消订阅。本系列围绕这个目标解释当前代码、实验和剩余设计。70 万是业务目录背景，不是已完成的活跃复制规模验收。
 
-2026-10-27 的修订把持久任务索引、有界步骤和平台入口接回原来的五篇主线：目标与执行资源 → 分页/LOW/HIGH/B→F 源码 → 真实实验与反例 → 恢复状态与确认协议 → 与 Flink CDC 的具体取舍。源码变化、当前实测和历史材料分别标识；Actor 机制、旧 T/J/D 推导及失败仍保留在独立[技术附录](https://github.com/Xuxiaotuan/pekko-reference/blob/0690063b9111017c64684623ecbfce16247716ad/docs/articles/cdc-design/appendices/README.md)。文章更新不自动改变旧实验的版本或结果。
+2026-10-27 的修订把持久任务索引、有界步骤和平台入口接回原来的五篇主线：目标与执行资源 → 分页/LOW/HIGH/B→F 源码 → 真实实验与反例 → 恢复状态与确认协议 → 与 Flink CDC 的具体取舍。源码变化、当前实测和历史材料分别标识；Actor 机制、旧 T/J/D 推导及失败仍保留在独立[技术附录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/README.md)。文章更新不自动改变旧实验的版本或结果。
+
+## 独立 Runtime 的当前边界（2026-11-11）
+
+生产 `workflow` 目录已移除；历史执行器、Actor 和旧 receipt 投影保留为测试设施。生产包保留历史状态模型及旧 manifest 迁移，数据路径使用 BootstrapJournal。guardian 与控制存储实现位于 `cdc.guardian` / `cdc.control`。历史表结构、锁行和配额没有随目录清理删除。
+
+| 事项 | 当前依据 | 结论边界 |
+|---|---|---|
+| 生产执行器拆分 | 干净编译、生产 JAR 类清单 | 无旧 Actor/执行器类；不等于历史数据库整体升级验收 |
+| 历史持久化读取 | 18 个冻结序列化样本；真实旧 Journal 字节重放 | 类迁移与字节内容检查通过；完整数据库升级未验证 |
+| worker 隔离接管 | 排除测试类的独立 guardian/supervisor/worker；真实 MySQL、Journal、Sink | C0 的 64 行、384 字段一致；不覆盖 guardian JVM 重启 |
+| receipt 重启 | Bootstrap 独立 JVM 从 Journal 恢复并重签；伪造副本拒绝 | 证明重签及投影；不证明 L 实际删除或任意字节码攻击防护 |
+| 未知 B | C1 的 PAUSED、UNKNOWN grant 及失败日志保留 | 安全暂停；自动恢复未通过 |
+| L 的 GC | 源码仅有归档和保留位置投影，没有生产删除路径 | 尚未实现，不能以 floor 推进替代 GC 验收 |
+
+[本轮源码与实验材料](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)固定运行范围。以下各历史报告仍按原版本解释，不因目录调整重标通过。
 
 ## 阅读顺序
 
@@ -52,25 +65,27 @@ last_modified_at: 2026-10-27
 
 ## 版本与证据口径
 
-本轮平台源码以仓库相对链接进入，最终提交、生产/测试摘要与运行环境由[平台报告](/pekko-cdc-series/cdc-platform/)固定。项目依赖仍为 Scala 2.13.12、Pekko 1.1.3、Persistence JDBC 1.1.1、Debezium 3.6.1.Final；已归档实验使用 MySQL 9.5.0、JDK 17.0.14，没有借此升级 SDK。
+本轮平台源码以仓库相对链接进入，最终提交、生产/测试摘要与运行环境由[平台报告](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-cdc-platform/README.md)固定。项目依赖仍为 Scala 2.13.12、Pekko 1.1.3、Persistence JDBC 1.1.1、Debezium 3.6.1.Final；已归档实验使用 MySQL 9.5.0、JDK 17.0.14，没有借此升级 SDK。
 
 版本分为三层，不能互换：
 
 | 层次 | 源码与证据口径 |
 |---|---|
 | 历史 LOW/HIGH 内核与旧反例 | 文章此前固定 [`55fad0c`](https://github.com/Xuxiaotuan/pekko-reference/tree/55fad0cf27f3a289dbb5d4fb4f2a31d60a661059)；原冻结摘要和失败保留 |
-| 已提交的启动分类与准入 | [`74b6d9a`](https://github.com/Xuxiaotuan/pekko-reference/tree/74b6d9a)，实际候选源树与定点结果见[A1/A2](/pekko-cdc-series/capture-admission/) |
-| 本次生命周期、有界调度与入口 | 当前源码及[平台报告](/pekko-cdc-series/cdc-platform/)；按冻结候选分别记录 B/P/H、L 归属反例与修后结果，测试设施不同的全源 hash 不互换 |
+| 已提交的启动分类与准入 | [`74b6d9a`](https://github.com/Xuxiaotuan/pekko-reference/tree/74b6d9a)，实际候选源树与定点结果见[A1/A2](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-capture-admission/README.md) |
+| 本次生命周期、有界调度与入口 | 当前源码及[平台报告](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-cdc-platform/README.md)；按冻结候选分别记录 B/P/H、L 归属反例与修后结果，测试设施不同的全源 hash 不互换 |
 
-初始化矩阵在 `00ad18e` 加未提交实现的冻结工作区运行，全源树摘要为 `c71f260870325aa54bb6818200a875689afaace93d10dc8496a11c99e5f362da`。后续启动探针候选 1—4 生产文件一致，但测试设施不同，不能用一个全源树 hash 冒充所有运行。candidate4 保留 339 项源码清单，与发布后的相应源码逐项匹配；发布提交、运行时 HEAD 和材料复算是三种事实。[初始化版本记录](/assets/pekko-cdc-series/2026-10-25-bootstrap/final-version.json) · [启动候选 4](/assets/pekko-cdc-series/2026-10-25-capture-startup/candidate-4.json)
+初始化矩阵在 `00ad18e` 加未提交实现的冻结工作区运行，全源树摘要为 `c71f260870325aa54bb6818200a875689afaace93d10dc8496a11c99e5f362da`。后续启动探针候选 1—4 生产文件一致，但测试设施不同，不能用一个全源树 hash 冒充所有运行。candidate4 保留 339 项源码清单，与发布后的相应源码逐项匹配；发布提交、运行时 HEAD 和材料复算是三种事实。[初始化版本记录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/final-version.json) · [启动候选 4](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/candidate-4.json)
 
-历史版本 `d88ec80`、`65ab541` 和 `00ad18e` 的来源、运行 HEAD 与证据见[独立版本档案](https://github.com/Xuxiaotuan/pekko-reference/blob/0690063b9111017c64684623ecbfce16247716ad/docs/articles/cdc-design/appendices/00-versions-and-evidence-history.md)。第五篇的 Flink CDC 源码对照固定 3.6.0；另一组[Flink CDC 系列](https://xuyinyin.cn/flink-cdc-series/)的 3.7.0 与 Paimon 实验不混作同版或同 Sink 结果。没有同负载性能基准。
+历史版本 `d88ec80`、`65ab541` 和 `00ad18e` 的来源、运行 HEAD 与证据见[独立版本档案](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/00-versions-and-evidence-history.md)。第五篇的 Flink CDC 源码对照固定 3.6.0；另一组[Flink CDC 系列](https://xuyinyin.cn/flink-cdc-series/)的 3.7.0 与 Paimon 实验不混作同版或同 Sink 结果。没有同负载性能基准。
 
 全文区分：**源码结论**、**真实实验结果**、**保存材料复算**、**条件性推理/模型**、**设计提案/未验证**。小规模终值一致、组件 suite 通过或归档校验都不能替代更高层验收。
 
 <a id="全系列验证范围汇总"></a>
 
 ## 当前验证范围汇总
+
+> **2026-10-27 A/B 补测：**[证据与未完成清单](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-ab-followup/README.md)记录真实 MySQL、部分 Journal/Sink 故障及逐字段复算。A/B 展开矩阵尚未跑完；A05 的可证明未源写分支目前安全暂停，不能宣称自动继续。
 
 | 对象 | 证据与结果 | 支持的结论 | 未覆盖/失败边界 |
 |---|---|---|---|
@@ -95,125 +110,101 @@ last_modified_at: 2026-10-27
 
 - [BootstrapRunner](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/bootstrap/BootstrapRunner.scala)及[步骤结果/continuation](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/bootstrap/BootstrapStep.scala)：内核与有界调度边界。
 - [CdcTaskStore](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/cdc/CdcTaskStore.scala)、[CdcPlatformRuntime](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/cdc/CdcPlatformRuntime.scala)、[CdcBootstrapKernel](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/cdc/CdcBootstrapKernel.scala)：持久意图、grant、L 唤醒及活动会话。
-- [初始化报告、范围与故障清单](/pekko-cdc-series/bootstrap/)、[独立复算](/assets/pekko-cdc-series/2026-10-25-bootstrap/final-summary.json)、[归档索引](/assets/pekko-cdc-series/2026-10-25-bootstrap/artifacts/archive-index.json)。
-- [启动恢复反例](/pekko-cdc-series/capture-startup/)、[结果摘要](/assets/pekko-cdc-series/2026-10-25-capture-startup/summary.json)、[材料摘要清单](/assets/pekko-cdc-series/2026-10-25-capture-startup/SHA256SUMS.json)。
-- [双槽与资源释放报告](/pekko-cdc-series/lab-pool/)、[双槽 suite 与后置结果](/assets/pekko-cdc-series/2026-10-25-cdc-lab-pool/scala-dual-slot-summary.json)。
-- [A0/B0 探针](/pekko-cdc-series/capture-admission-release/)、[A1/A2 准入实测](/pekko-cdc-series/capture-admission/)、[本轮平台报告](/pekko-cdc-series/cdc-platform/)：按版本追踪后续变化。
-- [启动准入设计](https://github.com/Xuxiaotuan/pekko-reference/blob/0690063b9111017c64684623ecbfce16247716ad/docs/development/specs/2026-10-25-shared-reader-startup-recovery-design.md)、[平台生命周期设计](https://github.com/Xuxiaotuan/pekko-reference/blob/0690063b9111017c64684623ecbfce16247716ad/docs/development/specs/2026-10-25-cdc-platform-lifecycle-contract.md)：原设计背景；实际实施范围以源码和对应报告为准。
+- [初始化报告、范围与故障清单](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/README.md)、[独立复算](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/final-summary.json)、[归档索引](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/artifacts/archive-index.json)。
+- [启动恢复反例](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/README.md)、[结果摘要](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/summary.json)、[材料摘要清单](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/SHA256SUMS.json)。
+- [双槽与资源释放报告](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-cdc-lab-pool/README.md)、[双槽 suite 与后置结果](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-cdc-lab-pool/scala-dual-slot-summary.json)。
+- [A0/B0 探针](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-26-capture-admission-release/README.md)、[A1/A2 准入实测](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-capture-admission/README.md)、[本轮平台报告](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-cdc-platform/README.md)：按版本追踪后续变化。
+- [启动准入设计](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/development/specs/2026-10-25-shared-reader-startup-recovery-design.md)、[平台生命周期设计](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/development/specs/2026-10-25-cdc-platform-lifecycle-contract.md)：原设计背景；实际实施范围以源码和对应报告为准。
+
+## A/B 矩阵补测范围
+
+| 证据 | 实际结果 | 限制 |
+|---|---|---|
+| A10、A13、A16 | 指定真实 MySQL、Actor Journal、Sink 样本逐字段相等 | 预复制基线和指定旧版本；不是所有故障窗口或在线初始化 |
+| A11 完成态 D 命名空间冲突 | 真实 Reader 重启前安全暂停，Engine 创建数 0；4 行 24 字段相等 | 文件名由测试注入；不是自动恢复收敛 |
+| A12 ACK 父引用摘要错误 | 真实 Reader 重启前安全暂停，Engine 创建数 0；4 行 24 字段相等 | 测试注入一种引用损坏；不是自动恢复收敛 |
+| A14 未知 COMMIT 取消 | 定点 Store 路径实际失败，事务迟提交 | 不将其他表对账相等写成该路径成功；完整 Runner 仍需验证 |
+| B06 未决 COMMIT 与关闭 | 实际事务仍在途时 capture owner 锁已释放；结果不可复用 | Reader 级失败，不代表平台 owner 或接管结论 |
+| B05 启停竞态 | factory 前门与真实 MySQL task start 门在 180 秒内未确认释放 | 不能断言永久泄漏；测试门位于调用原 task 的 start 实现之前 |
+| A05、A09（历史版本） | 未绑定 B 安全暂停 | 当时尚无可靠证据支持自动继续；`B_BOUND` 观察事件不能替代持久状态，后续候选见下表 |
+| B04 callback 异常 | 异常回调未 ACK，T/J 不变；4 行中有 2 个字段差异 | Actor 在异常前已停止；未验证自动恢复 |
+| B10 旧 JVM 崩溃、L 事务仍在 | 新 JVM UNKNOWN，Engine 创建数 0；事务回滚后仍暂停 | 初始化基线 64 行相等，故障后 5 字段差异；未自动接管 |
+| B08 观察连接断开 | 关闭及复查均 UNKNOWN、owner 保留；4 行 24 字段相等，T 1/J 4 | 人为断开观察连接；未验证恢复观察或自动重启 |
+| B09 双 JVM 旧执行者迟到 ready | 新 JVM 保持 UNKNOWN、Engine 数 0，旧执行者继续后 64 行 384 字段相等 | 未覆盖所有跨实例旧消息形式 |
+| B02/B03/B08/B09 | 指定关闭、观察器和过期回复切点已取证 | 测试门或组件探针不升级为端到端保证 |
+
+[2026-10-28 补测报告与原始证据](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-28-ab-matrix/README.md)保留各候选源码摘要、实际 T/J/D、回调及失败记录。矩阵整体仍为 `evidence_incomplete`。
 
 ## 独立技术附录
 
-[技术附录索引](https://github.com/Xuxiaotuan/pekko-reference/blob/0690063b9111017c64684623ecbfce16247716ad/docs/articles/cdc-design/appendices/README.md)提供六份独立历史档案、固定版本入口和完整实验报告。原始证据、失败样本与校验脚本留在既有实验目录；后续报告另存新结果，不覆盖原始实验内容，也不把文章整理当作新增运行证据。
+[技术附录索引](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/README.md)提供六份独立历史档案、固定版本入口和完整实验报告。原始证据、失败样本与校验脚本留在既有实验目录；后续报告另存新结果，不覆盖原始实验内容，也不把文章整理当作新增运行证据。
 
-<details markdown="1">
-<summary>展开2026-10-18至阶段一的历史版本与验证范围</summary>
+## 2026-10-28 后续修复的范围
 
-我研究 Flink CDC，是为了判断怎样把可靠的数据同步能力引入 `pekko-reference`。业务起点是上一家公司 70 多万张表、需要长期管理同步任务的场景。这个数量是需求背景，不是本项目已经通过的容量测试。
-
-五篇文章沿同一条主线展开：Actor 如何复用执行资源；现有代码如何提交与恢复；真实故障怎样反驳隐含假设；新协议应满足哪些不变量；最终如何在同一业务约束下比较 Pekko 与 Flink CDC。文章于 **2026-10-18** 重写，**2026-10-19** 先补充 SourceRecord 身份与跨回调探针，再完成[完整组生产改造及真实恢复实验](/pekko-cdc-series/group-recovery/)。本次更新保留旧协议失败反例，同时将新协议的源码结论、运行样本与尚未验证的窗口分开。
-
-## 阅读顺序
-
-| 篇目 | 本篇展开的核心论证 |
-|---|---|
-| [一：70 万张表如何常驻——从 Pekko 的执行模型理解 CDC 的资源优势](/2026/10/18/pekko-cdc-1-resident-tasks/) | Mailbox 调度、串行不变量、线程复用与实体驻留；实际配置和阻塞成本 |
-| [二：一次提交，三份进度——沿源码推导 Pekko CDC 的恢复契约](/2026/10/18/pekko-cdc-2-recovery-contract/) | 旧回调批次与新完整组的身份/确认边界；目标事务、Journal 与 offset flush |
-| [三：从恢复失败到完整组验收——真实 MySQL、Actor Journal 与重放证据](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 旧失败与新验收分开保留；因果闸门、真实 T/J/D、审计与全字段对账 |
-| [四：重新分批之后，恢复为什么仍应成立——从不变量构造 T/J/D 协议](/2026/10/18/pekko-cdc-4-protocol-design/) | 稳定身份、原子覆盖证据、确认前缀、所有权和保留边界；有限模型及故障矩阵 |
-| [五：70 万表的 CDC 平台，Pekko 与 Flink CDC 各自解决什么](/2026/10/18/pekko-cdc-5-flink-comparison/) | 对照 Source 状态机与控制粒度，计算共享、隔离和恢复成本，形成有条件的选型判断 |
-
-## 版本与证据口径
-
-旧协议分析的生产源码链接固定到公开提交 [`d88ec80f2a7166cfdaddf1284cc268a68bc62e28`](https://github.com/Xuxiaotuan/pekko-reference/tree/d88ec80f2a7166cfdaddf1284cc268a68bc62e28)。真实 MySQL 实验运行于本地 `ad58cf3d861597b577e2f5745584fe56e81fb621`；Actor 机制实验运行时 HEAD 为 `72088fef0b8f691316410ee7a24ef4220c956848`。2026-10-19 两组源侧实验运行时 HEAD 为 `436056d8608e0d2d27ddc24988005cf70a42ff4d`。以上历史实验对应的生产代码与构建依赖仍相同，源侧探针仅位于 Test 源集。新增完整组生产实现另行固定到 [`65ab541`](https://github.com/Xuxiaotuan/pekko-reference/tree/65ab5410c32933d0aa3d23510e6c62252d84009b)；不将它冒充此前探针运行的版本。无关 Calcite 测试及任务文件不纳入文章发布分支。
-
-新协议真实实验取证时位于本地 `2274691` 的未提交工作区。该状态的 23 个生产源码、Schema 及测试文件摘要保存在 [source-manifest.json](/assets/pekko-cdc-series/2026-10-19-group-recovery/source-manifest.json)，已与上述发布提交逐文件核对；证据包同时保留源码快照。运行 HEAD、发布提交和源码字节匹配是三种不同事实，不能只替换一个 SHA 就宣称重跑过实验。
-
-| 项目版本 | 本系列用途 | 恢复语义 |
+| 对象 | 证据 | 边界 |
 |---|---|---|
-| `d88ec80` | 历史批次账本路径、失败反例与未改动的 Actor/Bridge/Engine 机制 | `mysql.binlog.v1`，回调批次去重 |
-| `65ab541` | 完整组生产实现及本次指定窗口验收 | 显式 `groupProtocol`，boundary v2、cursor `mysql.binlog.groups.v1`；可信 streaming 基线，组证据去重 |
+| B_PENDING 取消 / 未决 COMMIT（历史版本） | 提交迟到与回滚 Reader 样本安全暂停；完整作业未知 B 保持暂停 | 当时目标表尚未完成初始化，自动恢复未完成 |
+| 关闭与 owner | 工厂阻塞、实际 task 启动、未决事务关闭各有固定窗口样本 | 非全部启动时序；无观察器时可能持续占用 owner 和有限关闭线程 |
+| 端到端对账 | 未知 B 实验中运行表 64 行、384 字段相等，暂停表 64 行待初始化 | 不证明自动收敛或全量矩阵通过 |
+| 平台目标 | [本轮证据与限制](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-28-cdc-followup/README.md) | 该历史版本的 A05/A09、DDL、GC、多 owner 接管、70 万真实表和长时负载仍未完成或未验证；后续未知 B 固定窗口见下表 |
 
-项目依赖为 Scala 2.13.12、Pekko 1.1.3、Pekko Persistence JDBC 1.1.1、Debezium 3.6.1.Final。上游精读分别固定为：
+## 2026-10-29 P0 补测
 
-| 对象 | 固定版本 / 提交 | 用途 |
+| 场景 | 实验结果 | 边界 |
 |---|---|---|
-| Pekko | 1.1.3 / `38facf752b4e7d5fb43ed7c671eb91888b41bd10` | Mailbox、Dispatcher、Sharding、Persistence 与异步 Source |
-| Debezium | 3.6.1.Final / `63371830ceff75437f95c775b91eeeaf55a056c1` | 恢复 offset 的语义，ACK 与 flush 的区别 |
-| Flink CDC | 3.6.0 / `bf160337ff558d70302e7884f68937611873117e` | 第五篇 SourceReader、split 分配和快照交接源码对照 |
-| Flink | 1.20 文档分支，本轮页面显示 1.20.3 | 执行架构、托管状态与连接器容错边界 |
+| B04 回调异常后恢复 | 资源释放后重建 Reader 与同一 Journal 身份的 Actor，4 行 24 字段相等，并验证后续写入 | 预复制基线；指定窗口，不证明所有异常自动恢复 |
+| 工厂返回后、SDK 启动前关闭 | 修复前 180 秒内未观察到全部连接退出；修复后此窗口及相邻两个窗口空闲 | 修复前 JVM 退出后才空闲；长期阻塞及线程容量仍未验证 |
+| 测试入口 | 默认测试 623 项通过；移出无断言示例，百万条 mock 基准改为按需运行 | 真实 MySQL 故障实验需独立环境执行；当时未知 B 持久判定仍未完成 |
 
-前一组 [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/) 使用自己的 3.7.0 研究基线与 Reader/Flink/Paimon 实验。本组没有将那些实验重新标为 3.6.0 结果，也没有进行 Flink 与 Pekko 同负载基准。Pekko 在线 1.1 文档不作为项目运行版本，具体机制以固定 1.1.3 源码为准。
+[详细实验材料](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-29-p0-followup/README.md)。
 
-全文区分以下证据层级：
+## 未知 B 的写前证据
 
-- **源码结论 / 源码推演**：固定版本实现、因果路径与条件性推理；不等于已运行所有分支。
-- **真实实验结果**：明确组件、环境、数据集和窗口的运行观察。
-- **历史证据复算**：从已保存的原始行数据重新计算，检查材料一致性；不是重跑数据库。
-- **模型推导 / 有限模型检查**：依赖显式假设的推理和枚举；不是生产协议实现验证。
-- **设计提案 / 未验证**：尚未实现或证据不足，保留 `evidence_incomplete`。
+新订阅在源 marker 写入前保存 D/L ACK 锚点，严格匹配和旧记录拒绝已经过组件测试；真实迟提交样本的锚点与当时 D 相等，但新表仍在 PAUSED、目标为空。该实验版本的自动恢复、原事务释放、Journal 与 UNKNOWN grant 联动尚未完成。[证据与边界](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-29-unknown-b/README.md)。
 
-## 历史验证范围汇总（2026-10-19 基线）
+## 未知 B 的事务释放探针
 
-| 判断对象 | 当前证据 | 支持的结论 | 未覆盖边界 |
-|---|---|---|---|
-| 大量 Actor 共享线程 | Pekko 源码 + 10,000 Actor / 40,000 消息 / 2 线程 | 本次普通 Typed Actor 运行无重叠、无本条件下顺序错误 | 持久化实体容量、70 万表、P99 与内存斜率 |
-| 阻塞处理占用 Dispatcher | 两个 handler 的门闩实验 | 同池第三个 handler 等待，释放后执行 | 生产负载公平性与延迟上界 |
-| remember 与钝化 | 1.1.3 源码 + 三套配置解析 | 都选择 NoPassivationStrategy | 线上覆盖配置、真实钝化/迁移 |
-| 空 Bridge 占用共享 JDBC 池 | 真实 Bridge + Pekko Dispatcher，线程栈门槛 | 8 个读取阻塞，sentinel 等待；外部 close 后释放 | 完整 MySQL 作业是否进入同一窗口、生产取消路径 |
-| ACK 返回与 D 持久化 | 项目调用链 + Debezium 固定源码 | 存在 flush 未成功而确认方法返回的路径 | 本轮未注入真实 offset 写故障 |
-| 旧协议 T 已提交/J 未持久化 | 2026-10-18 真实 MySQL Source/Sink/Journal，两个 JVM | 固定截获 T/J=6/5、5/4；D 未推进 | 该历史结果不证明新组协议 |
-| 旧协议完整批次重放 | 实际 1→1 回调 | AlreadyCommitted；审计未重复；后续追平 | 任意重新分批、任意旧恢复点 |
-| 旧协议拆批重放 | 真实 Debezium 批大小 16→1 | 同 batchId 内容不同，账本冲突，Actor failed | 相同配置自然拆批频率；不得作为新协议当前行为 |
-| 旧协议全量逐字段一致性 | 历史真实行数据 + 独立复算 | 成功组零差异；失败组缺 65、多 64、216 字段差异 | 全 MySQL 类型、跨库表示、70 万表 |
-| 默认时区 | 原实验前置基线失败 | 64 行 DATETIME 偏移 8 小时；正式用例固定 UTC | 生产转换问题未修复 |
-| 抽象事件去重模型 | 6 事件 / 7,696 个抽象组合 | 模型假设下的分批不变性和审计成立 | 模型未包含 d/c 分组、真实确认边界、T/J/D |
-| SourceRecord 身份与操作区分 | 新增真实 MySQL，正式 9 JVM、39 条同事务逻辑记录 | 实际拆/合批及事务内后缀重放的候选身份和规范化内容相同 | 源谱系切换、快照、DDL、所有类型；不构成通用规范 |
-| 主键成员 ACK 边界 | 上述身份探针的一个恢复窗口 | 仅确认 d 后 D 跳过共同物理行，c 未再交付 | 没有目标，不能宣称真实 Sink 缺行；不是独立新增一组实验 |
-| 回调返回后的延迟确认与装配 | 另行两组真实 Engine/Bridge、6 JVM，实际 `[1,1]` 和 `[2,2,2,2]` | 完整组经测试信号覆盖后，旧句柄在后续回调按序调用；确认前 D 不推进；后续新 JVM 可继续读 | 没有真实 T/J、新组账本或生产 Source Stream；关闭竞争、字节预算、长期容量未验 |
-| 完整组生产路径 | `65ab541` 源码；102 项相关检查通过 | 完整组进入 Bridge；T 组证据与 DML 同事务；当前交付确认 J；原始回调前缀 ACK | 单测不替代真实 MySQL；本次未修改 Actor/Engine 或引入 owner fencing |
-| 新协议拆批恢复 | 真 MySQL/Actor JDBC Journal/生产 Sink，T 已提交/J 未持久化，reader 16→1 | 旧组不重写，新数据继续；64 行×6 字段差异 0，已提交组重放新增审计 0 | 任意自然分批频率、长期多次恢复 |
-| 新协议合批恢复 | 同一窗口，reader max 1→128；实际首个恢复交付 72 组/73 成员 | 混合旧/新组正确覆盖，64 行×6 字段差异 0 | 128 是配置上限，不是实际收到 128 条；不是全部批量组合 |
-| 新协议跨回调主键恢复 | 原始 `[d][c]`，完整组 T 已提交/J 未持久化后新 JVM 恢复 | 两成员整体去重；重放前后审计 68→68；后续更新后 69；64 行×6 字段差异 0 | 收到半组即崩溃、两个原始 SDK 句柄之间崩溃仍未固定实测 |
-| 冲突、关闭、迟到 ACK 与预算 | Source/Bridge 单测；组冲突和 PK 双成员回滚使用 H2 | 错误 batchId 不消费确认能力；错误组/冲突拒绝，目标事务回滚；取消释放等待 | 未做完整 MySQL 作业的共享池耗尽/取消、组内 DML 后 COMMIT 前崩溃 |
-| 新目标存储前提 | 真实 MySQL 的独立拒绝检查 | MyISAM 目标在组数据提交前被拒绝 | 不是第四组恢复实验；非事务外部副作用不在保证内 |
-| 构建与全库检查 | 最终 102 项相关检查、4 项真实套件通过；全模块执行 414 项通过、2 个 Calcite 套件中止 | 明确记录已执行检查及缺类错误 | 完整测试门为 evidence_incomplete；不能写成全库全绿 |
-| 多 owner、证据清理、共享前缀 | 协议分析与部分模型反例 | 明确证明义务和故障矩阵 | 没有生产实现后的端到端证据 |
-| Flink/Pekko 成本与取舍 | 两边机制源码 + 条件性成本模型 | 能区分控制粒度、数据运行时与工程责任 | 没有同负载资源或吞吐胜负 |
+真实 MySQL 组件实验分别观察提交、回滚和迟提交；另一个独立旧 JVM 在数据库空闲确认后重新连接并写入，说明资源空闲不足以证明进程隔离。[实验材料](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-29-b-release-proof/README.md)；该探针版本的自动恢复和端到端验收当时仍未完成。
 
-两组源侧材料不与端到端恢复场景合并计数。新协议实际是三组恢复，每组初始化、新协议故障、恢复三个 JVM；真实套件的第四项是 MyISAM 拒绝检查，不是第四组恢复。2026-10-18 的旧协议成功/失败对照仍单独保留。身份实验此前的七 JVM 核心运行是重复检查，不另累计覆盖；有限模型和只读复算也不是新增数据库运行。
+## 2026-10-29 受管未知 B 的新增证据
 
-## 可复查材料
+当前候选基于提交 `62ec856f20a81f3da8d56caf290754f8361ac732` 之后的未提交工作区；不同实验的精确源码摘要以各自证据目录为准，不能把旧样本归给后续修改。
 
-- [真实 MySQL / Journal 实验报告与复跑命令](https://github.com/Xuxiaotuan/pekko-reference/blob/55fad0cf27f3a289dbb5d4fb4f2a31d60a661059/docs/experiments/2026-10-18-cdc-journal-window.md)，[原始证据包](https://github.com/Xuxiaotuan/pekko-reference/blob/55fad0cf27f3a289dbb5d4fb4f2a31d60a661059/docs/experiments/evidence/2026-10-18-cdc-journal-window.tar.gz)，[压缩包哈希](https://github.com/Xuxiaotuan/pekko-reference/blob/55fad0cf27f3a289dbb5d4fb4f2a31d60a661059/docs/experiments/evidence/2026-10-18-cdc-journal-window.tar.gz.sha256)。包含日志、数据库导出、全部行数据、T/J/D、审计和测试源码。
-- [Actor 执行机制实验](/pekko-cdc-series/actor-execution/)。包含探针、运行器、原始输出、环境与 Pekko 源码清单。
-- [本轮复算、有限模型及上游源码清单](/pekko-cdc-series/series-review/)。可独立运行 Python 标准库脚本核对。
+| 范围 | 已观察结果 | 限制 |
+| --- | --- | --- |
+| D/ACK 与许可组件 | [真实 MySQL 事务与合成证明](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-29-cdc-b-proof-component/README.md)：B_PENDING、B_BOUND、许可、预算与明确拒绝路径 | D/ACK、guardian 身份为合成；无真实 Reader、Journal、业务 Sink；反查有行数和时间上限 |
+| 迟提交旧候选 | [WAKE 样本](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-29-cdc-managed-b-e2e-wake-candidate/README.md)：独立 guardian、真实 Reader/Journal/Sink，新表 64 行、384 字段相等 | 指定一次迟提交；worker 显式启用候选，清理时强制终止后继 worker，CDC owner 仍 ACTIVE |
+| 保留失败 | [更早样本](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-29-cdc-managed-b-e2e-old-candidate/README.md)需要人工业务写入唤醒 binlog，清理证据不足 | 不算无人工干预恢复或正常资源释放成功 |
+| 当前候选源码 | 隔离、排空、D/L 证明、许可与 Journal 分支已衔接；多 grant 有保守准入 | 下方六项固定窗口使用同一候选；除单个 C1 样本外的生产入口窗口、多任务 TAIL 恢复、70 万表规模和长期运行未验证 |
 
-- [真实 SourceRecord 身份及主键 ACK 反例](/pekko-cdc-series/source-record-identity/)：原始回调、九 JVM、D、失败记录与只读核验。
-- [延迟句柄与跨回调装配](/pekko-cdc-series/deferred-ack/)：两组、六 JVM、实际确认顺序和 D；覆盖来自测试信号。
-- [完整组生产恢复报告](/pekko-cdc-series/group-recovery/)、[运行结果](/assets/pekko-cdc-series/2026-10-19-group-recovery/result.json)、[原始回调/T/J/D/源码归档](/assets/pekko-cdc-series/2026-10-19-group-recovery/evidence.tar.gz)、[SHA256SUMS](/assets/pekko-cdc-series/2026-10-19-group-recovery/SHA256SUMS)、[独立核验脚本](/assets/pekko-cdc-series/2026-10-19-group-recovery/verify.py)：真实提交、Journal 与 Sink 的指定恢复样本。
+## 同一候选版固定窗口矩阵
 
-以下结论保留在 2026-10-19 基线上；当前进度见下方补充。旧 `docs/blog` 是另一组调度平台文章，其中历史性能数字和“生产就绪”等表述不作为本系列证据。本次已完成的是收窄范围内的完整组生产实现与指定窗口验收；DDL、多 owner、共享读取、快照初始化和其余故障窗口仍未完成。文章或代码发布不会扩大这些保证。
+[六项固定窗口的完整证据](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-29-cdc-managed-b-e2e-frozen/README.md)使用同一候选源码、独立 guardian JVM、真实 MySQL、Actor Journal 与 MySQL Sink；这六项的协调器运行在测试 JVM、worker 显式接线；另有一个 [生产入口 C1 样本](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-29-cdc-production-entry-c1/README.md)，实际经过独立 `SnapshotGuardianMain`、`SnapshotSupervisorMain` 和 `PekkoServer` 内的 `CdcPlatformExtension`。
 
+| 窗口 | 实际结果 | 边界 |
+| --- | --- | --- |
+| C0、C1、LATE_COMMIT、LATE_ROLLBACK | 四项 STREAMING；各自 64 行、384 字段相等；许可已消费、旧 grant RELEASED；许可中的 `marker_present` 依次为 0、1、1、0 | 清理强制停止后继 worker，CDC owner 仍 ACTIVE，不证明正常停机 |
+| GUARDIAN_LOST、GUARDIAN_UNREACHABLE | 两项 UNKNOWN grant、无 permit；源 64 行、目标 0 行 | 安全暂停，不是对账完成；失联样本后继 snapshot owner 仍 active、ticket launched，未确认排空 |
+| 版本与入口 | 六项样本各保存源码摘要、故障前后 B/F、D、L、T、J 和 ACK 日志 | 测试 JVM 协调器、测试 worker 显式接线；不证明所有生产入口窗口或时序 |
+| 生产入口 C1 | [真实三入口样本](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-29-cdc-production-entry-c1/README.md)：COMMIT 已提交、回复丢失后恢复 STREAMING；64 行、384 字段相等 | 单个 C1；无生产 raw ACK 顺序；后继强制清理后 CDC owner 仍 ACTIVE；前两次配置及代理失败和未退休尾态保留 |
+| 长期动态订阅的恢复上限 | `CdcManagedPendingB` 最多反查 4096 条源控制表记录；当前无控制行 GC | 超限时未知 B 安全暂停；历史记录会累积，70 万表长期动态订阅及恢复可用性尚未验证。详见[组件实验](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-29-cdc-b-proof-component/README.md) |
 
-## 2026-10-25：共享捕获阶段一验证范围
+### 2026-11-08 未提交候选的验证范围
 
-[本轮报告、复跑入口和原始材料](/pekko-cdc-series/shared-capture/)记录新增实现。上面的历史表描述其当时版本，不表示此后 C2、执行会话、静态快照 Split/调度和受管接管等工作没有发生；这些各有独立实验，适用范围不自动扩展到共享 Reader。
+本组实验与前述历史版本分开统计；[环境、失败记录和原始材料入口](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/README.md)列出制品散列及各自限制。
 
-| 对象 | 源码结论 | 本轮实验结果 | 未验证 / 限制 |
-|---|---|---|---|
-| 共享 Reader | 一个捕获会话，独立 L，与表级 Actor/消费者分离 | 同一 Reader 五表增至七表，实际变更后全字段核对 | 单实例 70 万表元数据、吞吐与内存容量未验 |
-| 新增订阅 B | Reader Schema + JDBC 结构校验；持久意图、唯一源 marker、事务 END 和原子 B 绑定 | marker/L 提交前后、回复丢失、延迟提交/回滚、重启 | CAPTURE_READY ≠ 初始化完成；没有 B 前全量数据导入 |
-| 完整组与原始 ACK | d/c 跨回调先完整落 L，再按原始回调前缀确认 | 真实主键修改、多行/多次更新、ACK 中途与两 ACK 之间硬停恢复 | 固定版本、受控样本；不是任意重排序或全类型保证 |
-| L 与实际 D | 不可变帧与 ACK 引用链；启动核验 D 的实际覆盖 | 缺 D/History/GROUP、谱系/源 UUID、必需 binlog 缺失走拒绝/暂停 | 无自动重建 D、GC 或任意旧点恢复 |
-| 表级 T/J | 独立 L cursor；沿用稳定组账本与 T→J | 真实 Actor Journal/Sink，1→128 重批与 T/J 缺口对账，J 明确拒绝 blocked | 不自动继承原单表全部故障结果；不宣称外部副作用恰好一次 |
-| 取消、Schema | `(B,K]`，保留旧 Schema 帧及历史区间，新 generation 不补空档 | K、待生效取消、停订后 DDL 的旧日志恢复检查；活动 DDL/DROP/TRUNCATE 暂停 | 无 DDL 演进，停订空档允许目标不一致 |
-| 慢表、容量、资源 | 分表进度独立；回调/单页/Store 并发有预算；关闭未知阻断 | A 暂停时 B 继续；容量暂停；自有 worker 和连接清理 | L 总容量共享，无永久慢表隔离；非全进程内存上界 |
-| 部署前提 | L 实际 UUID/数据库与 owner 状态库绑定，源/状态物理实例不同 | 同实例反馈循环失败保留；错误 Store 连接拒绝检查 | 单业务源仍需独立状态基础设施；控制面 API/启动编排未产品化 |
+| 范围 | 当前观察 | 未验证边界 |
+| --- | --- | --- |
+| 清洁重启 | 两组各五轮正常关闭、重启，源与目标逐字段一致，Journal 恢复次数为零 | 小数据正常窗口；旧 owner 隔离证明不能只靠 PID |
+| 异常退出 | SIGKILL 后源新增数据，独立入口保持 UNKNOWN、T/J/D 未前进；L 未结束事务窗口新 Reader 为 0 | 目标仍落后源；L 事务回滚后仍暂停，均未证明 guardian 自动接管及追平 |
+| 活跃 owner 与 D 滞后 | P07 旧 owner 活跃时新 Reader 为 0、旧 owner 后续继续对账；I13-lag-crash 在 D 不变且 J 推进后崩溃，重启后 64 行 384 字段一致 | 受控 Runner 的固定 F/offset 锁窗口；未证明独立入口自动接管或全部 ACK/J/D 恢复窗口 |
+| 动态表 | P01 动态 5→7；P09 固定第三表读视图时增删改，追平后取消一表，另两表继续逐字段一致；P04 初始化中取消 | 受控测试 Runtime；P09 只覆盖指定 READ_OPEN 窗口，不代表全部 LOW/HIGH 时序 |
+| 初始化与重放 | I04 固定读视图内修改，I11 固定范围故障重读，I16 全量目标写入后故障，I20 增量目标写入后故障，样本对账通过 | 指定 Runner 和故障切点，不代表全部 Checkpoint/ACK 组合 |
+| 全量目标 COMMIT 未知 | I17 的真实 OK 回复丢失、I17-C0 的 COMMIT 未转发，最终各 64 行 384 字段相等 | baseline 页事务的受控 Runner；不是独立入口的自动接管，也不覆盖增量组事务未知 |
+| 增量 replay COMMIT 未知 | C1/C0 以及迟提交、旧连接断开两个样本最终组账本各 3 条、64 行 384 字段相等 | 受控 Runner 的指定窗口；断开样本无 PFS ROLLBACK 事件，不覆盖批次重排或独立入口自动接管 |
+| 独立入口与解耦 | 独立入口不启动 Workflow Sharding 和 Scheduler；目标配置和 CDC 回放契约不需 Workflow Node，旧 Runner 构造器与 Journal 样本保留 | 旧兼容适配、bootstrap 持久化与 guardian 调度依赖仍在；并未完全迁出 Workflow |
+| 冷任务元数据 | [候选版 H01](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce/result.json)精确计数 700,000 条、完整扫描 7,000 页 | 未启动 ActorSystem/Reader；未测 70 万真实表、活跃吞吐或 Runtime 冷启动 |
 
-最新结果以本轮报告和源码清单为准。五篇文章的新增部分解释以上变化；历史失败材料和原固定版本分析继续保留。下一阶段仍是 LOW/HIGH、窗口回填和在线全量转流，不能把捕获阶段通过写成“新增表已经全量同步”。
+## 2026-11-09 持久化切换授权实验
 
-</details>
-
-## 2026-11-09 持久化切换授权
-
-真实旧 Workflow、独立 GuardianMain/SupervisorMain、Actor Journal 和 MySQL Sink 的切换授权与运行时账号重绑定结果见[实验材料](/pekko-cdc-series/persistent-cutover/)。`KILL_T_BEFORE_J` 最终 10 行、6 字段逐字段一致；固定故障矩阵和未验证边界单独列出。
+本轮真实旧 Workflow、独立 worker、Actor Journal 和 MySQL Sink 已完成 `KILL_T_BEFORE_J` 的持久化策略切换与运行时账号重绑定，源/目标 10 行、6 字段逐字段一致；并完成 Journal 提交后故障、启动回复丢失、配额/排空回复丢失、观察拒绝和 stale grant 窗口。结果和失败材料见 [持久化切换授权实验](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-09-persistent-cutover-authorization/README.md)。
