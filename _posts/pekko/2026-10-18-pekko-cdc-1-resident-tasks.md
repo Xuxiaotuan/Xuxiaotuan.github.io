@@ -595,4 +595,4 @@ flowchart LR
 
 真实 Runtime RG01—RG07 共 7 项通过；L GC LG01—LG16 加容量补测共 17 项通过，53 项相关回归通过。LG15 的首次失败和按正确 Reader 重启边界的重跑均保留。
 
-源码、逐字段对账、T/J/L/D、资源释放和未验证边界见 [Runtime GC 报告](https://github.com/Xuxiaotuan/pekko-reference/blob/0b571796858d14f46f7d81196139f677192a812b/docs/experiments/2026-11-12-runtime-gc/README.md)。本结果没有扩大为 70 万真实活跃表、DDL、多 owner guardian 接管、自动扩容或物理文件缩容保证。
+源码、逐字段对账、T/J/L/D、资源释放和未验证边界见 [Runtime GC 报告](https://github.com/Xuxiaotuan/pekko-reference/blob/1ab1acf/docs/experiments/2026-11-12-runtime-gc/README.md)。本结果没有扩大为 70 万真实活跃表、DDL、多 owner guardian 接管、自动扩容或物理文件缩容保证。
