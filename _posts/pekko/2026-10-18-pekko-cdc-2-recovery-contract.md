@@ -606,3 +606,7 @@ L 中的 ACK 证据引用本回调依赖的 PROFILE、SCHEMA、BARRIER 和 GROUP
 真实 Runtime RG01—RG07 共 7 项通过；L GC LG01—LG16 加容量补测共 17 项通过，53 项相关回归通过；固定 RG01 负载又连续完成 10 轮、约 12 分钟的生命周期 soak，逐字段对账和最终资源采样均通过。LG15 的首次失败和按正确 Reader 重启边界的重跑均保留。
 
 源码、逐字段对账、T/J/L/D、资源释放和未验证边界见 [Runtime GC 报告](https://github.com/Xuxiaotuan/pekko-reference/blob/1ab1acf/docs/experiments/2026-11-12-runtime-gc/README.md)。远端 amd64 acceptance 已验证镜像、Deployment Ready、API port-forward 和 Source binlog 启动；State 复查连接失败后按协议安全暂停，完整集群 Sink 对账仍未收敛。 本结果没有扩大为 70 万真实活跃表、DDL、多 owner guardian 接管、自动扩容或物理文件缩容保证。
+
+## 最终真实 Reader/Sink 补充（2026-11-13）
+
+最终 acceptance 固定 `B=binlog.000017:325156481`、`F=binlog.000017:325157844`，全量与实时三类变更逐字段一致；Journal revision、L/ACK、offset、目标组账本和 GC proof 均可核对。重启后的 GC 小批次因节省空间不足安全 BLOCKED，原始 L 保留。

@@ -406,3 +406,7 @@ Flink CDC 的快照 split、LOW/HIGH 对齐和完成交接，解决的正是最�
 真实 Runtime RG01—RG07 共 7 项通过；L GC LG01—LG16 加容量补测共 17 项通过，53 项相关回归通过；固定 RG01 负载又连续完成 10 轮、约 12 分钟的生命周期 soak，逐字段对账和最终资源采样均通过。LG15 的首次失败和按正确 Reader 重启边界的重跑均保留。
 
 源码、逐字段对账、T/J/L/D、资源释放和未验证边界见 [Runtime GC 报告](https://github.com/Xuxiaotuan/pekko-reference/blob/1ab1acf/docs/experiments/2026-11-12-runtime-gc/README.md)。远端 amd64 acceptance 已验证镜像、Deployment Ready、API port-forward 和 Source binlog 启动；State 复查连接失败后按协议安全暂停，完整集群 Sink 对账仍未收敛。 本结果没有扩大为 70 万真实活跃表、DDL、多 owner guardian 接管、自动扩容或物理文件缩容保证。
+
+## 比较结论补充（2026-11-13）
+
+实测只支持 Pekko CDC Runtime 在单表受控场景下组合共享 Reader、表级 Journal、有界 worker 和受保护 GC；没有 Pekko/Flink 同负载 benchmark，也没有 70 万活跃表容量证明。优势应表述为可定制的常驻控制和资源准入，不应扩大成整体优于 Flink CDC。

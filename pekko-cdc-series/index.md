@@ -3,14 +3,14 @@ layout: page
 title: "从 Flink CDC 到 Pekko：共享捕获、全量转流与恢复协议"
 description: "五篇源码与实验文章：共享Reader、Split分页、LOW/HIGH、B到F、T/J/D恢复及Flink CDC比较。"
 permalink: /pekko-cdc-series/
-last_modified_at: 2026-11-12
+last_modified_at: 2026-11-13
 ---
 
 一个 MySQL 实例有 70 多万张表，按需选择其中几张，先同步已有数据再持续追实时，并允许不停其他表地增加、取消订阅。本系列围绕这个目标解释当前代码、实验和剩余设计。70 万是业务目录背景，不是已完成的活跃复制规模验收。
 
 2026-10-27 的修订把持久任务索引、有界步骤和平台入口接回原来的五篇主线：目标与执行资源 → 分页/LOW/HIGH/B→F 源码 → 真实实验与反例 → 恢复状态与确认协议 → 与 Flink CDC 的具体取舍。源码变化、当前实测和历史材料分别标识；Actor 机制、旧 T/J/D 推导及失败仍保留在独立[技术附录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/README.md)。文章更新不自动改变旧实验的版本或结果。
 
-## 独立 Runtime 的当前边界（2026-11-11）
+## 独立 Runtime 的当前边界（2026-11-13）
 
 生产 `workflow` 目录已移除；历史执行器、Actor 和旧 receipt 投影保留为测试设施。生产包保留历史状态模型及旧 manifest 迁移，数据路径使用 BootstrapJournal。guardian 与控制存储实现位于 `cdc.guardian` / `cdc.control`。历史表结构、锁行和配额没有随目录清理删除。
 
@@ -21,7 +21,9 @@ last_modified_at: 2026-11-12
 | worker 隔离接管 | 排除测试类的独立 guardian/supervisor/worker；真实 MySQL、Journal、Sink | C0 的 64 行、384 字段一致；不覆盖 guardian JVM 重启 |
 | receipt 重启 | Bootstrap 独立 JVM 从 Journal 恢复并重签；伪造副本拒绝 | 证明重签及投影；不证明 L 实际删除或任意字节码攻击防护 |
 | 未知 B | C1 的 PAUSED、UNKNOWN grant 及失败日志保留 | 安全暂停；自动恢复未通过 |
-| L 的 GC | 独立 Runtime 持久化 namespace、pin、proof、operation，并按受保护前缀小批删除可重建 GROUP | RG/LG 实测通过；仅证明逻辑回收，未知 B、慢表和容量不足安全暂停；未证明物理文件缩容 |
+| L 的 GC | 独立 Runtime 持久化 namespace、pin、proof、operation，并按受保护前缀小批删除可重建 GROUP | 最终 acceptance 的 proof 进入 ACTIVE；重启后小批次节省不足时安全 BLOCKED，原始 L 保留；未证明物理文件缩容 |
+
+最终 acceptance 使用真实 MySQL、Actor Journal、Debezium JDBC offset/history 和 MySQL Sink：全量 B/F、实时更新/插入/删除、GC proof、owner STOPPED→ACTIVE 重启和逐字段对账均有材料。早期 ClusterIP、非 PID1、wildcard writer、namespace 摘要和权限失败没有覆盖；详见 [最终 acceptance 材料](https://github.com/Xuxiaotuan/pekko-reference/tree/main/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final)。
 
 [本轮源码与实验材料](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)固定运行范围。以下各历史报告仍按原版本解释，不因目录调整重标通过。
 
