@@ -212,6 +212,6 @@ last_modified_at: 2026-11-12
 
 ## Runtime GC（2026-11-12）
 
-独立 CDC Runtime 已接入 L 安全 GC、旧 namespace 清点和持久化小批次调度。RG01—RG07 共 7 项通过；LG01—LG16 加容量补测共 17 项通过；固定 RG01 负载连续 10 轮 soak 通过；未知 B、异常重启、慢表和危险权限均保留安全暂停边界。
+独立 CDC Runtime 已接入 L 安全 GC、旧 namespace 清点和持久化小批次调度。RG01—RG07 共 7 项通过；LG01—LG16 加容量补测共 17 项通过；固定 RG01 负载连续 10 轮 soak 通过；未知 B、异常重启、慢表和危险权限均保留安全暂停边界。远端 amd64 acceptance 已验证镜像、Deployment Ready、API port-forward 和 Source binlog 启动；State 复查连接失败后按协议安全暂停，完整集群 Sink 对账仍未收敛。
 
 [源码实验报告](https://github.com/Xuxiaotuan/pekko-reference/blob/1ab1acf/docs/experiments/2026-11-12-runtime-gc/README.md) · [L GC 逐项证据](https://github.com/Xuxiaotuan/pekko-reference/tree/0b571796858d14f46f7d81196139f677192a812b/docs/experiments/2026-11-12-capture-gc)
