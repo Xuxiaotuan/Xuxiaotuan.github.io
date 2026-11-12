@@ -12,12 +12,12 @@ tags:
   - Flink CDC
   - 源码分析
 mermaid: true
-last_modified_at: 2026-11-11
+last_modified_at: 2026-11-12
 ---
 
 > 源码与本轮材料固定到 [f6313c0](https://github.com/Xuxiaotuan/pekko-reference/tree/f6313c0)。历史实验继续使用各自冻结版本。
 
-> **2026-11-11 当前源码与证据：** 当前工程的产品范围是独立 CDC Runtime，而不是工作流平台。生产包已排除旧 Actor、旧执行器与旧 receipt 适配器；保留兼容状态模型、旧表互斥锁和配额迁移，是维护历史状态的成本。C0 的实际证据支持一个指定 worker 故障窗口中的隔离、接管和逐字段追平，不支持 guardian 自身重启、未知 B 自动恢复或 70 万活跃表的容量承诺。L 自动安全删除尚未实现，也没有 Pekko/Flink 同负载基准，因此不能把目录收敛或局部恢复成功写成与 Flink CDC 等价。 [拆分与验证记录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)。
+> **2026-11-11 当前源码与证据：** 当前工程的产品范围是独立 CDC Runtime，而不是工作流平台。生产包已排除旧 Actor、旧执行器与旧 receipt 适配器；保留兼容状态模型、旧表互斥锁和配额迁移，是维护历史状态的成本。C0 的实际证据支持一个指定 worker 故障窗口中的隔离、接管和逐字段追平，不支持 guardian 自身重启、未知 B 自动恢复或 70 万活跃表的容量承诺。L 已实现受保护前缀的小批次逻辑 GC，但尚未证明物理文件缩容；也没有 Pekko/Flink 同负载基准，因此不能把目录收敛或局部恢复成功写成与 Flink CDC 等价。 [拆分与验证记录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)。
 
 以下技术正文保留各自冻结版本的源码与实验口径；当前生产目录和本轮验证结论以上段及链接报告为准。
 
@@ -398,3 +398,11 @@ Flink CDC 的快照 split、LOW/HIGH 对齐和完成交接，解决的正是最�
 `KILL_J_AFTER_STORE`、`FENCE_COMMIT_REPLY_LOST`、`STARTUP_COMMIT_REPLY_LOST`、`B_RECOVERY_CRASH`、`DRAIN_COMMIT_REPLY_LOST`、`QUOTA_COMMIT_REPLY_LOST`、`REVOKE_COMMIT_REPLY_LOST`、`OBSERVER_DENIED` 和 `STALE_GRANT` 也完成了本轮固定窗口验证。完整证据见[持久化切换授权实验](/pekko-cdc-series/persistent-cutover/)。
 
 代码结论、真实结果和未验证边界保持分开：密码不入库，原始 Workflow/Split 指纹不变；DDL、多 owner、共享 CDC、跨实例迁移和全部历史场景仍不在本轮保证范围。
+
+## 2026-11-12：独立 Runtime 的 GC 与旧 namespace 启用
+
+本轮把 L 安全 GC 接入独立 CDC Runtime：审计请求、namespace 清点、pins、operation 和小批次游标都持久化，GC 维护使用一个有界 worker。旧 namespace 启用前重新清点 Journal、消费者、账号、连接和事务；未知 B、孤儿 Journal、危险权限和资源释放未知继续安全暂停。
+
+真实 Runtime RG01—RG07 共 7 项通过；L GC LG01—LG16 加容量补测共 17 项通过，53 项相关回归通过。LG15 的首次失败和按正确 Reader 重启边界的重跑均保留。
+
+源码、逐字段对账、T/J/L/D、资源释放和未验证边界见 [Runtime GC 报告](https://github.com/Xuxiaotuan/pekko-reference/blob/0b571796858d14f46f7d81196139f677192a812b/docs/experiments/2026-11-12-runtime-gc/README.md)。本结果没有扩大为 70 万真实活跃表、DDL、多 owner guardian 接管、自动扩容或物理文件缩容保证。

@@ -2,7 +2,7 @@
 layout: page
 title: "共享 CDC 平台：有界步骤、持久调度与受管释放"
 permalink: /pekko-cdc-series/cdc-platform/
-last_modified_at: 2026-10-27
+last_modified_at: 2026-11-12
 mermaid: true
 ---
 
@@ -136,4 +136,11 @@ H 先跑 50,000 条 pilot，按实际磁盘增长与剩余空间确认预算，�
 | 原内核/旧恢复回归 | 最终实际集合及契约冲突单独报告 | 不能直接继承旧 61/58 个数字或合计成端到端保证 |
 | 发布材料 | 源码摘要、原始证据、独立复算、五篇文章及入口 | 发布成功不等于新做数据库实验 |
 
-整体验收仍为 **`evidence_incomplete`**。固定 Schema/有符号单列整数键/独占空目标的边界保留；无源目录 70 万真实表、任意活跃率、长时 SLA 或同负载 Flink 对照。新共享链路无自动 owner 接管、DDL 演进、GC、PAUSED 自动 Resume、业务原子换表。源/L/SDK 历史缺失或已识别的捕获连续性风险选择暂停；旧漏数、旧 C2 和旧资源迟延记录仍保留原版本。
+整体验收仍为 **`evidence_incomplete`**。固定 Schema/有符号单列整数键/独占空目标的边界保留；无源目录 70 万真实表、任意活跃率、长时 SLA 或同负载 Flink 对照。新共享链路无自动 owner 接管、DDL 演进或 PAUSED 自动 Resume；L 的受保护前缀 GC 已在独立 Runtime 中验证，业务原子换表仍未覆盖。源/L/SDK 历史缺失或已识别的捕获连续性风险选择暂停；旧漏数、旧 C2 和旧资源迟延记录仍保留原版本。
+
+
+## Runtime GC（2026-11-12）
+
+独立 CDC Runtime 已接入 L 安全 GC、旧 namespace 清点和持久化小批次调度。RG01—RG07 共 7 项通过；LG01—LG16 加容量补测共 17 项通过；未知 B、异常重启、慢表和危险权限均保留安全暂停边界。
+
+[源码实验报告](https://github.com/Xuxiaotuan/pekko-reference/blob/0b571796858d14f46f7d81196139f677192a812b/docs/experiments/2026-11-12-runtime-gc/README.md) · [L GC 逐项证据](https://github.com/Xuxiaotuan/pekko-reference/tree/0b571796858d14f46f7d81196139f677192a812b/docs/experiments/2026-11-12-capture-gc)

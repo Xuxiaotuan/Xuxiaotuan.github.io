@@ -12,7 +12,7 @@ tags:
   - Flink CDC
   - 源码分析
 mermaid: true
-last_modified_at: 2026-11-11
+last_modified_at: 2026-11-12
 ---
 
 > 源码与本轮材料固定到 [f6313c0](https://github.com/Xuxiaotuan/pekko-reference/tree/f6313c0)。历史实验继续使用各自冻结版本。
@@ -588,3 +588,11 @@ flowchart LR
 `KILL_J_AFTER_STORE`、`FENCE_COMMIT_REPLY_LOST`、`STARTUP_COMMIT_REPLY_LOST`、`B_RECOVERY_CRASH`、`DRAIN_COMMIT_REPLY_LOST`、`QUOTA_COMMIT_REPLY_LOST`、`REVOKE_COMMIT_REPLY_LOST`、`OBSERVER_DENIED` 和 `STALE_GRANT` 也完成了本轮固定窗口验证。完整证据见[持久化切换授权实验](/pekko-cdc-series/persistent-cutover/)。
 
 代码结论、真实结果和未验证边界保持分开：密码不入库，原始 Workflow/Split 指纹不变；DDL、多 owner、共享 CDC、跨实例迁移和全部历史场景仍不在本轮保证范围。
+
+## 2026-11-12：独立 Runtime 的 GC 与旧 namespace 启用
+
+本轮把 L 安全 GC 接入独立 CDC Runtime：审计请求、namespace 清点、pins、operation 和小批次游标都持久化，GC 维护使用一个有界 worker。旧 namespace 启用前重新清点 Journal、消费者、账号、连接和事务；未知 B、孤儿 Journal、危险权限和资源释放未知继续安全暂停。
+
+真实 Runtime RG01—RG07 共 7 项通过；L GC LG01—LG16 加容量补测共 17 项通过，53 项相关回归通过。LG15 的首次失败和按正确 Reader 重启边界的重跑均保留。
+
+源码、逐字段对账、T/J/L/D、资源释放和未验证边界见 [Runtime GC 报告](https://github.com/Xuxiaotuan/pekko-reference/blob/0b571796858d14f46f7d81196139f677192a812b/docs/experiments/2026-11-12-runtime-gc/README.md)。本结果没有扩大为 70 万真实活跃表、DDL、多 owner guardian 接管、自动扩容或物理文件缩容保证。

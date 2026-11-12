@@ -3,7 +3,7 @@ layout: page
 title: "从 Flink CDC 到 Pekko：共享捕获、全量转流与恢复协议"
 description: "五篇源码与实验文章：共享Reader、Split分页、LOW/HIGH、B到F、T/J/D恢复及Flink CDC比较。"
 permalink: /pekko-cdc-series/
-last_modified_at: 2026-11-11
+last_modified_at: 2026-11-12
 ---
 
 一个 MySQL 实例有 70 多万张表，按需选择其中几张，先同步已有数据再持续追实时，并允许不停其他表地增加、取消订阅。本系列围绕这个目标解释当前代码、实验和剩余设计。70 万是业务目录背景，不是已完成的活跃复制规模验收。
@@ -21,7 +21,7 @@ last_modified_at: 2026-11-11
 | worker 隔离接管 | 排除测试类的独立 guardian/supervisor/worker；真实 MySQL、Journal、Sink | C0 的 64 行、384 字段一致；不覆盖 guardian JVM 重启 |
 | receipt 重启 | Bootstrap 独立 JVM 从 Journal 恢复并重签；伪造副本拒绝 | 证明重签及投影；不证明 L 实际删除或任意字节码攻击防护 |
 | 未知 B | C1 的 PAUSED、UNKNOWN grant 及失败日志保留 | 安全暂停；自动恢复未通过 |
-| L 的 GC | 源码仅有归档和保留位置投影，没有生产删除路径 | 尚未实现，不能以 floor 推进替代 GC 验收 |
+| L 的 GC | 独立 Runtime 持久化 namespace、pin、proof、operation，并按受保护前缀小批删除可重建 GROUP | RG/LG 实测通过；仅证明逻辑回收，未知 B、慢表和容量不足安全暂停；未证明物理文件缩容 |
 
 [本轮源码与实验材料](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)固定运行范围。以下各历史报告仍按原版本解释，不因目录调整重标通过。
 
@@ -208,3 +208,10 @@ last_modified_at: 2026-11-11
 ## 2026-11-09 持久化切换授权实验
 
 本轮真实旧 Workflow、独立 worker、Actor Journal 和 MySQL Sink 已完成 `KILL_T_BEFORE_J` 的持久化策略切换与运行时账号重绑定，源/目标 10 行、6 字段逐字段一致；并完成 Journal 提交后故障、启动回复丢失、配额/排空回复丢失、观察拒绝和 stale grant 窗口。结果和失败材料见 [持久化切换授权实验](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-09-persistent-cutover-authorization/README.md)。
+
+
+## Runtime GC（2026-11-12）
+
+独立 CDC Runtime 已接入 L 安全 GC、旧 namespace 清点和持久化小批次调度。RG01—RG07 共 7 项通过；LG01—LG16 加容量补测共 17 项通过；未知 B、异常重启、慢表和危险权限均保留安全暂停边界。
+
+[源码实验报告](https://github.com/Xuxiaotuan/pekko-reference/blob/0b571796858d14f46f7d81196139f677192a812b/docs/experiments/2026-11-12-runtime-gc/README.md) · [L GC 逐项证据](https://github.com/Xuxiaotuan/pekko-reference/tree/0b571796858d14f46f7d81196139f677192a812b/docs/experiments/2026-11-12-capture-gc)
