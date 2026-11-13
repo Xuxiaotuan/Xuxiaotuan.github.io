@@ -559,3 +559,9 @@ Schema 变化也会改变事件解释。旧 Schema 数据仍在 writer 缓冲时
 ## 最终验证范围补充（2026-11-13）
 
 本轮真实部署验证了 owner、Journal、offset、L、T、GC proof 和目标对账的主流程，以及 PID1 停止后的 STOPPED→ACTIVE 重启。未知 B 自动恢复、DDL、多 owner guardian 接管、70 万活跃物理表、跨实例共享 Reader 和长期吞吐仍未验证。
+
+## 2026-11-13：参考集群成功流水线后的真实部署
+
+这次没有把 GitHub Actions 的 deploy 失败当作集群发布成功，而是参考集群里已有的 KubeSphere Pipeline：`pekko-cdc-runtime-n7kjw` 实际构建并推送 Harbor 镜像，再滚动更新 `bigdata-lab/pekko-cdc-runtime`。新 Pod 重启后 owner 为 `ACTIVE`，Source MySQL 保留一个 Debezium Binlog Dump 会话且没有未提交 InnoDB 事务；Source 与 Sink 当前两行六字段逐字段一致。原始 PipelineRun、Deployment、API、控制状态和对账材料见 [KubeSphere 集群证据](https://github.com/Xuxiaotuan/pekko-reference/tree/feature/pekkosync-mvp-cleanup-datafusion/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/kubesphere-20261113)。
+
+线上 GC 实际仍为 `BLOCKED / ACK proof budget exceeded`。这证明安全暂停边界生效，不能写成 ACK 超预算后的自动重规划、自动扩容或跨重启删除已经通过；人工清理旧 UNKNOWN owner 后再重启是实验门槛，不是自动 fencing 证明。70 万真实活跃表、DDL、多 owner 和长期吞吐仍未验证。

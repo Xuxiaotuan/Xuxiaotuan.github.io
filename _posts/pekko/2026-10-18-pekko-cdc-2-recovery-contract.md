@@ -610,3 +610,9 @@ L 中的 ACK 证据引用本回调依赖的 PROFILE、SCHEMA、BARRIER 和 GROUP
 ## 最终真实 Reader/Sink 补充（2026-11-13）
 
 最终 acceptance 固定 `B=binlog.000017:325156481`、`F=binlog.000017:325157844`，全量与实时三类变更逐字段一致；Journal revision、L/ACK、offset、目标组账本和 GC proof 均可核对。旧版本重启后的 GC 小批次因节省空间不足安全 BLOCKED，原始 L 保留；当前代码改为保留原始 L、前移 operation 游标，并让旧 BLOCKED schedule 在下一 tick 进入 REPLANNING。真实集群重跑结果仍需单独记录。
+
+## 2026-11-13：参考集群成功流水线后的真实部署
+
+这次没有把 GitHub Actions 的 deploy 失败当作集群发布成功，而是参考集群里已有的 KubeSphere Pipeline：`pekko-cdc-runtime-n7kjw` 实际构建并推送 Harbor 镜像，再滚动更新 `bigdata-lab/pekko-cdc-runtime`。新 Pod 重启后 owner 为 `ACTIVE`，Source MySQL 保留一个 Debezium Binlog Dump 会话且没有未提交 InnoDB 事务；Source 与 Sink 当前两行六字段逐字段一致。原始 PipelineRun、Deployment、API、控制状态和对账材料见 [KubeSphere 集群证据](https://github.com/Xuxiaotuan/pekko-reference/tree/feature/pekkosync-mvp-cleanup-datafusion/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/kubesphere-20261113)。
+
+线上 GC 实际仍为 `BLOCKED / ACK proof budget exceeded`。这证明安全暂停边界生效，不能写成 ACK 超预算后的自动重规划、自动扩容或跨重启删除已经通过；人工清理旧 UNKNOWN owner 后再重启是实验门槛，不是自动 fencing 证明。70 万真实活跃表、DDL、多 owner 和长期吞吐仍未验证。
