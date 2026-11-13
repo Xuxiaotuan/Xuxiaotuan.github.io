@@ -524,10 +524,10 @@ Actor 将第 6 批写入 Journal → Source ACK → 后续继续
 
 本轮把 L 安全 GC 接入独立 CDC Runtime：审计请求、namespace 清点、pins、operation 和小批次游标都持久化，GC 维护使用一个有界 worker。旧 namespace 启用前重新清点 Journal、消费者、账号、连接和事务；未知 B、孤儿 Journal、危险权限和资源释放未知继续安全暂停。
 
-真实 Runtime RG01—RG07 共 7 项通过；L GC LG01—LG16 加容量补测共 17 项通过，53 项相关回归通过；固定 RG01 负载又连续完成 10 轮、约 12 分钟的生命周期 soak，逐字段对账和最终资源采样均通过。LG15 的首次失败和按正确 Reader 重启边界的重跑均保留。
+真实 Runtime RG01—RG07 共 7 项通过；L GC LG01—LG16 加容量补测共 17 项通过，此前 5 个完整回归失败套件已修正；同一 JDK 17 的完整回归为 722 成功、0 失败、415 个专用外部环境取消；固定 RG01 负载又连续完成 10 轮、约 12 分钟的生命周期 soak，逐字段对账和最终资源采样均通过。LG15 的首次失败和按正确 Reader 重启边界的重跑均保留。
 
 源码、逐字段对账、T/J/L/D、资源释放和未验证边界见 [Runtime GC 报告](https://github.com/Xuxiaotuan/pekko-reference/blob/1ab1acf/docs/experiments/2026-11-12-runtime-gc/README.md)。远端 amd64 acceptance 已验证镜像、Deployment Ready、API port-forward 和 Source binlog 启动；State 复查连接失败后按协议安全暂停，完整集群 Sink 对账仍未收敛。 本结果没有扩大为 70 万真实活跃表、DDL、多 owner guardian 接管、自动扩容或物理文件缩容保证。
 
 ## 最终集群材料补充（2026-11-13）
 
-旧 ClusterIP、shell launcher 非 PID1、GC wildcard writer、旧 namespace 摘要和权限不足等失败证据均保留。改用 State NodePort、固定 writer host/definer、性能表权限和直接 JVM PID1 后，owner、Journal、L、T、D 与目标逐字段对账通过；GC 重启后无 worthwhile space saving 时保守阻断删除。
+旧 ClusterIP、shell launcher 非 PID1、GC wildcard writer、旧 namespace 摘要和权限不足等失败证据均保留。改用 State NodePort、固定 writer host/definer、性能表权限和直接 JVM PID1 后，owner、Journal、L、T、D 与目标逐字段对账通过；旧版本 GC 重启后无 worthwhile space saving 时保守阻断删除；当前代码只允许安全重规划并保留原始 L，真实集群重跑结果仍需单独记录。
