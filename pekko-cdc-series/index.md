@@ -3,7 +3,7 @@ layout: page
 title: "从 Flink CDC 到 Pekko：共享捕获、全量转流与恢复协议"
 description: "五篇源码与实验文章：共享Reader、Split分页、LOW/HIGH、B到F、T/J/D恢复及Flink CDC比较。"
 permalink: /pekko-cdc-series/
-last_modified_at: 2026-11-13
+last_modified_at: 2026-11-14
 ---
 
 一个 MySQL 实例有 70 多万张表，按需选择其中几张，先同步已有数据再持续追实时，并允许不停其他表地增加、取消订阅。本系列围绕这个目标解释当前代码、实验和剩余设计。70 万是业务目录背景，不是已完成的活跃复制规模验收。
@@ -31,17 +31,17 @@ last_modified_at: 2026-11-13
 
 | 篇目 | 本篇要讲透的问题 |
 |---|---|
-| [一：70 万表的常驻 CDC——共享 Reader、表级 Actor 与有界执行](/2026/10/18/pekko-cdc-1-resident-tasks/) | 一个源实例怎样共享采集；冷索引、活动 Journal、步骤预算和 L 唤醒怎样配合 |
-| [二：从分页快照到持续同步——沿源码走通 LOW/HIGH 与 B→F](/2026/10/18/pekko-cdc-2-recovery-contract/) | 固定 U、范围 spec、RR 分页、真实 marker、窗口 fold、封存、B→F 与步骤恢复 |
-| [三：批转流怎样验收——从恢复命题到真实故障证据](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 以 I08/I11/I16/I21 检验命题，再用启动反例检验捕获连续性前提 |
-| [四：批转流恢复的证明链——固定范围、封存身份与激活边界](/2026/10/18/pekko-cdc-4-protocol-design/) | 推导固定范围、封存身份和激活条件，并解释完整 B→F 的逐键收敛及其失效条件 |
-| [五：海量常驻 CDC 的自建边界——Pekko 控制面与数据运行时的取舍](/2026/10/18/pekko-cdc-5-flink-comparison/) | 在同一业务承诺下，哪些控制值得自建、哪些运行时能力应复用，正面证据与成本缺口是什么 |
+| [一：70 万表常驻 CDC——共享 Reader、表级执行单元和有界资源](/2026/10/18/pekko-cdc-1-resident-tasks/) | 目录规模、共享 Reader、表级状态和执行资源如何分离 |
+| [二：一条 ACK 链如何成为 T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) | 目标提交、Journal、ACK ancestry、恢复许可和安全暂停如何形成证明链 |
+| [三：一条 MySQL UPDATE 什么时候才算被 CDC 接受](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 沿 SourceRecord、L、T、J、D 和 GC 追踪真实故障窗口 |
+| [四：从批到流——LOW/HIGH、B/F/K 为什么必须是状态机](/2026/10/18/pekko-cdc-4-protocol-design/) | 新表如何完成全量、窗口回填、回放和持续同步切换 |
+| [五：Pekko CDC 与 Flink CDC——70 万表常驻场景的取舍](/2026/10/18/pekko-cdc-5-flink-comparison/) | 在同一业务承诺下比较资源、进度、故障和规模边界 |
 
 ## 统一业务案例与论证入口
 
 全文区分源目录 N、已订阅 S 和活动工作 A(t)：70 万是 N 的需求背景，5→7 是本次案例中的 S，不能互换为容量证据。正面证据包括历史共享捕获、动态初始化及指定恢复样本；后续 A1/A2 又增加启动恢复分类和准入实测。本轮又经过真实平台 P01 的动态 5→7、P02 的十表 tail 后新增第十一表，以及独立的 700,000 条冷索引实验。它们各自支持对应层次，不从旧内核直接继承结论，也不合并成 70 万真实表验收。
 
-第三篇围绕[跨窗口迁移 I08](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/#e-i08)、[丢失读视图 I11](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/#e-i11)、[T 领先 JI16](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/#e-i16)给出“命题—切点—证据—判定”。第四篇以[G0—G4](/2026/10/18/pekko-cdc-4-protocol-design/#g0)统一前提与推理；[启动反例 E0](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/#e-startup)继续保留。新准入门会拒绝特定不安全状态，但安全暂停不等于历史漏数已经补齐。
+第三篇沿一条真实 UPDATE 追踪“回调—L—T—J—D—GC”，并保留 I08/I11/I16/I21 与启动反例材料。第四篇统一解释 B、LOW/HIGH、K、F 和 T/J/D 的状态关系；安全暂停不等于历史漏数已经补齐。
 
 ## 主流程与关键术语
 

@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "从 Flink CDC 到 Pekko（一）：70 万表的常驻 CDC——共享 Reader、表级 Actor 与有界执行"
-description: "单实例海量表目录下，以 SQL 冷索引、共享 Reader、活动 Journal Actor 和有界步骤分离身份与执行资源。"
+title: "从 Flink CDC 到 Pekko（一）：70 万张表常驻 CDC——共享 Reader、表级执行单元和有界资源"
+description: "单实例海量表目录下，以共享 Reader、表级状态和有界执行资源分离身份与实际工作。"
 permalink: /2026/10/18/pekko-cdc-1-resident-tasks/
 keywords: Pekko, Flink CDC, MySQL, Actor Journal, 故障恢复
 categories:
@@ -12,609 +12,222 @@ tags:
   - Flink CDC
   - 源码分析
 mermaid: true
-last_modified_at: 2026-11-12
+last_modified_at: 2026-11-14
 ---
 
-> 源码与本轮材料固定到 [f6313c0](https://github.com/Xuxiaotuan/pekko-reference/tree/f6313c0)。历史实验继续使用各自冻结版本。
 
-> **2026-11-11 当前源码与证据：** 生产入口已经收敛为 CDC Runtime：共享捕获与 L、BootstrapJournal、窗口初始化和目标应用构成数据路径；guardian 的身份、隔离、排空和配额通过 `cdc.control` 保存。通用 Workflow Actor、执行引擎、节点注册表和 Cron 的执行实现属于历史测试设施，不进入生产包。历史表结构和状态解码器仍保留，不能把“无 Workflow 执行器”误解为可以删除历史数据库。独立子 JVM 在排除测试类的类路径上完成 C0 接管；70 万物理表及其资源上限仍未验证。 [拆分与验证记录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)。
+[系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实故障](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
-以下技术正文保留各自冻结版本的源码与实验口径；当前生产目录和本轮验证结论以上段及链接报告为准。
+> **阅读基线**：源码按工作区 `cc09559` 阅读，实验材料保留各自报告的版本、切点和失败记录。五篇文章不把不同版本的结果合并成一个结论。
+>
+> **证据标记**：
+> - **源码结论**：由当前实现和调用链直接得到。
+> - **实际实验**：真实 MySQL、Actor Journal、Sink 或集群运行得到。
+> - **保存材料复算**：重新读取既有材料，不等于重新运行。
+> - **未验证边界**：当前没有足够证据支持的范围。
 
-[系列导读与验证范围](/pekko-cdc-series/) · [1：目标架构](/2026/10/18/pekko-cdc-1-resident-tasks/) · [2：批转流源码](/2026/10/18/pekko-cdc-2-recovery-contract/) · [3：真实实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [4：恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [5：自建与复用](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
+> 本文讨论一个具体问题：在一个 MySQL 实例上登记 70 万张表，但任意时刻只有少量表需要全量初始化或持续同步，怎样让 CDC 长期运行，又不把“70 万”直接变成 70 万个连接、Reader 和线程？
 
-> **文章修订：2026-10-27。** 当前平台路径按仓库源码说明，最终源码版本与本轮运行结果统一见[平台报告](/pekko-cdc-series/cdc-platform/)。已提交 `74b6d9a` 的启动准入实测另见[A1/A2 报告](/pekko-cdc-series/capture-admission/)。历史版本和失败材料保留，不把新增代码直接写成端到端验收通过。
+## 先给结论
 
-一个 MySQL 实例有 70 多万张表，今天选择五张同步，明天增加两张。新增表先同步已有数据，再持续追增量；取消一张表时，其余任务仍应运行。这个业务需要长期保存表的身份与进度，同时按实际工作量分配采集和执行资源。
+这个问题首先是资源模型问题，其次才是 Actor API 问题。当前实现把三个数量分开：
 
-本文回答：任务身份、控制状态、Reader、线程、连接和恢复证据怎样分开？当前实现已把共享捕获、持久任务索引和有界内核步骤接在一起。架构是否节省资源，仍要分别检查冷目录、活动执行和源端 Schema 成本；不能由 Actor 的线程复用机制推出 70 万真实表已经验收。
+- `N`：目录中登记的表数，可能是 700,000；
+- `S`：已经订阅 CDC 的表数；
+- `A(t)`：时刻 `t` 正在执行快照、回放或尾部增量的表数。
 
-## 1. 先区分源目录、订阅集合和正在执行的工作
+一个可工作的长期模型是：每个 capture domain 维护一个共享 MySQL Reader，Reader 将 binlog 事件写入持久化日志 `L`；表级任务只保留自己的 Schema、LOW/HIGH/F 边界、Journal 和目标账本；真正执行数据库读取或 Sink 写入的线程来自有界 step worker 池。
 
-“70 万表常驻”容易把三个数量混成一个：
+因此，目标不是让 `N` 个表都“活着”，而是让下面的关系长期成立：
 
-| 数量 | 本文含义 | 在业务故事中的取值 |
-|---|---|---|
-| N：源目录 | 源实例中可选择的物理表 | 需求背景约 70 万，未做相应实表验收 |
-| S：订阅集合 | 已要求初始化并持续跟随的表 | 今天 5 张，明天 7 张 |
-| A(t)：活动工作 | 时刻 t 真正在读页、回放、审计或提交的执行步骤 | 随数据与调度变化，不应等同于 N |
+\[
+\text{source sessions} \approx O(\text{capture domains}) + O(A(t))
+\]
 
-任务定义长期存在，不要求执行资源长期存在。[CdcTaskStore](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/cdc/CdcTaskStore.scala)用 SQL 保存请求身份、目标状态、实际阶段、Journal revision、调度条件与 grant。分页查询读取这些投影，不逐条询问 Actor，也不为每条冷记录创建 Future。
+\[
+\text{step workers} \leq W_{snapshot}+W_{tail}
+\]
 
-目录很大仍可能影响采集。当前共享 Engine 的 `table.include.list` 覆盖业务数据库；即使只选择七张表，Schema 发现、history 与非订阅输入处理的成本也不能直接视为只与 S 有关。[共享 Reader 配置](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)中的这个边界没有因增加冷索引而消失。
+\[
+A(t) \leq W_{snapshot}+W_{tail}
+\]
 
-因此需要分别测量 N、S 和 A(t)。70 万条任务索引只能回答元数据存取问题；70 万物理源表会引入另一份目录和 Schema 成本；高比例活跃订阅又是不同的吞吐与积压实验。
+这三条是资源上界模型，不是 70 万张真实表的容量实测。当前仓库有 700,000 条冷任务元数据的分页实验，却没有 700,000 张真实活跃表、吞吐和天级 churn 的证据。
 
-## 2. Reader 按捕获域共享，目标进度按表推进
+## 一、先把“70 万张表”拆成三个集合
 
-[SharedMySQLCapture](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)为一个 capture 管理一个 Engine。新增表先准备 Schema、登记一代订阅，再向源控制表写 B；Reader 捕获完整组、Schema 和控制 marker，将它们持久化到 L。
+### 1. 目录不是执行器
 
-表消费者从 L 按各自游标追赶：
+如果把每张目录记录直接映射成 Reader，最先耗尽的通常不是 CPU，而是 MySQL 连接、binlog dump 会话、JDBC metadata、Schema 缓存和故障恢复状态。更糟的是，许多表长期没有写入，却仍然占用一套运行时对象。
 
-```text
-同一 capture 的共享 Reader
-    → 持久化日志 L
-        → 表 a 的步骤 → T_a → J_a
-        → 表 b 的步骤 → T_b → J_b
-        → 新表 f/g：初始化 → 有限回放 → 持续消费
-```
+当前 Runtime 的 SQL 任务表把冷任务和执行中的 grant 分开。`CdcTaskStore` 的 `claim` 只从 `schedulable=TRUE` 且 `due_at<=now` 的任务中取一个候选，并在事务内写入 `pekko_cdc_grants_v1`，同时将任务改为 `IN_USE`。这意味着目录行可以很多，但一次调度只把有限数量的任务带入执行态。
 
-Reader 数量取决于 capture 配置及其所有权。按捕获域共享，避免把每张表直接绑定一个 Engine；当前实现不承诺任意多数据库布局只需一个 Reader。
+**源码结论**：目录规模和执行资源是两层状态；`CdcTaskStore` 的索引和 `claim` 路径支持按 capture、pool、due time 取头部任务，不要求扫描全部表。
 
-原始 SDK ACK 依赖 L 中的完整覆盖，不依赖每个目标都写完。因此可以在有限积压内，让 a 表目标提交停住，而 b 表继续推进。[历史 R14](/pekko-cdc-series/shared-capture/)验证了这个指定窗口。代价是必须保存 a 仍需的日志；L 容量耗尽时，共享域也可能暂停。表级游标提供的是解耦机制，隔离时长由存储与保留策略约束。
+**实验结果**：冷元数据实验精确插入并遍历 700,000 条任务记录，完整扫描 7,000 页并执行索引检查；实验没有启动 ActorSystem、Shared Reader，也没有创建 700,000 张源表。它只证明在给定索引和配置下，冷目录可分页访问。
 
-源与 L/offset 状态还必须位于不同物理 MySQL 实例。实验中的同实例不同 schema 曾形成事务元数据反馈，启动会核对 server UUID 并拒绝该部署。业务仍只有一个源实例，但可靠状态存储是额外基础设施。捕获域的专属状态账号还必须覆盖 SDK 与全部 L 连接；全局控制/Journal 账号分离，避免遗漏未决 L 事务。
+**未验证边界**：真实 700,000 张物理表、同时发生 DDL、持续 binlog 写入和动态增删表时的 MySQL metadata 成本，仍然没有测量。
 
-## 3. Actor 串行接受进度，步骤按工作借用线程
+### 2. 一个 capture 对应一个 Reader
 
-Pekko 1.1.3 的 [Mailbox](https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala#L188)由 Dispatcher 调度。同一 Actor 的普通 handler 串行执行；没有待处理消息时，身份本身不永久拥有一条工作线程。串行边界止于 handler：把外部 Future 发出去，并不会自动使数据库操作也串行或原子化。
-
-历史机制实验让 10,000 个普通 Typed Actor、40,000 条消息共用两条线程，观察到本条件下 handler 不重叠、顺序正确。它支持“身份可以多于线程”这一机制判断；持久 CDC 实体、阻塞工作和真实表目录是另外的成本面。[原始实验](/pekko-cdc-series/actor-execution/)
-
-当前平台使用[BootstrapJournal](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/bootstrap/BootstrapJournal.scala)接受单表阶段和进度，但不会为所有 SQL 任务常驻一个 Journal Actor。[CdcBootstrapKernel](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/cdc/CdcBootstrapKernel.scala)只为获准的活动工作建立 Runner、Journal 和相关会话；干净步骤完成后确认 Journal 停止，再撤销该活动会话。需要跨步审计的对象留在有界缓存中，校验完成前不会被当作普通空闲 tail。
-
-阻塞 JDBC 在有限工作池执行。Journal ask 由 Actor dispatcher 处理；Sink 使用步骤工作线程，避免 handler 自己等待长事务。线程上界来自统一配置的步骤预算，而不是任务表里有多少行，也不是给每张表独立分配一个永久 Future。
-
-## 4. 新增两张表，要先建立可恢复的起点
-
-只从“现在”转发 binlog，会漏掉新增表已有的数据。当前[BootstrapRunner](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/bootstrap/BootstrapRunner.scala)保留的批转流链路是：
-
-```text
-B 绑定 → 冻结键上界 U
-→ 每个固定范围：LOW → RR 分页 → HIGH → 回填 → 封存 → baseline T/J
-→ 固定 F → 完整回放 B→F → 审计与激活 → 持续消费 L
-```
-
-B 是开始保留增量的边界；U 是扫描键上界；LOW/HIGH 属于一次窗口读视图；F 固定有限追赶终点。捕获就绪、初始化完成和当前持续健康需要分别查询。
-
-写 B 之前还有一道 capture 级门。已经提交的 [A1/A2](/pekko-cdc-series/capture-admission/)要求当前 attempt 的 snapshot 生命周期、原始 ACK 和实际完成态 D 共同成立。已有 B 而 D 仍为 INITIAL、未决源 marker 或缺少必要恢复证据时，创建 Engine 前安全暂停。这个行为阻止特定旧风险状态继续启动，不会自动补齐历史漏数。
-
-平台调度读取当前 attempt 的缓存准入状态，避免每个表步骤都重新查询 D、遍历整条 ACK 链。capture 协调器负责刷新完整证据；真正新增 B/fence 的生产入口仍做实际 owner/准入校验。缓存用于分配工作，不能代替源端副作用发生前的检查。
-
-[历史 I01](/pekko-cdc-series/bootstrap/)在已有五表之后初始化 f/g，再让七表变化并逐字段核对。它支持受限数据集中的动态初始化组合；本轮 P01 又经过真实 HTTP、持久任务索引、step、Journal 和 Sink 完成五表新增两表，七表逐字段相等；这是新入口的独立样本，不借用旧 I01 的通过数。
-
-初始化目标要求独占且最初为空，激活前不向业务发布。取消使用 K 与排空语义；新 generation、新 B 不自动补齐停订空档，旧部分目标也不能作为新代的空目标复用。
-
-## 5. 从长期 run 会话改为有限执行量子
-
-历史 `run()` 获得 run 许可和会话锁后，在 STREAMING 循环中持续 tail，空读仍 `Thread.sleep(50)`。八个长期 tail 因而可能占满默认八个 run 许可。兼容入口仍保留，但新的平台调用的是 `step()`：
-
-| 阶段 | 一次步骤承担的工作 | 让出后保留的事实 |
-|---|---|---|
-| 等待 Reader/B/F | 读取就绪状态或检查已请求边界；条件未成立便返回 | 已接受意图、原 operation、实际绑定状态 |
-| SCANNING | 一个固定范围的 LOW/RR/HIGH、回填、封存及页接受 | spec、封存内容、T receipt 和 J |
-| REPLAYING/STREAMING | 至多一批完整组 | 已确认的 T/J 游标与批身份 |
-| ACTIVATING/恢复校验 | 一个已完成窗口或一批组的证明校验 | 有界活动缓存中的审计 cursor；丢失后重新校验 |
-| CANCELING | 请求/检查 K，已激活时至多排空一批 | 原 B/K、取消意图和已接受进度 |
-
-一个范围内所有 SQL 页仍属于同一个 RR 事务。步骤化不能把这个读视图拆成几个连接后拼接；失去读视图就按原范围新 attempt 重读。单窗口仍受读视图、SQL 和 marker 的超时约束，“有界步骤”不表示每一步都是固定毫秒时长。
-
-[CdcPlatformRuntime](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/cdc/CdcPlatformRuntime.scala)分别授予 snapshot 和 tail 工作预算；[CdcTaskStore](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/cdc/CdcTaskStore.scala)在持久事务中保存 grant。释放确认才完成 grant；资源结果未知则保留 UNKNOWN 及其占用，不能因 Future 返回、Actor 停止或新 JVM 的 Semaphore 为空就重新授予。
-
-正常调度让出也不是一次故障恢复。上一 grant 的干净结果与当前 runtime owner 绑定，新的 Runner 逐项核对完整 J progress，才可免计一次 Interrupted。干净释放只证明资源边界，不能证明旧 RR 仍在：未封存窗口仍需新 attempt；J 已接受的 seal 丢失则暂停，不能借重新分批生成新内容。第二篇会沿这条边界展开。
-
-## 6. 没有变化的订阅怎样休眠，再由 L 唤醒
-
-只把 tail 空读变成定时步骤，仍可能让海量空闲表不断打开连接。平台进一步把空闲 STREAMING 记录停在持久索引中：不持有任务 grant，也不保留每表 Actor。
-
-capture 级 dispatch 游标按有限页扫描 L，将 GROUP 的订阅身份和序号写入对应任务的 `wake_seq`。该表需要追赶时，索引把它设为可调度。消费者接受一批后，完成事务同时比较实际 `delta_after` 和最新 `wake_seq`：若新组已经到达，继续排队；没有待处理组则 park。这样可以覆盖“消费者刚空读，新组恰好抵达”的竞争，而不是只依赖一次进程内通知。
-
-dispatch 游标、任务唤醒与 grant 完成是 SQL 持久事实，不是每表创建一个定时器。调度页面采用 keyset 查询；当前配置的 capture 数量、步骤预算和冷恢复页大小都有上界。恢复过程可以分页重新激活任务验证，却不会据此一次唤醒全部 Journal Actor。
-
-维护停机也不等于业务退订：停止 runtime 不默默写 K。受控干净停止要核实 Reader 本地结束、服务端资源和 owner 释放，再保存 owner 结束事实；旧 owner 是否结束不清楚时安全暂停。这个单 owner 协议没有自动升级成共享 Reader 的多 owner/guardian 接管。
-
-## 7. 实测支持了哪一段资源判断
-
-现在可从源码检验的资源关系是：Reader 与捕获域相关；活动 Journal、线程、连接和在途 SQL 受步骤预算约束；冷任务保留 SQL 元数据；无变更 tail 可以 park；日志空间随积压和保留策略增长。它比“每表一个长期 Runner”更接近需求，但资源公式不等于实测曲线。
-
-库级 Schema/history、原始回调与大事务、L/spool 保留、唤醒分派以及任务索引，仍要分别测量。`UNKNOWN` 保留额度会降低可用容量，这是避免资源重叠的代价，不能隐藏为“自动恢复成功”。
-
-本轮 P02 先让十个订阅持续同步，再新增第十一表，十一表最终逐字段相等。配置 snapshot=2、tail=2，活动步骤峰值不超过 4。它说明这个负载不再被旧八个长期 run 会话占满；没有证明高活跃率下的延迟、公平性或吞吐上限。
-
-另一个 H 探针确实写入并精确计数 700,000 条冷索引，完整走过 7,000 页 keyset，保存首中尾和 claim 查询计划，并在固定 60 秒内观察堆、线程、连接、事务及配额。它未创建 ActorSystem、Reader 或同量源表。因而它支持冷控制记录与活动执行分离这一段判断；SDK 在 70 万真实表目录下的 Schema/history 成本仍然未知。
-
-这些是两种独立实测，不能拼成“70 万表 CDC 已跑通”。版本、失败和原始材料见[平台报告](/pekko-cdc-series/cdc-platform/)。DDL、GC、新共享链路自动接管、长期活跃吞吐和同负载 Flink 性能比较仍未覆盖。
-
-## 技术附录与证据入口
-
-[历史源码分析与实验档案](https://github.com/Xuxiaotuan/pekko-reference/blob/0690063b9111017c64684623ecbfce16247716ad/docs/articles/cdc-design/appendices/01-actor-execution-history.md)保留此前全文；[附录索引](https://github.com/Xuxiaotuan/pekko-reference/blob/0690063b9111017c64684623ecbfce16247716ad/docs/articles/cdc-design/appendices/README.md)保留旧版本和失败材料。[A1/A2 报告](/pekko-cdc-series/capture-admission/)记录已提交的启动准入实测，[本轮平台报告](/pekko-cdc-series/cdc-platform/)承担新调度、生命周期与入口的组合验收。本文解释职责与资源因果链，不把两个版本的结果合成一次实验。
-
-<details markdown="1">
-<summary>展开历史基线分析与实验细节</summary>
-
-上一家公司有 70 多万张表，需要长期管理数据同步任务。对这样的系统，启动一次同步并不难，难的是让大量任务持续存在：每张表有自己的配置、进度和异常，能够单独暂停、恢复；多数任务没有控制操作时，又不应各自占着一条执行线程。
-
-这正是我考虑 Pekko 的原因。**Actor 最有价值的地方，是把任务的身份、状态和执行线程分开。** 一张表的任务可以长期存在，但只有处理消息时才借用 Dispatcher 的线程。理解这句话，必须继续追问：线程怎样借出和归还？两个线程为什么不会同时修改同一个 Actor？没有消息时究竟省掉了什么？当 Actor 启动了一个永不结束的 CDC Stream，这些优势还剩多少？
-
-本文沿 Pekko 1.1.3 和 `pekko-reference` 的实际调用链回答这些问题。70 万表是业务背景，尚未做这个规模的容量测试。本轮补做的是本地执行机制实验；文中分别标明**源码结论、模型推导、实验结果和未验证边界**，不把机制成立换算成容量达标。
-
-版本固定为 Pekko **1.1.3**，上游提交 `38facf752b4e7d5fb43ed7c671eb91888b41bd10`；本篇 Actor 与资源机制引用 `d88ec80f2a7166cfdaddf1284cc268a68bc62e28`；新增完整组生产路径固定为 `65ab541`。后者保留本文讨论的 Actor、Bridge 阻塞和共享池配置，不应把恢复改造当成资源扩容。本轮机制实验运行时工作区 HEAD 为 `72088fe`，相关生产源码与该公开基线一致。实验使用 Scala 2.13.12、JDK 17；[完整实验材料](/pekko-cdc-series/actor-execution/)记录环境和输出。
-
-## 1. 70 万个任务，究竟是哪一种“同时存在”
-
-先考虑一张冷表：它一天可能没有数据变化，但我们仍然希望知道它是否启用、最近的进度在哪里、失败后由谁恢复。这个任务没有消失，只是暂时没有需要 CPU 执行的工作。
-
-如果用一个循环代表一张表，循环不断检查状态，任务数量会直接变成等待者数量。若每个循环还绑定线程、连接和日志读取器，资源消耗会随表数增长。把循环放进 Actor 并不会改变这一点。真正需要解耦的是以下几种数量：
-
-| 符号 | 含义 | 与 70 万表的关系 |
-|---|---|---|
-| N | 有逻辑身份、配置和恢复记录的任务总数 | 假设一表一任务时，约为 70 万 |
-| R | 当前进程或集群中驻留内存的任务 Actor 数 | 可以小于 N，也可能接近 N |
-| A | 某一时刻有消息待处理或正在处理的 Actor 数 | 通常小于 R；突发操作时可以接近 R |
-| P | 用于这些消息处理的执行线程预算 | 不需要等于 R 或 N |
-| C | 正在运行的日志捕获实例数 | 由捕获方式决定，不能从表数直接推出 |
-
-这里“活跃”专指 Actor 消息处理，不代表表正在产生数据。一个 Actor 启动了 Stream 后，即使邮箱长期为空，Stream 仍可能不断读取和写入。
-
-Pekko 的第一层优势是允许 `R ≫ P`：大量 Actor 共享少量线程。Sharding 与钝化提供另一层可能性：让 `N ≫ R`，大量逻辑任务不必始终保留实体对象。两层优势的成立条件不同。前者来自消息调度；后者依赖实体生命周期、持久化状态和业务唤醒机制。
-
-这也解释了为什么“单个 Actor 很轻”不足以判断 70 万表是否合适。需要分别算 Actor 状态、待处理消息和持续采集资源，不能只数 ActorRef。
-
-## 2. 一条消息如何借到线程
-
-从项目中的 `context.self ! AdvanceCheckpoint(...)` 这类消息出发，可以沿着 Typed API 一直走到执行器。Pekko 1.1.3 的 [`ActorRefAdapter.tell`][ref-adapter] 将消息交给底层 classic ActorRef；本地 ActorRef 再通过 ActorCell 把消息交给 Dispatcher。
-
-关键动作发生在 [`Dispatcher.dispatch`][dispatcher]：先将 Envelope 放入接收方的 Mailbox，再尝试把这个 Mailbox 注册到执行器。
-
-```text
-ActorRef.tell(message)
-  → ActorCell.sendMessage(envelope)
-  → Dispatcher.dispatch(cell, envelope)
-      → mailbox.enqueue(envelope)
-      → registerForExecution(mailbox)
-          → 如果成功取得 Scheduled 标记
-              executor.execute(mailbox)
-```
-
-注意执行器接收的对象：**它调度的是 Mailbox，不是为每条消息创建一条线程，也不是为每个 Actor 永久绑定一条线程。** 一个已经进入调度状态的邮箱又收到消息，发送方只需要入队；后续消息可以由同一轮邮箱执行处理。
-
-线程真正开始执行时，会调用 [`Mailbox.run`][mailbox]。它先处理系统消息，再处理普通消息。普通消息经 `ActorCell.invoke` 进入 Typed 的 [`ActorAdapter`][actor-adapter]，最终解释当前 Behavior。Behavior 返回后，线程才有机会处理下一条消息或归还执行权。
-
-```text
-                         同一个 Dispatcher 的执行器
-                         ┌────────┬────────┐
-                         │线程 P1 │线程 P2 │
-                         └───┬────┴───┬────┘
-                             ↓        ↓
-本轮可运行邮箱：          表 A 邮箱   表 B 邮箱
-下一轮可能执行：          表 C 邮箱   表 A 邮箱
-
-没有消息的表 D、E、F：对象和状态可以仍在内存中，但不占有上述线程。
-```
-
-**源码结论：**Actor 的长期身份与线程的短期执行权相互独立。同一个 Actor 的不同轮次可以由不同线程处理。因此，线程本地变量不能用来保存它的业务身份；反过来，Actor 的状态也不需要靠一条始终存活的专用线程才能存在。
-
-这个机制还有一个常被忽略的收益：普通业务消息的到达直接触发邮箱调度，不需要为了发现这些消息而定时遍历全部 N 个 Actor。空邮箱不会因为“这个任务仍然存在”就不断执行用户处理函数。系统定时器、集群维护和业务自己创建的轮询，当然仍有各自的成本。
-
-## 3. 共享线程，为什么同一个 Actor 不会被并发执行
-
-如果只是“消息进队列，然后把队列交给线程池”，会立即遇到竞争：两个发送线程同时发现邮箱有消息，都提交一次任务，两个工作线程就可能同时调用同一个 Actor。
-
-Pekko 用 Mailbox 状态中的 `Scheduled` 位阻止这种情况。[`setAsScheduled`][mailbox] 先读取状态，再通过 CAS 更新；只有成功设置这个标记的一方能够提交执行任务。状态已经带有 `Scheduled` 时，新的注册不会再提交同一个邮箱。
-
-把与普通消息相关的过程简化为：
-
-```text
-未调度 + 新消息
-  → 入队
-  → CAS 设置 Scheduled
-  → 提交 Mailbox
-  → 顺序调用消息处理函数
-  → 清除 Scheduled
-  → 再检查邮箱，必要时重新注册
-```
-
-这个简化省略了关闭、挂起和系统消息分支。它解释的是正常存活的本地 Actor，不能拿来证明网络传输可靠或进程崩溃后消息不丢失。
-
-### 3.1 第一个不变量：同一 Actor 的普通消息处理函数不重叠
-
-**源码推导。** 在邮箱开放、执行器正常接受任务的条件下，成功取得调度标记的执行路径才能处理普通消息；标记清除发生在本轮消息处理结束之后。因此，同一个 Actor 的两个普通消息处理函数不会同时运行。
-
-这里的承诺严格限制在消息处理函数内。处理函数若启动一个 Future，并在 Future 中直接修改 Actor 持有的可变集合，那个修改已经越过串行化边界。Actor 不会把任意异步回调也自动变成串行操作。
-
-同样，串行处理不会替代业务版本校验。旧执行的 Future 可能晚于新执行完成；它发回的结果虽然排队处理，仍可能属于过期的 executionId。项目在处理 `EngineFinished` 和 `EngineCrashed` 时检查执行身份，解决的是这个问题，而不是线程互斥问题。
-
-### 3.2 第二个不变量：退出本轮执行时，不因入队竞争漏掉唤醒
-
-设线程 X 正准备结束邮箱执行，线程 Y 同时发送新消息。危险窗口是 X 已经决定结束，但还没释放调度状态。
-
-[`Mailbox.run` 的 `finally`][mailbox] 依次执行 `setAsIdle()` 和 `registerForExecution(...)`，正是为了覆盖这个窗口：
-
-| 新消息到达时间 | 发送方可能看到什么 | 后续由谁触发执行 |
-|---|---|---|
-| X 清除标记之前 | 邮箱仍是 Scheduled，Y 不重复提交 | X 清除后重新检查，发现消息并注册 |
-| X 清除标记之后 | 邮箱可以重新取得调度权 | Y 或 X 的重新检查取得标记；另一方不会重复提交 |
-
-这是一条并发时序推理，不是“实验跑了几万条没丢，所以永远不会丢”。它还依赖邮箱的并发入队和可见性语义，以及 Actor 没有停止、执行器没有持续拒绝任务。Dispatcher 源码明确存在执行器拒绝提交后的失败分支。
-
-它证明的是**本地调度不因这个竞争窗口遗漏执行机会**，不证明业务消息已经持久化，也不证明跨节点 exactly-once。
-
-### 3.3 一轮执行多久，决定了冷任务需要等多久
-
-Pekko 1.1.3 的默认 Dispatcher `throughput` 为 5。Mailbox 每轮最多处理对应数量的普通消息，之后释放调度标记并重新竞争。较大的值可以摊薄调度开销，较小的值让其他邮箱更频繁地参与执行权竞争。[默认配置][actor-config]
-
-但这是**协作式让出执行权**。`throughput = 1` 不会在一个处理函数执行到一半时抢走线程；时间预算的检查同样发生在消息处理返回之后。一个 JDBC 调用阻塞 30 秒，这条线程就可能被占住 30 秒。
-
-所以 Actor 的轻量性有一个具体前提：消息处理应当短小，把耗时工作交给合适的异步通道，完成后再以消息返回。这个前提可以沿源码检查，也能通过实验破坏；它不是风格建议。
-
-## 4. 把机制落到实验：一万个 Actor 共用两条线程
-
-本轮使用真实 Pekko 1.1.3 Typed Actor，配置一个固定两条线程、`throughput = 5` 的 Dispatcher。创建 10,000 个普通 Actor，保留它们的引用，每个发送 4 条带顺序号的消息，共 40,000 条。
-
-探针同时记录实际进入处理函数的线程名、全局处理并发数、单个 Actor 的重叠次数和顺序错误。顺序只检查本实验中单一发送线程向同一个 Actor 依次发送的消息，不推导多发送方之间的全局顺序。
-
-**实验结果：**本次运行实际得到以下数据，[原始输出](/assets/pekko-cdc-series/2026-10-18-actor-execution/result.txt)保留了线程名和断言结果。
-
-| 检查项 | 结果 |
-|---|---:|
-| 保持存活的 Actor | 10,000 |
-| 完成处理的消息 | 40,000 |
-| 实际进入处理函数的线程数 | 2 |
-| 观察到的全局最大处理并发 | 2 |
-| 单 Actor 处理重叠次数 | 0 |
-| 本实验发送条件下的顺序错误 | 0 |
-| 无新消息的 300 ms 内新增处理次数 | 0 |
-
-该组实验检查了“Actor 数量远大于执行线程数”这条运行路径，没有测量吞吐上限。最后一项只统计用户消息处理次数，不是整个 JVM 的 CPU 使用率。
-
-随后增加一个受控反例：两个 Actor 各自进入阻塞处理函数，用门闩占住两条线程；再向同一 Dispatcher 上的第三个 Actor 发消息。门闩释放前后，分别检查第三个处理函数能否进入。实际结果是：两条线程被占住后的 300 ms 观察窗口内，第三个处理函数没有进入；释放门闩后，第三条消息完成处理。
-
-这个反例把两个事实放在一起：大量空闲 Actor 可以共享线程；少量阻塞 Actor 也能耗尽这些线程。决定资源消耗的不是 Actor 的名字，而是处理函数及其启动工作的实际行为。
-
-实验没有启用 Cluster Sharding、Journal 或 MySQL，也没有测量每个 Actor 的堆内存、P99 延迟和故障恢复时间。因此它只支持本地调度机制，不支持“一万个持久化 CDC 任务已验证”，更不能线性外推到 70 万表。
-
-## 5. 从执行模型推导资源收益，而不是给 Actor 编一个内存常数
-
-设第 i 个 Actor 的消息到达率为 λᵢ，平均一次处理占用工作线程的时间为 cᵢ。先假设处理函数不会无限阻塞，负载长期平稳，且忽略调度与其他系统工作。
-
-在这个简化模型中，共享线程池不持续积压，至少要求：
-
-```text
-Σ(λᵢ × cᵢ) < P
-```
-
-同一个 Actor 的普通消息不能并行处理，因此每个热点实体还需要满足：
-
-```text
-λᵢ × cᵢ < 1
-```
-
-这两条只是必要的容量约束，不是延迟保证。突发到达、长尾处理时间、Journal 等待和上下游瓶颈，都可能让平均值看起来充足的系统积压。某个实体过热时，增加其他节点也不会自动把它的单个消息处理函数拆开并行。
-
-**模型推导：**当 N 很大，但消息稀疏时，`Σλᵢ` 可以很小，P 不必跟着 N 增长。纯粹举例，70 万个任务若每个平均每天产生一次控制操作，均摊只有约 8.1 次/秒；若每个任务每 10 秒产生一次检查请求，就变成 7 万次/秒。这里计算的是假设的控制流量，不是业务实测，也不包括 CDC 数据量。
-
-这说明，海量任务平台采用消息驱动具有实在的价值：无需为每个冷任务维持一个轮询执行循环。业务若又给每个 Actor 加上高频定时自检，就会主动制造原本可以避免的工作。
-
-内存则需要另一张账：
-
-```text
-M ≈ R × h + Σqᵢ + M捕获器 + M快照 + M写入 + M共享元数据 + M运行时
-```
-
-h 是某种具体实体的驻留成本，qᵢ 是该实体邮箱、stash 和相关待处理请求的实际字节数。h 包括 Behavior、业务状态和关联对象，不能用一个空 Actor 的测量值代表持久化工作流；qᵢ 也不能只按消息条数估算，一条消息可能携带很大的工作流定义或批次。
-
-Actor 的第一层收益主要在**执行线程不随驻留实体逐个增长**，以及不要求为每个空闲任务保留专属执行循环。驻留状态仍然消耗堆内存，数量大时仍会影响 GC。即便成功钝化了实体，全表目录、Schema 索引、Journal 和数据库元数据也未必随之缩小。
-
-此外，默认 Mailbox 无界，持续积压会把“线程不够”转化成“内存增长”。Pekko 的有界 Mailbox 在无法接收时存在进入 dead letters 的路径；它本身不提供业务批次确认协议。[Mailbox 实现][mailbox-queue] 因而 CPU 复用、内存限额和可靠背压，是三个需要分别成立的条件。
-
-## 6. 逻辑身份可以常驻，Actor 对象可以按需存在
-
-共享线程解决 `R ≫ P`，还没有解决 R 本身太大。接下来需要区分三个对象：逻辑实体 ID、正在运行的 Actor，以及保存它恢复状态的持久化记录。
-
-项目 [`WorkflowSharding`][project-sharding] 使用 workflowId 作为实体 ID，通过 `floorMod(hashCode, numberOfShards)` 得到 shardId，再由 Sharding 把消息路由到承载这个 shard 的 worker 节点。上游 [`Shard.getOrCreateEntity`][shard-create] 在实体不存在时才创建子 Actor，并登记实体引用。
-
-```text
-workflowId
-  → shardId
-  → 承载 shard 的节点
-  → 本地实体 Actor
-  → 此刻处理消息的 Dispatcher 线程
-```
-
-这几个映射的生命周期不同。实体迁移后，逻辑 ID 可以不变，节点和线程都可以改变。项目当前路由的是完整工作流；它没有把一个工作流中的 Source、Transform、Sink 自动拆到不同节点执行。
-
-因此，100 个 shard 不是 100 条线程，也不是 100 个 CDC Reader。如果 70 万个实体均匀分布在 100 个 shard 中，平均每个 shard 约有 7,000 个实体；这只是数量上的算术。实体负载可能不均匀，按数量分散不等于按变更字节率分散，shard 迁移还会同时影响一组实体。
-
-### 6.1 钝化释放的是对象，恢复的是状态
-
-自动钝化可以根据实体活动决定停止某个 Actor。Sharding 的停止协议会在钝化过程中缓冲后续消息，等实体停止后按需重新创建；它不是把正在执行的 Java 调用栈保存到磁盘。[`Shard` 的停止与缓冲路径][shard-passivate]
-
-若实体使用 Event Sourcing，新 Actor 通过快照和 Journal 重建业务状态。由此可以保留逻辑任务，却不一直保留原来的实体对象。不过，普通 Actor 不会因被 Sharding 管理就自动拥有持久化业务状态；重新创建与恢复原状态是两件事。
-
-还有一个业务约束：没有消息到达，就未必有人唤醒已钝化实体。如果每张表唯一的日志读取器随 Actor 一起停止，而外部又没有共享捕获器或其他触发机制，钝化之后的新数据由谁发现？“冷表按需唤醒”必须存在真实的唤醒路径，不能只画一条箭头。
-
-### 6.2 当前项目的空闲钝化实际上没有启用
-
-项目基础配置同时设置了：
-
-```hocon
-passivate-idle-entity-after = 30m
-remember-entities = on
-```
-
-开发配置把空闲时间改为 5 分钟，生产配置改为 1 小时。仅看配置注释，很容易以为它们都在自动清理冷实体。
-
-但 Pekko 1.1.3 的 [`PassivationStrategy.apply`][passivation-settings] 先检查 `rememberEntities`：开启时直接返回 `NoPassivationStrategy`，之后才是空闲策略和容量策略的选择。
-
-**源码结论：当前三套配置都关闭了自动钝化。** 这里关闭的是 Sharding 的自动策略，不是禁止应用显式请求钝化或停止。
-
-本轮也实际解析了这三套配置，调用 1.1.3 的 Sharding settings 构造逻辑读取有效策略；再仅将 `rememberEntities` 改为 false，作为对照。
-
-| 配置文件 | 声明的空闲时间 | remember entities | 实际策略 | 仅关闭 remember 后 |
-|---|---|---|---|---|
-| application.conf | 30 分钟 | true | NoPassivationStrategy | IdlePassivationStrategy |
-| application-dev.conf | 5 分钟 | true | NoPassivationStrategy | IdlePassivationStrategy |
-| application-prod.conf | 1 小时 | true | NoPassivationStrategy | IdlePassivationStrategy |
-
-这是**配置解析实验结果**，未启动集群等待 30 分钟，也不代表某个部署一定采用这些文件。环境变量或部署覆盖配置仍需另行核对。
-
-Remember Entities 的用途是记住需要重新启动的实体集合。它解决“shard 恢复后，哪些实体应自动回来”，业务 Journal 解决“某个实体回来后，状态是什么”。这两份状态不能互相代替。代价是：曾经活跃并被记住的实体可能需要成批恢复，不能把它描述为“所有冷实体只在下一条业务消息到达时恢复”。
-
-上游默认 `entity-recovery-strategy = all`，项目当前没有覆盖；`constant` 策略可以分批启动，但限速作用于每个恢复中的 shard，而不是整个集群。[恢复配置][sharding-config] 实体启动节奏也不等于 Journal 或数据库可承受的恢复吞吐。本文没有压测这个恢复过程。
-
-## 7. 项目中的 Actor 如何管理一个长期 CDC 执行
-
-回到 `EventSourcedWorkflowActor`。它没有在消息处理函数中一直等待 CDC 完成。[`runEngine`][project-actor-run] 启动 Engine，取得 Future，然后通过 `context.pipeToSelf` 把完成或失败结果转换成消息。
-
-其执行关系是：
-
-```text
-处理启动命令 → 启动异步 Engine → 当前消息处理返回
-                                  │
-                                  ├─ Stream 持续运行
-                                  └─ 完成或失败 → 给 Actor 发消息 → 再借线程处理
-```
-
-**源码结论：**整个 CDC 任务运行多久，与这次 Actor 消息占用线程多久，没有一一对应关系。Actor 可以在任务运行期间继续管理自己的状态；数据流的生命周期由 Engine、Future 和 KillSwitch 等对象维持。
-
-持久化也采用状态机方式。Pekko 的 [`Running.PersistingEvents`][persistence-running] 收到普通命令后将其暂存，等待 `JournalResponse` 再推进状态和后续动作。这条等待路径不要求为每个持久化 Actor 保留一个阻塞在 Journal 确认上的专属线程。实际数据库驱动和 Journal 插件仍然需要自己的执行资源，等待期间的命令也会形成 stash 成本。
-
-这一点很适合大量独立任务：每个任务都可以有串行的状态转换和独立的持久化身份，执行资源仍然共享。相比自行维护“任务 Map + 锁 + 回调 + 恢复状态”，Pekko 把串行状态机、异步消息和恢复生命周期放到了同一个编程模型中。
-
-不过，异步工作必须回到身份与生命周期的约束里。项目恢复完成后，依据持久化的 executionId 重新启动可恢复执行；`Stop` 和 `PostStop` 又会取消当前 Engine。[恢复与停止逻辑][project-actor] 这说明恢复的是执行描述和进度，不是恢复旧线程；也说明 Actor 的停止会影响数据采集。
-
-因此，不能把上一节的发现直接处理成“关闭 remember，打开 idle 就好了”。Shard 在经由它转发消息时调用 `entityTouched`；项目的 Engine 完成消息和 Checkpoint 请求通过 `context.self` 返回，不经过这条转发路径。[活动更新时间][shard-deliver] 如果改成按 Sharding 消息判断空闲，就可能出现 Actor 缺少外部控制消息、Stream 却仍然忙碌的情况。钝化随后触发 `PostStop`，会取消执行。
-
-这是结合两段源码得到的**条件性推演**：当前自动钝化关闭，所以本文没有声称已经观察到“生产中 CDC 被空闲回收”。它解释的是为什么生命周期不能只靠一个超时配置决定。
-
-## 8. 走出 Actor 之后，资源为什么又按任务数增长
-
-Actor 层已经共享线程，是否意味着当前项目可以低成本常驻大量 CDC 任务？必须继续向下看。
-
-[`MySQLCdcSourceNode.createBatches`][project-source] 使用 `Source.unfoldResourceAsync` 创建资源、读取批次和关闭资源。其中读取逻辑是：
+当前入口由 `CdcBootstrapKernel.start()` 组装 capture：先打开控制状态库，创建 `MySQLCaptureStore`，再创建一个 `SharedMySQLCapture`。Reader 使用 source 账号连接源库，使用 state 账号连接独立的状态库；启动时明确检查两者不是同一个 MySQL 实例：
 
 ```scala
-read = resource => Future(resource.nextBatch())(blockingEc)
+owner = stateConnection()
+val stateUuid = query(owner, "SELECT @@server_uuid").head
+require(stateUuid != sourceUuid,
+  "capture state must use a different MySQL instance: transaction metadata feedback")
 ```
 
-API 名称中的 Async 容易让人忽略括号内的工作。Future 只表示调用方异步等待结果，并不保证 `nextBatch()` 不阻塞执行它的线程。
+这里的“共享”是 capture domain 内共享，而不是整个数据库无条件共享一个 Reader。若未来有多个源实例，则每个源实例至少需要一个 capture domain；同一个源实例内部的表可以共享该 domain 的 binlog 会话。
 
-### 8.1 每个运行中的 Engine 都有独立 runner
+`SharedMySQLCapture.start()` 创建 Debezium Engine，配置 `snapshot.mode=no_data`、事务元数据、Schema history 和有限的队列大小。Engine 的回调由 `accept` 串行接收：
 
-[`RealDebeziumEngineAccess`][project-engine-access] 为每个实例创建 `Executors.newSingleThreadExecutor`，然后把 `created.run()` 提交进去。只要这个 Engine 仍在运行，这个 runner 就是一项长期资源。这里描述的是至少一条外层 runner 线程，不是 Debezium 内部所有线程的上限。
-
-当前 Source 按配置的一张表设置 `table.include.list`，创建自己的 `CdcResource`；offset 与 Schema history 也按 connectorId 隔离。[连接器属性][project-source-properties] 因而，如果用当前路径为每张表启动一个工作流，运行中的 Engine 数量会随这些任务增长。Actor 的线程复用不会消除 Engine 自己创建的线程，也不会自动合并数据库连接和 Schema 缓存。
-
-### 8.2 等待一批数据，也可能长期占着共享线程
-
-`CdcResource.nextBatch()` 调用 [`DebeziumBatchBridge.take`][project-bridge]。Bridge 使用容量为 1 的 `ArrayBlockingQueue`；无批次时，`queue.take()` 会阻塞当前线程。
-
-当前调用链可以分成三种执行资源：
-
-```text
-Actor Dispatcher
-  处理启动、状态转换、Checkpoint 与执行结果消息
-
-workflow.jdbc-dispatcher
-  Future(nextBatch) → bridge.take → 阻塞等待批次
-  Sink commitBatch、Source acknowledge、部分创建与关闭操作也提交到这里
-
-每个 Debezium Engine 的独立 runner
-  运行 Engine；批次回调经过 Bridge 交给 Stream
-  Bridge.publish 等待批次完成确认
+```scala
+require(inside.compareAndSet(false, true),
+  "concurrent shared callbacks unsupported")
 ```
 
-项目 [`WorkflowExecutionEngine`][project-batch] 将 Source 和 Sink 的这些操作交给同一个 `jdbcBlockingEc`。基础配置的固定线程池大小为 8，开发为 4，生产为 16。
+它先把原始回调放入有限 `pending` 队列，再逐条处理事件。每一条数据事件必须进入 `MySQLCdcGroupAssembler` 并写入 `L`；只有回调前缀的所有记录都获得持久覆盖，才调用 Debezium 的 `markProcessedAndFinished()`。
 
-**源码推导：**如果 8 个暂时没有数据的读取占住基础配置的 8 条线程，同一池中后来提交的 Sink 操作、ACK 或其他工作就只能排队。增加 Actor 数量不会让这 8 条线程变空闲；把队列容量改小也不会改变 `take()` 的阻塞性质。
+**源码结论**：Reader 是一个带 owner lease、原始 ACK 前缀和持久 L 的共享组件；回调并发被拒绝，pending 数量和字节数都有上限。一个表的 ACK 不能越过前面仍未覆盖的回调。
 
-本轮用项目当前 `DebeziumBatchBridge.scala` 重新编译，创建 8 个空 Bridge，把 8 次 `take()` 提交到真实 Pekko JDBC Dispatcher。实验先检查线程栈，确认所有 8 条线程都位于 `ArrayBlockingQueue.take`，再提交一个代表“同池后续工作”的 sentinel。最后从测试主线程关闭 Bridge，观察工作线程能否释放。
+这解释了为什么“共享 Reader”不是“只用一个线程”。Reader 的 binlog 会话是共享的，表级初始化和 Sink 写入仍然由独立的 bounded step worker 执行。共享的是捕获顺序和源连接，不是把所有表的业务工作串成一个无限长函数。
 
-**实验结果：**8 条读取线程的阻塞栈全部确认；同池 sentinel 在随后 300 ms 内未执行，另一个 Dispatcher 上的控制 Actor 可以响应；测试主线程关闭 8 个 Bridge 后，读取等待退出，sentinel 随后执行。
+## 二、表级 Actor 到底负责什么
 
-该组件实验验证的是共享执行器的饥饿条件。sentinel 不是实际 Sink 提交；没有启动 MySQL、Debezium 或完整工作流，不能将结果写成“8 个真实 CDC 作业必然死锁”。完整作业是否进入这个窗口，还取决于启动顺序、下游 demand、源端回调和关闭路径。
+### 1. Actor 是身份和串行化边界，不等于一张表一个线程
 
-尤其值得注意的是：Source 的 close 也通过同一阻塞池提交。测试从外部直接关闭 Bridge，证明的是存在可解除的等待；它没有证明真实 Stream 取消时一定能沿原路径及时解除。这个取消窗口仍需要完整作业实验。
+当前任务创建路径在 `CdcBootstrapKernel.create()`：它为任务创建 `BootstrapJournal`、`BootstrapTarget`、`BootstrapSnapshot` 和 `BootstrapReplaySink`，再组合成 `BootstrapRunner`。Journal 是 Pekko Actor，但注释明确说明 Sink 执行仍在调用者提供的 bounded step worker 上：
 
-### 8.3 有界批次不等于所有资源都有界
+```scala
+// Sink execution stays on the caller's bounded step worker,
+// never the Actor dispatcher.
+val direct: ExecutionContext = ExecutionContext.parasitic
+```
 
-Bridge 的 `publish` 会等待批次确认，Engine 中的 `mapAsync(1)` 又限制每条 Stream 同时推进的批次处理。这些机制提供了局部流控，避免毫无节制地向下游提交批次。[批次处理顺序][project-batch]
+所以这里的“表级 Actor”应准确理解为：每个活动任务有自己的持久化身份、Journal 顺序和 mailbox 串行语义；数据库扫描、批量写入和释放检查不能无限制地占用 Actor dispatcher。
 
-但它们约束的单位不同：Bridge 限制自身队列，`mapAsync(1)` 限制单条流的处理并发，固定线程池限制同一时刻可运行的阻塞操作。W 条 Stream 仍可能各自拥有一份批次、Schema 和 Engine；一个批次的字节数也不固定。局部有界不能直接相加成一个固定的全局内存上限。
+任务的实际并行度由两层共同限制。`CdcPlatformRuntime` 创建大小为 `snapshotSteps + tailSteps` 的 worker 池；`CdcBootstrapKernel.admissibleTasks(pool)` 又根据当前 session 和 reservation 数量拒绝超过预算的任务。`CdcTaskStore.claim` 在 SQL 事务中持久化 grant，因此进程重启时不会把一个未释放的 grant 当成可用资源。
 
-更重要的是，资源共享与可靠确认相互影响。当前顺序是 Sink 提交、Actor Checkpoint 持久化、Source ACK。等待确认会拉长资源持有时间，却承担着恢复协议的职责。若为了释放资源而提前 ACK，问题就从调度变成了故障后能否重放。下一篇讨论的 T/J/D，正是这个边界。
+**源码结论**：当前实现没有为每一条冷目录记录预先创建 Actor、JDBC 连接或 worker；活动任务才有 Journal 和执行 session，执行 session 仍受 snapshot/tail 两个预算约束。
 
-### 8.4 完整组恢复增加了什么资源成本
+**设计含义**：如果把 Actor 当作线程，会错误地调大 dispatcher；如果把 Actor 当作表的永久进程，又会错误地估计 70 万表的常驻成本。正确的划分是“表级状态身份 + 活动期 Journal + 有界执行槽位”。
 
-**源码结论：**新增 [MySQLCdcGroupAssembler][group-assembler] 保留原始回调与至多一个尾部半组；完整组经 T/J 覆盖后，才在有序回调路径确认原始前缀。源码限制待确认回调不超过 2 个、记录数不超过配置上限，保留内容采用 16 MiB 编码体积预算，并清除已无回调引用的覆盖集合。这不是 SDK 队列、解码峰值或整个 JVM 的堆上限；每个运行中的 Source 仍有自己的装配状态。
+### 2. Journal 保存的是恢复边界，不是业务吞吐缓存
 
-目标还新增组账本写入与完整成员证据存储，混合旧/新组恢复时也要查账本。这些成本换来不依赖回调划分的恢复依据，但本次没有测量其吞吐、内存斜率或海量表累积成本。
+任务执行过程中，`BootstrapJournal` 记录 phase、revision、execution id 和 recovery receipt；`CdcTaskStore.finish` 只在 step 返回 `releaseConfirmed` 时把 grant 改成 `RELEASED`，否则调用 `finishUnknown`，把 grant 和任务置于保守状态：
 
-**真实实验结果：**三组真实 Source/Actor Journal/Sink 恢复均完成 64 行、6 字段全量对账，已提交组没有重复审计副作用。它没有启动 70 万表，没有修复共享 JDBC 池的空读取占用，也没有改变 remember/钝化策略。单个 Source 取消等待的单测，不等于大量真实作业同时饥饿时关闭路径已经验证。[实验范围](/pekko-cdc-series/group-recovery/)
+```scala
+update(c,
+  "UPDATE pekko_cdc_grants_v1 SET status='UNKNOWN' WHERE grant_id=?", grant.id)
+update(c,
+  "UPDATE pekko_cdc_tasks_v1 SET phase='PAUSED', runtime_health='UNKNOWN', " +
+  "release_status='UNKNOWN', schedulable=FALSE ...")
+```
 
+这条路径很重要：一个未知的 JDBC 提交结果不能被“重试成功”覆盖；它必须等待源连接、事务、Journal 和目标账本的证据重新绑定。Actor 的优势是把这条顺序写进状态机，但 Actor 本身不能替代 MySQL 事务或目标端幂等。
 
-## 9. 70 万表场景下，Actor 优势成立的条件
+## 三、从批到流：一张新表如何进入共享 Reader
 
-到这里，可以给出比“Actor 天然适合海量任务”更精确的判断。
+表级初始化不是启动时一次性完成，而是一个跨源库和状态库的协议。当前代码至少要维护以下边界：
 
-**第一，任务数量远大于同时需要执行的控制工作时，Actor 具有明确的执行资源优势。** 串行状态机提供每个任务独立的状态边界，共享 Dispatcher 让执行线程主要由并发工作量决定，而不要求每个逻辑任务独占线程。这个机制已经由源码和本地实验支持。
+1. **B（订阅意图）**：`CdcTaskStore` 登记表名、generation、Schema id 和捕获 checkpoint；Reader 在源库控制表写入 `SUBSCRIBE` marker。
+2. **LOW**：记录初始化读视图打开时的 binlog 位置。
+3. **窗口回填**：在 Reader 继续捕获的同时，`BootstrapSnapshot` 按主键范围分批读取，批次状态写入 Journal 和目标账本。
+4. **HIGH**：固定快照窗口的上界；快照读到 HIGH 后，任务回放 `L` 中 LOW 之后的变更。
+5. **F**：回放追到足够的前缀并完成校验后，任务从初始化态进入 `STREAMING`。
 
-**第二，Actor 的等待方式决定优势能否保留。** 等消息、等待 Future 以消息返回、等待 Journal 响应，都可以让 Actor 释放执行线程。把无限等待写进消息处理函数，或在外围为每个任务创建阻塞读取器，则会重新引入与任务数相关的资源。
+共享 Reader 不需要为新表重新建立 binlog 会话。新订阅只增加一条控制意图和一个活动任务；Reader 在收到控制事务结束事件后把 B 绑定到实际 capture point。`processTransactionMetadata` 对控制 marker 强制检查 `event_count == 1`，并把绑定后的 point、原始 offset 和 L 序列写入状态。
 
-**第三，降低驻留内存还需要一层生命周期机制。** Sharding 能根据 ID 找到或创建实体，持久化能重建状态，钝化能释放对象。但当前 remember 配置关闭自动钝化，业务 Actor 停止又会取消 Engine。因此，当前代码不能宣称已经实现“70 万个逻辑任务，只有少量实体驻留”。
+这也解释了“捕获就绪”和“初始化完成”不能合并成一个布尔值：
 
-**第四，昂贵资源必须按实际工作域计费。** 如果一组表可以共享源日志读取，捕获资源有机会按捕获域 C 增长；如果仍为每表创建独立 Engine，它就按运行表任务数增长。Pekko 提供管理这些实体的工具，不会自动替应用改变连接器拓扑。共享读取还必须保留慢表隔离和可重放进度，这属于后续协议工作。
+- Reader 的 `ADMISSION_READY` 只说明 source、checkpoint、Schema、控制表和 L 的准入条件满足；
+- 任务的 `STREAMING` 才说明该表自己的 LOW/HIGH、窗口回填、回放和目标验证已经完成。
 
-可以把适用条件与反例放在一起看：
+在 `CdcBootstrapKernel.refreshCaptures()` 中，capture health 由 `startupEvidence` 和 `streamingConnected` 计算；在 `CdcPlatformRuntime.observed` 中，任务还会根据 owner 是否 ACTIVE、最近 dispatch 时间和 capture health 显示 `HEALTHY`、`CATCHING_UP` 或 `UNKNOWN`。这两个状态不能相互替代。
 
-| 优势依赖的条件 | 破坏条件的反例 | 发生变化的资源 |
+### 初始化中取消
+
+取消也分两种：
+
+- 初始化尚未绑定 B 时，`cancelPending` 只取消待处理意图，不应伪造 K 或推进 D；
+- 已经进入 `CAPTURE_READY` 后，取消需要再写 `STOP` marker，等 Reader 绑定 K 并关闭对应 assembler，任务才进入 `CANCELED`。
+
+Reader 代码对这条边界做了显式检查：`unsubscribe` 只接受 `CAPTURE_READY` 或 `CAPTURE_STOPPED`；`processTransactionMetadata` 只有在 marker 事务真正结束且控制意图仍匹配时，才调用 `store.barrierSequence`。这是一条源码不变量，不等于所有取消时序都已经完成真实端到端验证。
+
+## 四、资源预算应该怎样算
+
+对于单个 MySQL capture，可以先用下面的模型审查配置：
+
+| 资源 | 由什么决定 | 当前实现的边界 |
 |---|---|---|
-| 冷任务不反复制造无效工作 | 每表高频轮询、自检、心跳 | 消息率、CPU、Journal 写入 |
-| 处理函数快速归还执行权 | 在 handler 中同步等待 JDBC | Dispatcher 线程、其他任务延迟 |
-| 异步操作不长期耗尽同一池 | 空 Reader 的 `take()` 占满共享池 | Sink、ACK 和关闭操作排队 |
-| 实体可以安全停止并被唤醒 | 停止实体同时停止唯一捕获器 | 新变更发现与恢复时效 |
-| 状态与待处理数据受控 | 无界邮箱、巨型批次、每实体大缓存 | 堆内存、GC 和恢复时间 |
-| 捕获资源能够复用 | 一表一个持续 Engine | 线程、连接、Schema/offset 状态 |
+| 源 binlog 会话 | capture domain 数 | 一个 `SharedMySQLCapture` 一个 owner lease |
+| 状态库连接 | reader、任务、GC、Journal verifier | 每类连接按调用创建并关闭；不是一个全局连接 |
+| 快照连接 | `A_snapshot(t)` | 每个活动 `BootstrapSnapshot` 由 step worker 驱动 |
+| 尾部连接/任务 | `A_tail(t)` | `tailSteps` 和 SQL grant 双重限制 |
+| Reader pending | 回调条数和字节数 | `pending.size < 8`，保留回调总字节不超过 16 MiB |
+| L 保留量 | ACK 前缀、Schema、控制帧、证明引用 | `maxLogBytes`、GC proof 和受保护恢复点共同限制 |
+| Journal Actor | 活动任务数 | 任务 session 创建时生成，停止时等待 Actor 关闭 |
 
-这些反例没有否定 Actor 的价值。它们划出了价值来自哪一层：**海量身份和生命周期可以用轻量、串行、可恢复的实体表达；持续数据处理的资源仍需独立建模。** 对有大量长期任务、且需要精细到单任务控制的业务，这是很有吸引力的基础。
+工程上应先给出 `W_snapshot`、`W_tail` 和每个 capture 的连接上限，再反推允许的活动表数，而不是从目录行数反推线程数。若 source、state、Journal、Sink 都共用同一个 MySQL，连接数虽然看起来少，事务反馈会混入源库，故当前启动代码反而拒绝这种布局。
 
-也不能据此推导 Pekko 一定比 Flink CDC 更省。Flink CDC 并不要求一张表对应一个独立 Flink 作业。合理比较应固定相同的表集合、变更负载、延迟、恢复目标和资源复用方式，再比较控制粒度、资源曲线和协议维护成本。第五篇会承担这个比较；本文尚无同负载性能对照。
+**未验证边界**：当前仓库没有完成单实例 70 万表的长时间压力测试，也没有在真实活跃表数量逐步增加时记录 MySQL `Threads_connected`、binlog dump 延迟、JVM RSS、L 增长和 GC 延迟曲线。因此“Actor 天然节省资源”只能作为执行模型解释，不能写成容量结论。
 
-## 10. 本文已经证明什么，还没有证明什么
+## 五、真实证据能支持到哪一步
 
-本文的中心结论是：**Pekko 可以把大量任务的长期身份，与少量线程的短期执行解耦；当前项目的 Actor 控制层已经采用这种方式，而 CDC 读取层仍有按运行任务增长的独立线程和阻塞等待。** 这比“换成 Actor 就能承载 70 万表”更有用，因为它能明确指出资源收益的来源，以及实现中需要继续检查的边界。
+### 1. 本地完整回归
 
-| 问题 | 证据层级 | 本文支持的结论 | 没有覆盖的结论 |
-|---|---|---|---|
-| 大量实体能否共享少量执行线程 | 固定版本源码 + 本地 Typed Actor 实验 | 普通消息通过邮箱调度，实体不要求独占线程 | 70 万个持久化实体的内存与延迟 |
-| 同一实体如何串行、如何避免退出时遗漏唤醒 | Mailbox/Dispatcher 源码推导 + 有限运行检查 | 正常本地调度路径的互斥与重新注册机制 | 网络可靠传输、崩溃后消息恢复 |
-| remember 与自动钝化是否同时生效 | 源码 + 三套配置解析实验 | 当前配置选择 NoPassivationStrategy | 线上实际配置、集群钝化和迁移运行结果 |
-| 空读取是否可能耗尽共享线程池 | 项目源码 + 真 Bridge / 真 Dispatcher 组件实验 | 受控窗口下，同池后续工作无法进入执行 | 完整 MySQL 作业是否进入同一窗口、取消是否及时 |
-| 每表 Engine 是否仍有独立执行资源 | 项目源码 | 每个启动的实例有外层单线程 runner | Debezium 总线程数、连接数与容量曲线 |
-| Journal 与目标提交能否恢复一致 | 旧协议反例 + [完整组生产恢复](/pekko-cdc-series/group-recovery/) | 新协议拆批、合批、主键跨回调的 T 已提交/J 未持久化样本通过 | Sharding、70 万表、所有故障窗口的端到端保证 |
+同一 JDK 17 下本地完整回归报告为 722 个测试成功、0 个失败，另有 415 个专用外部环境测试被取消。这是代码回归证据；被取消项没有被算成通过。
 
-上面的 Actor/Dispatcher 机制实验没有部署集群，也没有重跑 MySQL。后续 `65ab541` 已接入完整组生产恢复，并完成新的真实 MySQL 实验；它支持的是指定故障窗口，不改变本文的规模判断。
+### 2. 真实集群上的共享运行时与 proof GC
 
-下一篇：[一次提交，三份进度——沿源码推导 Pekko CDC 的恢复契约](/2026/10/18/pekko-cdc-2-recovery-contract/)。它要继续回答：当控制状态、目标提交和源确认分别持久化时，哪些顺序可以保留，哪些崩溃窗口必须靠重放协议解决。
+KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启后 owner 为 `ACTIVE`，任务处于 `STREAMING/ADMISSION_READY/HEALTHY/RELEASED`；Source 与 Sink 的 `source_rows`、`target_source_rows` 各两行、六个投影字段逐字段一致。ACK proof 分页的实际 head 为 7742，ACK 节点为 7731，page `done=1`；一次已完成删除操作从 42 推进到 44，删除 1 个 GROUP，回收 235 字节。
 
-2026-10-19 又补充了[身份与 ACK 边界](/pekko-cdc-series/source-record-identity/)及[真实 Engine/Bridge 跨回调探针](/pekko-cdc-series/deferred-ack/)。后者在测试装配器内避免了半组进入等待，但没有改变生产 Bridge 的等待行为或共享池配置，也没有测量 Actor 容量。这些源侧结果不扩大本篇的资源结论。
+这些数据证明的是：在该版本、该数据量和该故障窗口下，共享捕获、任务恢复、分页 proof 和受保护 GC 可以闭环。它不证明 70 万张真实表的容量，也不证明任意 source fencing、guardian JVM 重启或未知 B 都能自动恢复。
 
+相关材料：
 
-## 附录：沿着本文结论读源码
+- [运行时与 GC 集群证据](https://github.com/Xuxiaotuan/pekko-reference/tree/1f8cbef/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
+- [proof GC 证据](https://github.com/Xuxiaotuan/pekko-reference/tree/1f8cbef/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)
+- [700,000 条冷元数据实验](https://github.com/Xuxiaotuan/pekko-reference/tree/1f8cbef/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce/)
 
-建议按执行问题阅读，避免先被包目录淹没：
+## 六、几个容易被设计图掩盖的反例
 
-| 要回答的问题 | 固定版本入口 | 阅读重点 |
-|---|---|---|
-| Typed 消息如何进入调度器 | [ActorRefAdapter][ref-adapter] → [Dispatcher][dispatcher] | 入队与注册调度分开，执行对象是 Mailbox |
-| 同一 Actor 为什么不并发执行 | [Mailbox][mailbox] | Scheduled CAS、run finally、throughput 检查位置 |
-| 普通消息怎样进入 Behavior | [ActorAdapter][actor-adapter] | interpretMessage 与 Behavior 转换 |
-| 实体何时创建、停止和重新创建 | [Shard][shard-create]、[钝化路径][shard-passivate] | 实体状态、缓冲、Terminated 后的处理 |
-| 配置实际选择哪种钝化策略 | [ClusterShardingSettings][passivation-settings] | rememberEntities 的优先分支 |
-| Journal 等待是否占着 Actor 线程 | [Running.PersistingEvents][persistence-running] | stash、JournalResponse、side effects、unstash |
-| 异步 Source 什么时候发起读取 | [UnfoldResourceSourceAsync][unfold] | onPull 调 readData，Future 完成经异步回调返回 |
-| 本项目到底在哪些地方阻塞 | [Source][project-source] → [Bridge][project-bridge] → [EngineAccess][project-engine-access] | Future 的 ExecutionContext、queue.take、completion.get、独立 executor |
+### 反例一：把持久化游标当成跨重启读视图
 
-上游源码清单及 SHA-256 见[版本清单](/assets/pekko-cdc-series/2026-10-18-actor-execution/source-manifest.json)；探针、运行方式、输出与环境见[实验材料](/pekko-cdc-series/actor-execution/)。这份清单用于复核版本，不表示每个源码文件的所有行为都经过运行验证。
+在 `REPEATABLE READ` 快照内读到游标 `b` 后，另一连接提交了排序更靠前的 `a`；新连接从 `b` 继续读取时可能只看到 `d`，从而漏掉 `a`。因此，LOW/HIGH 和快照证明不能只依赖一个分页游标；跨重启必须重新验证读视图、范围和持久化边界。这个反例已有真实 MySQL 材料，不能用“分页已持久化”覆盖。
 
-[ref-adapter]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefAdapter.scala#L35
-[actor-adapter]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala#L134
-[dispatcher]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/actor/src/main/scala/org/apache/pekko/dispatch/Dispatcher.scala#L69
-[mailbox]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala#L188
-[mailbox-queue]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala#L559
-[actor-config]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/actor/src/main/resources/reference.conf#L561
-[shard-create]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/cluster-sharding/src/main/scala/org/apache/pekko/cluster/sharding/Shard.scala#L1124
-[shard-passivate]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/cluster-sharding/src/main/scala/org/apache/pekko/cluster/sharding/Shard.scala#L914
-[shard-deliver]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/cluster-sharding/src/main/scala/org/apache/pekko/cluster/sharding/Shard.scala#L1072
-[passivation-settings]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/cluster-sharding/src/main/scala/org/apache/pekko/cluster/sharding/ClusterShardingSettings.scala#L804
-[sharding-config]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/cluster-sharding/src/main/resources/reference.conf#L339
-[persistence-running]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/persistence-typed/src/main/scala/org/apache/pekko/persistence/typed/internal/Running.scala#L656
-[unfold]: https://github.com/apache/pekko/blob/38facf752b4e7d5fb43ed7c671eb91888b41bd10/stream/src/main/scala/org/apache/pekko/stream/impl/UnfoldResourceSourceAsync.scala#L100
-[project-sharding]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/sharding/WorkflowSharding.scala#L38
-[project-actor]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala#L164
-[project-actor-run]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/actors/EventSourcedWorkflowActor.scala#L378
-[project-source]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcSourceNode.scala#L150
-[project-source-properties]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcSourceNode.scala#L355
-[project-bridge]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/DebeziumBatchBridge.scala#L36
-[project-engine-access]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/DebeziumEngineAccess.scala#L185
-[project-batch]: https://github.com/Xuxiaotuan/pekko-reference/blob/d88ec80f2a7166cfdaddf1284cc268a68bc62e28/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/engine/WorkflowExecutionEngine.scala#L289
+### 反例二：控制 marker 与目录写入混在同一事务
 
-[group-assembler]: https://github.com/Xuxiaotuan/pekko-reference/blob/65ab5410c32933d0aa3d23510e6c62252d84009b/pekko-server/src/main/scala/cn/xuyinyin/magic/workflow/nodes/sources/MySQLCdcGroupAssembler.scala#L34
+控制表 marker 如果和目录表写入在同一 MySQL 事务中，Debezium 可能看到多条行事件。当前 Reader 对控制事务要求 `event_count == 1`；实际环境中是否一定拒绝，需要以 Debezium Reader 实测为准。设计文档不能把“marker 是一条 INSERT”直接当成“binlog 事务只含一条事件”。
 
-## 共享捕获阶段一：表的身份不再等于 Reader 的数量
+### 反例三：释放本地 JDBC 句柄不等于源事务已经结束
 
-70 万张候选表位于一个 MySQL 实例，而今天只选择五张、明天再增加两张。此时需要长期保留的是订阅身份与恢复事实，不是同时为全部候选表启动 Stream、建立连接或加载 Actor。上一版单表 Engine 的成本分析仍适用于旧 `mysql.cdc` 路径；新增路径开始将捕获与应用分开。
+`SharedMySQLCapture` 在受管模式下保留 source owner lease，关闭后还要通过独立 observer 证明连接和事务已经排空。一次真实实验曾出现连接列表已空、5 秒窗口内仍有未归属事务，随后事务才消失。后续重跑通过，不能抹掉首次失败；这说明“close() 返回”与“可以安全接管”是两个不同的事实。
 
-**源码结论：**`SharedMySQLCapture` 管理一个真实 Debezium Engine，捕获数据库内的 Schema 和变更。`MySQLCaptureStore` 在持久化日志 L 中保留选中订阅区间内的完整组；`CapturedLogSource` 按订阅独立分页读取 L。表级工作流 Actor 沿用既有目标组账本和 Checkpoint，不再拥有原始 SDK 回调。
+## 七、这套执行模型为什么适合常驻 CDC
 
-```mermaid
-flowchart LR
-  M[一个业务 MySQL 实例] --> R[一个共享 Reader]
-  C[源端控制表 B/K] --> R
-  R --> L[(独立状态实例：L / Schema / Offset)]
-  L --> A[表 A 的有界消费会话]
-  L --> B[表 B 的有界消费会话]
-  A --> TA[目标事务 T → Actor Journal J]
-  B --> TB[目标事务 T → Actor Journal J]
-```
+对 70 万表场景，Pekko 的价值不是“Actor 数量越多越好”，而是能把三种时间尺度拆开：
 
-这里有两种不同的资源共享。Actor 的 Dispatcher 复用消息执行线程；共享 Reader 复用源连接、binlog 解码和捕获会话。前者不能推导后者，只有实际拆开 Source 所有权才能减少每表 Engine。L 也不是免费资源：它承担持久写放大、慢表积压、校验和恢复扫描。
+- Reader 以源库 binlog 顺序为时钟，持续写入 L；
+- 表级 Journal 以 LOW/HIGH/F 和执行 revision 为恢复时钟；
+- Runtime 以有限 grant 和 worker 池为资源时钟。
 
-当前 Store 最多准入四个并发操作连接；Reader 保留的原始回调最多八个、按 value 序列化内容计最多 16 MiB，SDK 队列另有 16 MiB 配置。消费者单次最多读 1,000 组。这些是实现中的预算，**不是整个 JVM 的内存上界**：Schema History、数据库表发现、Java 对象开销、消费者数量和目标连接池仍在预算之外。现阶段每个活跃消费者使用周期读取，不适合将 70 万个消费者全部激活。
+新增两张表时，不需要停掉已有 Reader；只需在 capture domain 中完成 Schema 准备、B marker、快照窗口、L 回填和 F 激活。取消一张表时，STOP marker 只影响该订阅的 assembler、Journal 和目标任务，其他表继续使用同一 Reader。
 
-**实验结果：**本轮真实多表样本验证了同一个 Reader 先服务五张表、再加入两张表，以及一张表应用被暂停时另一张表继续提交。七张表每张四行、每行六字段，目标已有可信基线。它证明小样本中的捕获复用与进度分离，不证明 70 万表容量，也不证明“空闲表零成本”。
+但这套模型的前提也很明确：L 的容量、ACK 前缀、Journal receipt、目标幂等和 source owner 证明必须同时成立。任何一个环节结果未知，当前实现宁愿把任务或 owner 置为 `UNKNOWN/PAUSED`，也不会把一个“看起来完成”的 future 当成恢复许可。
 
-还有一个影响部署的实测条件。Offset 和 L 与源共用物理实例时，即使写入不同 Schema，事务元数据仍可能交付零行 BEGIN/END；处理这些回调又引发 Offset 写，形成反馈循环。失败材料保留在[报告](/pekko-cdc-series/shared-capture/)。当前 profile 要求源与状态服务器 UUID 不同；它服务一个业务源实例，但额外需要状态基础设施。
+## 附录：源码地图
 
-**未验证边界：**70 万表的 Schema 发现/缓存成本、长期日志增长、活跃消费者准入、自动 GC、共享 Reader 接管和 LOW/HIGH 初始化。下一阶段的资源验收应分别测候选表数、订阅数、活跃消费者数和变更速率，不能再用一个“任务数”掩盖四种不同成本。
+| 责任 | 当前源码 |
+|---|---|
+| capture 组装、Reader 生命周期、任务 session | [`CdcBootstrapKernel.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/1f8cbef/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala) |
+| 共享 Debezium Reader、原始回调、ACK 前缀、marker | [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/1f8cbef/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
+| 任务 grant、双池调度、owner 状态、恢复 | [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/1f8cbef/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
+| 持久化任务索引、grant 与 continuation | [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/1f8cbef/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala) |
+| Journal 顺序与恢复 receipt | [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/1f8cbef/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
+| ACK proof 分页与安全 GC | [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/1f8cbef/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
+| GC 保留策略与实际 D | [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/1f8cbef/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
 
-</details>
-
-
-## 2026-11-09 持久化切换授权与运行时账号
-
-本轮把 guardian 隔离、旧账号事务排空、旧准入拒绝、配额迁移和恢复 permit 接到运行时凭据重绑定。真实 MySQL、Actor Journal 和 MySQL Sink 的 `KILL_T_BEFORE_J` 复测中，源表 10 行、目标表 10 行、6 个投影字段逐字段一致，恢复后的第一批 T 以 replay 方式再次确认。
-
-`KILL_J_AFTER_STORE`、`FENCE_COMMIT_REPLY_LOST`、`STARTUP_COMMIT_REPLY_LOST`、`B_RECOVERY_CRASH`、`DRAIN_COMMIT_REPLY_LOST`、`QUOTA_COMMIT_REPLY_LOST`、`REVOKE_COMMIT_REPLY_LOST`、`OBSERVER_DENIED` 和 `STALE_GRANT` 也完成了本轮固定窗口验证。完整证据见[持久化切换授权实验](/pekko-cdc-series/persistent-cutover/)。
-
-代码结论、真实结果和未验证边界保持分开：密码不入库，原始 Workflow/Split 指纹不变；DDL、多 owner、共享 CDC、跨实例迁移和全部历史场景仍不在本轮保证范围。
-
-## 2026-11-12：独立 Runtime 的 GC 与旧 namespace 启用
-
-本轮把 L 安全 GC 接入独立 CDC Runtime：审计请求、namespace 清点、pins、operation 和小批次游标都持久化，GC 维护使用一个有界 worker。旧 namespace 启用前重新清点 Journal、消费者、账号、连接和事务；未知 B、孤儿 Journal、危险权限和资源释放未知继续安全暂停。
-
-真实 Runtime RG01—RG07 共 7 项通过；L GC LG01—LG16 加容量补测共 17 项通过，此前 5 个完整回归失败套件已修正；同一 JDK 17 的完整回归为 722 成功、0 失败、415 个专用外部环境取消；固定 RG01 负载又连续完成 10 轮、约 12 分钟的生命周期 soak，逐字段对账和最终资源采样均通过。LG15 的首次失败和按正确 Reader 重启边界的重跑均保留。
-
-源码、逐字段对账、T/J/L/D、资源释放和未验证边界见 [Runtime GC 报告](https://github.com/Xuxiaotuan/pekko-reference/blob/1ab1acf/docs/experiments/2026-11-12-runtime-gc/README.md)。远端 amd64 acceptance 已验证镜像、Deployment Ready、API port-forward 和 Source binlog 启动；State 复查连接失败后按协议安全暂停，完整集群 Sink 对账仍未收敛。 本结果没有扩大为 70 万真实活跃表、DDL、多 owner guardian 接管、自动扩容或物理文件缩容保证。
-
-## 最终 acceptance 补充（2026-11-13）
-
-独立 CDC Runtime 在真实 MySQL、Actor Journal、Debezium offset/history 和 MySQL Sink 上跑通单表 B/F、实时更新/插入/删除、GC proof 与一次正常停止/重启。JVM 直接作为 Kubernetes PID 1 后，owner 能持久化为 STOPPED，重启后原任务恢复 STREAMING/HEALTHY。70 万物理表、DDL、多 owner 和长期吞吐仍未验证。
-
-## 2026-11-13：参考集群成功流水线后的真实部署
-
-这次没有把 GitHub Actions 的 deploy 失败当作集群发布成功，而是参考集群里已有的 KubeSphere Pipeline：`pekko-cdc-runtime-n7kjw` 实际构建并推送 Harbor 镜像，再滚动更新 `bigdata-lab/pekko-cdc-runtime`。新 Pod 重启后 owner 为 `ACTIVE`，Source MySQL 保留一个 Debezium Binlog Dump 会话且没有未提交 InnoDB 事务；Source 与 Sink 当前两行六字段逐字段一致。原始 PipelineRun、Deployment、API、控制状态和对账材料见 [KubeSphere 集群证据](https://github.com/Xuxiaotuan/pekko-reference/tree/feature/pekkosync-mvp-cleanup-datafusion/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/kubesphere-20261113)。
-
-线上 GC 实际仍为 `BLOCKED / ACK proof budget exceeded`。这证明安全暂停边界生效，不能写成 ACK 超预算后的自动重规划、自动扩容或跨重启删除已经通过；人工清理旧 UNKNOWN owner 后再重启是实验门槛，不是自动 fencing 证明。70 万真实活跃表、DDL、多 owner 和长期吞吐仍未验证。
-
-
-## 2026-11-13：ACK proof budget 修复与真实集群收敛
-
-线上长链根因已经核实：`primary` 有 7,110 条 ACK，旧实现固定 4,096 条预算导致 `ACK proof budget exceeded`。本轮改用持久化分页 proof，每次最多推进 128 个节点，proof 未完成时先提交状态，完成后才允许 GC 删除。真实 KubeSphere PipelineRun `pekko-cdc-runtime-g7kcr` 成功部署 `build-3-61495e0f2b5e`；重启后 owner 为 `ACTIVE`，任务为 `STREAMING/ADMISSION_READY/HEALTHY/RELEASED`，actual-D proof head `7742`、ACK 节点 `7731`、page `done=1`。原 `DELETING 42→44` operation 已变为 `DONE`，删除 1 个 GROUP、回收 235 字节；Source 与 Sink 两行六字段逐字段相等。
-
-这次结果证明长 ACK 链可以分页、跨运行推进并安全重规划；此前 3 个旧 Sleep 会话和第一次 `OWNER_RELEASE_UNPROVEN` 仍保留为失败材料。分页 proof 表本身尚无独立 GC，70 万活跃表、无限 ACK 历史、自动扩容、DDL 和多 owner 仍未验证。证据见 [ACK proof 预算实验](https://github.com/Xuxiaotuan/pekko-reference/tree/feature/pekkosync-mvp-cleanup-datafusion/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113)。
-
-
-## 2026-11-13：分页 proof 表 GC 与容量边界
-
-分页 proof GC 只回收已完成、非当前 actual-D、未被 GC audit、GC frame 或 Recovery Anchor 引用的 proof；refs、nodes、prior、pins、page 按顺序删除，ACK、Journal、L 和目标账本保留。单轮最多 8 个 proof，单个 proof 子行超过 20,000 时安全阻塞。真实运行中旧 proof `d9b4921a...`（head 7742）被回收，新 proof `f777e7d3...`（head 13052）保留；Source 与 Sink 两行六字段逐字段一致，重启后 owner 仍为 ACTIVE。证据见 [proof GC 材料](https://github.com/Xuxiaotuan/pekko-reference/tree/feature/pekkosync-mvp-cleanup-datafusion/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113)。功能代码已真实部署；仅删除计数持久化的后续流水线因 Jenkins 长时间 RUNNING 被取消，标为 `evidence_incomplete`。proof state 自身二次 GC、70 万活跃表、并发 B proof 和无限 ACK 历史仍未验证。
+最终判断应保持克制：当前实现已经具备“一个 capture 共享 Reader、表级可恢复执行、有界调度和保守释放”的源码结构，也有指定真实环境下的逐字段闭环；但它还没有把 70 万张真实活跃表的连接、吞吐、长期稳定性和全部故障窗口证明完。这个差距不是文章措辞可以消除的，必须用下一轮容量与端到端实验补齐。
