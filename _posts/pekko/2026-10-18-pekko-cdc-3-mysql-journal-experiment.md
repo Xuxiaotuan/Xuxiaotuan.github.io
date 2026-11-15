@@ -27,7 +27,7 @@ last_modified_at: 2026-11-15
 ## 0. 先看执行链路
 
 ```mermaid
-flowchart LR
+flowchart TD
     MySQL["MySQL Binlog"] --> Debezium["Debezium SourceRecord"]
     Debezium --> Callback["SharedMySQLCapture.accept"]
     Callback --> Assemble["MySQLCdcGroupAssembler"]
@@ -135,7 +135,7 @@ J 记录的是执行进度；D 是 Reader 的源 offset。J 前进不能自动�
 - Source/Sink：均为 2 行、6 个投影字段逐字段一致；
 - 旧 proof 在新 actual-D proof 建立后安全回收。
 
-材料见 [`gc-ack-proof-budget-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/9653daa/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/) 和 [`gc-ack-proof-gc-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/9653daa/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)。
+材料见 [`gc-ack-proof-budget-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/5a15872/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/) 和 [`gc-ack-proof-gc-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/5a15872/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)。
 
 ## 8. 当前结论
 
