@@ -27,7 +27,7 @@ last_modified_at: 2026-11-15
 >
 > 结论先说：本项目没有把 `D` 当作唯一真相。要把某个批次推进到受保护的恢复、发布或 GC 边界，必须同时核验目标事务身份、Journal receipt、ACK 祖先链以及 owner/source fence 的代际关系。任意一项无法证明，状态停在安全暂停；普通重放可以依靠目标账本和已有 Journal 证据继续，但不能越过尚未证明的源前缀。
 
-本文依据当前源码和 2026-11-13 的真实集群材料撰写。源码路径是仓库相对路径，实验材料位于 [`docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/`](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)。历史失败记录不因为后续重跑通过而删除。
+本文依据当前源码和 2026-11-13 的真实集群材料撰写。源码路径是仓库相对路径，实验材料位于 [`docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/`](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)。历史失败记录不因为后续重跑通过而删除。
 
 ## 0 先把三个字母说清楚：T、J、D 不是同一个 offset
 
@@ -234,6 +234,22 @@ stateDiagram-v2
 
 GC 采用相反的顺序。`gcProofsOn` 先锁 capture head，排除当前实际 D proof、audit/frame、B witness 引用的 proof，再按 `refs → nodes → prior/pin → page` 删除；子表超过 `maxChildRows` 时写入 `BLOCKED`，不删除半个 proof。删除的是可重建的 proof 材料，原始 ACK 日志不参与删除，这也是“GC 不改变恢复能力”的最小假设。
 
+### 4.3 分页证明的工作量不是“把 4096 改大”
+
+把 ACK ancestry 设为 `h` 个 ACK 节点、`r` 个 reference，单次 `stepOn` 的预算为 `q=128`。一次 step 可能消耗一个 parent 转移，也可能消耗一个 reference，因此完成 BUILD 或 VERIFY 所需的持久化推进次数满足一个粗略上界：
+
+$$
+N_{step}\le\left\lceil\frac{h+r}{q}\right\rceil+O(1)
+$$
+
+`O(1)` 来自阶段切换、状态读取和最终校验。这个式子不是吞吐 benchmark，而是解释为什么 `revision`、`next_seq` 和 `ref_index` 必须一起持久化：没有这三个位置，重启只能从 head 重新扫描，无法判断已经落盘的 node/ref 是否属于当前 proof。
+
+真实集群曾经把这个工程上限暴露出来：`pekko_capture_log` 已有 7,110 条 ACK，最新 ACK 序号为 7,121，旧实现仍按 4,096 个 parent 和固定时间预算一次性遍历，GC 实际返回 `ACK proof budget exceeded`。分页版本把同一条链拆成 BUILD/VERIFY 两轮；后续材料中，actual-D proof 的 head 为 13,052，nodes 和 refs 各 12,672，重启后仍能从 page 的 revision 继续，旧 proof 删除时只删除 refs、nodes、prior、pin 和 page，原始 L 不动。
+
+这个结果说明的是“长链可以被拆成可重启的状态机”，不是“任意长度都能在一个固定时间内完成”。当 child rows 超过 `maxChildRows` 时，GC 写入 `BLOCKED`，保留当前 proof 和所有受保护引用；容量不足改变的是调度结果，不改变 ACK ancestry 的语义。
+
+
+
 ## 5 T/J/D 故障时间线：如何处理“提交结果未知”
 
 以一组事件 `G` 为例，设它已经有稳定的 `groupIdentity`，Source 端 B 也已经被 fence：
@@ -260,7 +276,7 @@ GC 采用相反的顺序。`gcProofsOn` 先锁 capture head，排除当前实际
 
 从调用链可以看到， 代码为“提交结果未知”提供了读回路径和安全失败路径，并没有把网络异常自动分类成提交成功。
 
-在固定版本的真实实验中， 真实故障材料覆盖了提交回复丢失、异常退出和重启后的 source/target 对账；详细切点保存在 [`docs/experiments/2026-11-09-persistent-cutover-authorization/`](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-09-persistent-cutover-authorization/)。这些材料证明了若干已实现窗口的结果，不等同于覆盖所有 Sink 提交实现或所有网络错误码。
+在固定版本的真实实验中， 真实故障材料覆盖了提交回复丢失、异常退出和重启后的 source/target 对账；详细切点保存在 [`docs/experiments/2026-11-09-persistent-cutover-authorization/`](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-09-persistent-cutover-authorization/)。这些材料证明了若干已实现窗口的结果，不等同于覆盖所有 Sink 提交实现或所有网络错误码。
 
 ## 6 LOW/HIGH、B 与 F：为什么窗口回填需要 ACK 祖先证明
 
@@ -286,7 +302,7 @@ GC 采用相反的顺序。`gcProofsOn` 先锁 capture head，排除当前实际
 
 ### 8.1 失败证据
 
-真实集群的 `pekko_capture_log` 已有 7,110 条 ACK，最新 ACK 序号 7,121。旧 `CaptureAckProof.inspect` 固定最多遍历 4096 条，于是 GC 实际 D proof 返回 `ACK proof budget exceeded`。失败材料见 [`gc-ack-proof-budget-20261113/failure-before.txt`](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/failure-before.txt)。
+真实集群的 `pekko_capture_log` 已有 7,110 条 ACK，最新 ACK 序号 7,121。旧 `CaptureAckProof.inspect` 固定最多遍历 4096 条，于是 GC 实际 D proof 返回 `ACK proof budget exceeded`。失败材料见 [`gc-ack-proof-budget-20261113/failure-before.txt`](https://github.com/Xuxiaotuan/pekko-reference/blob/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/failure-before.txt)。
 
 这次失败说明的是 proof 算法预算不适配长链，不是 Source/Sink 行数据已经不一致。不能把 “ACK proof budget exceeded” 写成“目标丢数据”，也不能因为后续修复成功而抹掉它。
 
@@ -303,11 +319,11 @@ GC 采用相反的顺序。`gcProofsOn` 先锁 capture head，排除当前实际
 | Source 运行态 | 1 个 Binlog Dump 会话，无未提交 InnoDB 事务 |
 | Runtime owner | `ACTIVE`；任务 `STREAMING / ADMISSION_READY / HEALTHY / RELEASED` |
 
-逐字段结果在 [`reconciliation.json`](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/reconciliation.json)，证明分页可以推进到 DONE 并完成目标对账。运行材料同时记录了重启前后 proof 状态；这属于真实集群运行结果，不是单元测试推断。
+逐字段结果在 [`reconciliation.json`](https://github.com/Xuxiaotuan/pekko-reference/blob/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/reconciliation.json)，证明分页可以推进到 DONE 并完成目标对账。运行材料同时记录了重启前后 proof 状态；这属于真实集群运行结果，不是单元测试推断。
 
 ### 8.3 proof GC 的独立验证
 
-随后建立新的 actual-D proof 后，旧 proof `d9b4921a...`（head 7742、7731 nodes、7740 refs）被回收；当前 proof `f777e7d3...`（head 13052，nodes/refs 各 12,672）仍保留。GC 只删除 `done=1`、非当前、未被 audit/frame/proof anchor 引用的 proof，并且先删 refs、nodes、prior、pin，最后删 page。源码位置：`CaptureAckPaging.scala:164-197`；真实材料见 [`gc-ack-proof-gc-20261113/`](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)。
+随后建立新的 actual-D proof 后，旧 proof `d9b4921a...`（head 7742、7731 nodes、7740 refs）被回收；当前 proof `f777e7d3...`（head 13052，nodes/refs 各 12,672）仍保留。GC 只删除 `done=1`、非当前、未被 audit/frame/proof anchor 引用的 proof，并且先删 refs、nodes、prior、pin，最后删 page。源码位置：`CaptureAckPaging.scala:164-197`；真实材料见 [`gc-ack-proof-gc-20261113/`](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)。
 
 这次结果证明的是“旧分页证明可安全回收且 Source/Sink 仍逐字段相等”。它没有证明 proof 表会无限扩展后自动压缩，也没有证明 70 万活跃表的容量。
 

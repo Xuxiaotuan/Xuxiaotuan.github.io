@@ -120,6 +120,25 @@ MySqlSourceEnumerator
 
 这条链和本文 Pekko 实现的差异是边界归属：Flink 把 split 分配、reader state 和 checkpoint 交给 Source API；Pekko 把窗口 spec、`appliedPage`、L groupRoot 和 Journal receipt 分开持久化。两者都能表达“可重试的有限范围”，但恢复时要验证的对象不同。
 
+### 2.2 同一个故障窗口里，两套系统各自保存什么
+
+Flink CDC 的 checkpoint 由 Source API 统一保存 split 分配状态、reader split state 和 binlog split 的起点。恢复时，`MySqlSourceEnumerator` 先恢复 `SnapshotPendingSplitsState`，再把未完成 split 分配给 `MySqlSourceReader`；当所有 snapshot split 都完成，hybrid assigner 才把 finished split 的 binlog 起点合并成持续读取边界。这个模型的强项是运行时替 Source 维护了“谁拥有哪个 split、哪个 offset 已进入 checkpoint”。
+
+Pekko 的等价关系分散在三个持久化对象里：窗口 spec/manifest 描述读视图和页，Journal 的 `appliedPage/deltaAfter` 描述任务接受到哪里，L 的 ACK proof 描述 Reader 已经确认到哪里。恢复时没有一个统一 checkpoint 可以替代它们，必须按顺序重建：先验证窗口 identity，再核对目标 ledger，再验证 ACK ancestry，最后才允许 Reader 推进实际 D。
+
+可以把两边的恢复责任写成同一个问题的两种实现：
+
+```text
+Flink:  checkpoint(split state) -> restore reader -> continue split/binlog
+Pekko:  manifest + Journal + T ledger + ACK proof -> verify relations -> continue L/D
+```
+
+差异不在于谁“更可靠”，而在于证明对象不同。Flink 把大量一致性工作收进 Checkpoint/State Backend；Pekko 把 owner、grant、Journal receipt、目标 ledger 和 ACK proof 暴露成可查询的业务协议。前者减少应用层状态机的数量，后者允许把一张表的初始化、取消和恢复从整个 Job 生命周期中拆出来。
+
+这也是公平比较的边界：本系列没有在同一机器、同一数据集、同一 Sink 和同一故障切点上重跑 Flink，因此不能把这段源码差异写成吞吐或 exactly-once 的实测优劣。能比较的是状态归属和故障责任，不能凭架构图推导性能数字。
+
+
+
 ## 3 Pekko CDC 的强项：把常驻任务的生命周期拆开
 
 当前 Pekko Runtime 的核心分层是：
@@ -285,8 +304,8 @@ Pekko CDC 的合理目标不是复制 Flink 的全部能力，而是用更细的
 | 任务、预算和恢复 | [`CdcPlatformRuntime.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
 | ACK proof 与保护引用 | [`CaptureAckPaging.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
 | 安全 GC | [`CaptureGcRetention.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
-| 集群闭环与逐字段对账 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
-| 真实失败证据 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
+| 集群闭环与逐字段对账 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
+| 真实失败证据 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
 | 对照阅读风格 | [MySQL Monthly](http://mysql.taobao.org/monthly/) |
 
 如果下一步要做真正的技术对比，应把同一 MySQL 数据集、同一 Source/Sink 语义、同一故障窗口和同一逐字段对账脚本同时跑在两套系统上。否则，文章最多能说明架构取舍，不能说明谁在生产上“更快”或“更稳”。

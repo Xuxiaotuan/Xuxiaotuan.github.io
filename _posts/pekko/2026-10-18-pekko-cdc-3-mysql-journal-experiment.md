@@ -203,6 +203,16 @@ ACK(parent=上一条 ACK, references=[该 GROUP]) 已落盘
 
 从调用链可以看到， 原始 callback 的“返回”证明 L 覆盖了 callback 的完整前缀；它不证明目标端已经写入。
 
+### 1.4 主键修改为什么必须跨回调装配
+
+MySQL 的主键修改在 Debezium 层表现为 `DELETE(old key)` 加 `CREATE(new key)`，但目标端需要把它当作一个逻辑变更组。`MySQLCdcGroupAssembler` 用 `half` 保存带 `__debezium.newkey` 的删除记录；下一条记录必须满足以下条件才会合并：操作为 CREATE、group id 相同、`oldkey/newkey` 互相匹配、source offset、partition 和 value schema 完全相同。任一条件不满足，组装器立即拒绝，而不是把半个删除当作可提交事件。
+
+装配完成后，Bridge 只接收 `pk.d + pk.c` 的完整组。原始 callback 的代理句柄仍由 `SharedMySQLCapture` 持有，只有完整组已经写入 L、对应 callback 的 `remaining` 归零，才会进入 ACK 前缀。这样做的代价是一个半组可能跨越两个回调；收益是重启时不会出现“旧主键已经删除、新主键尚未创建”的中间恢复状态。
+
+R08 的真实 MySQL Reader 矩阵同时覆盖同事务多行、同一行多次更新和主键修改；材料保存了原始 SourceRecord、headers、组装日志、ACK 顺序以及目标逐字段结果。它验证的是当前 Debezium 3.6.1、单主键、串行 callback 前提下的组装边界；多主键、DDL 同时变化和跨 connector 的 key header 语义仍不在这条结论中。
+
+
+
 ## 2 T：目标事务如何做到重放不产生第二次业务效果
 
 从 L 读取时，`CapturedLogReader.readBatch` 以 sequence 为边界取 group，而不是按当前 MySQL 表重新查询：
@@ -520,9 +530,9 @@ Source 与 Sink 均得到：
 
 ## 附录 B：真实材料和失败材料
 
-* [ACK proof 预算修复与真实集群验证](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/README.md)：旧 4096/15 秒预算失败、分页 proof 通过、Source/Sink 对账。
-* [分页 proof 表 GC 与容量边界](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/README.md)：旧 proof 回收、当前 proof 保留，以及仍需确认的容量边界。
-* [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：B/F、重启、资源状态、逐字段对账和完整回归摘要。
-* [历史初始化故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-10-25-bootstrap/README.md)：I08、I11、I16、I21 的固定窗口与失败证据。
+* [ACK proof 预算修复与真实集群验证](https://github.com/Xuxiaotuan/pekko-reference/blob/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/README.md)：旧 4096/15 秒预算失败、分页 proof 通过、Source/Sink 对账。
+* [分页 proof 表 GC 与容量边界](https://github.com/Xuxiaotuan/pekko-reference/blob/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/README.md)：旧 proof 回收、当前 proof 保留，以及仍需确认的容量边界。
+* [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：B/F、重启、资源状态、逐字段对账和完整回归摘要。
+* [历史初始化故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-10-25-bootstrap/README.md)：I08、I11、I16、I21 的固定窗口与失败证据。
 
 这四份材料的时间、源码版本和实验入口不同。阅读时应以每个目录中的 `README.md`、状态快照、原始日志和 checksum 为准，不把不同版本的通过项相加成一项未执行的保证。

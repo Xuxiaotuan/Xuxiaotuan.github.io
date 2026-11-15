@@ -200,6 +200,28 @@ $$
 
 `complete` 还要求相邻窗口的 `lower` 等于前一窗口的 `upper`，并把本窗口 digest 纳入 completion root。因此，多 Chunk 的正确性来自“范围无缝 + 每窗可验证”，不是来自最后一次全量 count。
 
+### 3.5 多 Chunk 正确性的归纳不变量
+
+把第 `i` 个窗口的范围记为 `W_i=(L_i,U_i]`，把窗口封存后的行状态记为 `S_i`。`scanStep` 的范围推进不是靠一个全局游标，而是维护下面两个关系：
+
+$$
+L_0=\varnothing,\qquad L_i=U_{i-1},\qquad U_i=nextUpper(L_i,U,chunkRows)
+$$
+
+因此相邻窗口没有空洞，也没有重叠。窗口内部则按下面的递推计算：
+
+$$
+S_i=Fold\bigl(Snapshot(W_i),\;L[LOW_i,HIGH_i]\bigr)
+$$
+
+`BootstrapFold` 对同一主键使用 replace 语义：DELETE 移除键，CREATE/UPDATE 用完整 after image 覆盖键。它不把每一条 binlog 事件直接写成目标最终态，而是先得到窗口的 canonical rows，再由 manifest 的 page hash 和 groupRoot 保护输出。
+
+这解释了三个故障处理动作。窗口尚未 seal 时丢失读视图，旧 `window` 被 abandon，`attempt` 加一，`appliedPage` 清零并重新夹住 LOW/HIGH；窗口已经 seal 后，重启只从 `appliedPage` 继续验证和应用；窗口完成后，`nextLower` 才推进到 `U_i`。如果把这三种状态混成一个 cursor，就无法判断“可以重放当前页”还是“必须重新获得同一读视图”。
+
+已有 I08、I11、I16 材料验证了范围边界、双向主键迁移和 T 已提交/J 未推进时的页面重放。它们证明的是固定窗口中的递推关系和目标幂等，不是任意隔离级别、任意排序键或任意多主键表都满足该归纳。
+
+
+
 ## 4 三个关键故障窗口
 
 ### 窗口一：初始化中取消
@@ -270,7 +292,7 @@ $$
 | 任务资源、恢复和状态 | [`CdcPlatformRuntime.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
 | Journal 与批次 receipt | [`BootstrapJournal.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
 | ACK proof 分页 | [`CaptureAckPaging.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
-| 真实闭环与 GC 材料 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
-| 跨重启分页反例 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
+| 真实闭环与 GC 材料 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
+| 跨重启分页反例 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
 
 最终结论很具体：批转流不是一个 Reader API，而是一条包含 B、LOW/HIGH、K、F、T/J/D 和 Schema 的状态机。当前实现已经把主要边界写进代码和实验，但跨重启分页证明、marker 事务计数和未知 B 自动恢复仍需单独证据，不能用“全量转流已测过”笼统代替。

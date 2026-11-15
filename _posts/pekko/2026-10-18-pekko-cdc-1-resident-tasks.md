@@ -149,6 +149,24 @@ Debezium handleBatch
 
 只要 `append`、`coverSequence` 或 owner 校验任一步失败，原始 callback 就不能被确认；反过来，callback 被确认也只证明 L 覆盖了该回调前缀，并不证明目标 Sink 已提交。这条调用链是后文 T/J/D 推导的基础。
 
+### 4. 共享 Reader 的确认点是一个前缀屏障
+
+`SharedMySQLCapture` 的关键不是“收到回调后把事件扔给 Actor”，而是把 Debezium 的原始确认句柄变成一个可证明的前缀屏障。`accept` 为每次回调分配递增的 `nextCallback`，把回调放入 `pending`，然后逐条执行 `processCallbackRecord`。数据记录要先经过 `MySQLCdcGroupAssembler`，控制记录要等事务 `END`，Schema 记录要先写入 Schema frame。每条路径最后都只能减少当前回调的 `remaining`，不能直接确认 SDK 句柄。
+
+因此确认条件可以写成：
+
+$$
+AckPrefix(n)=\max\{k\mid\forall i\le k,\ Covered(i)=true\}
+$$
+
+`acknowledgeCoveredCallbacks` 只检查 `pending.head`。即使第 `n+1` 个回调已经完成，只要第 `n` 个回调的某个 group 尚未进入 L，后者的 `markProcessedAndFinished()` 就不会调用。这个顺序把“回调处理完成”和“Reader 可以推进 D”严格分开：前者是局部事实，后者是连续前缀事实。
+
+这条屏障同时承担背压。当前实现拒绝 `pending.size >= 8` 的新回调，并限制保留事件的估算字节数为 16 MiB；组装器内部还把跨回调主键变更限制为两个待确认回调和同样的字节预算。超过预算时 Reader 进入失败或暂停路径，而不是继续把 SourceRecord 留在 JVM 堆中。这个限制只约束受管 Reader 的保留区，不等于整个进程的堆上界；JDBC 驱动、Debezium 队列和目标 Sink 仍有自己的内存。
+
+共享捕获实验的 R07/R08 正是沿这条屏障取证：marker 回调返回后，后续事务 END 仍能抵达；同事务多行更新、同一行多次更新和主键变更不会因为 Bridge 等待一个未完成的 ACK 而阻塞后续回调。实验记录保存的是原始 callback、ACK 顺序和完整组，不能把它扩大成任意 Connector 的回调并发保证；源码明确拒绝并发 callback，真实运行也依赖这一前提。
+
+
+
 ## 2 表级 Actor 到底负责什么
 
 ### 1. Actor 是身份和串行化边界，不等于一张表一个线程
@@ -253,9 +271,9 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 
 相关材料：
 
-- [运行时与 GC 集群证据](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
-- [proof GC 证据](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)
-- [700,000 条冷元数据实验](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce/)
+- [运行时与 GC 集群证据](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
+- [proof GC 证据](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)
+- [700,000 条冷元数据实验](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce/)
 
 ## 6 几个容易被设计图掩盖的反例
 
