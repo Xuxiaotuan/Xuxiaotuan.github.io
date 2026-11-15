@@ -79,6 +79,19 @@
     </script>
     {% endif %}
 
+    {% if page.math %}
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['\\[', '\\]']]
+        },
+        svg: {fontCache: 'global'}
+      };
+    </script>
+    <script async src="https://fastly.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    {% endif %}
+
     {% if page.sequence %}
     <script src="{{ assets_base_url }}/assets/js/webfont.js"></script>
     <script src="{{ assets_base_url }}/assets/js/snap.svg-min.js"></script>

@@ -12,6 +12,7 @@ tags:
   - Flink CDC
   - 源码分析
 mermaid: true
+math: true
 last_modified_at: 2026-11-15
 ---
 
