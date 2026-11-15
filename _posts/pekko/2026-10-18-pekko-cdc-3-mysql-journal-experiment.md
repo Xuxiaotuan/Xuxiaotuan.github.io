@@ -521,7 +521,7 @@ Source 与 Sink 均得到：
 ## 附录 B：真实材料和失败材料
 
 * [ACK proof 预算修复与真实集群验证](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/README.md)：旧 4096/15 秒预算失败、分页 proof 通过、Source/Sink 对账。
-* [分页 proof 表 GC 与容量边界](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/README.md)：旧 proof 回收、当前 proof 保留、容量与未验证边界。
+* [分页 proof 表 GC 与容量边界](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/README.md)：旧 proof 回收、当前 proof 保留，以及仍需确认的容量边界。
 * [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：B/F、重启、资源状态、逐字段对账和完整回归摘要。
 * [历史初始化故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-10-25-bootstrap/README.md)：I08、I11、I16、I21 的固定窗口与失败证据。
 
