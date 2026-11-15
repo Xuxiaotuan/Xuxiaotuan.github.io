@@ -16,12 +16,14 @@ math: true
 last_modified_at: 2026-11-15
 ---
 
-# Pekko CDC 深入解析（四）：LOW/HIGH 水位、窗口回填与全量转流
-
 作者：xuyinyin
-[系列导读](/pekko-cdc-series/) · [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) · [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) · [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) · [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
+[系列导读](/pekko-cdc-series/) · [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) · [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) · [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) · [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/)
 
-> 本文以 `b17b9d1659f923fc256e3b09ad73777ac7acc677` 的源码为准；实验数据引用各自材料中冻结的版本和切点。两者不一致时，正文会直接说明适用范围。
+> **系列主线**：第一篇先拆资源模型；第二篇追一条事件从 Reader 到 T/J；第三篇建立恢复许可；第四篇回答新表如何从全量进入持续流；第五篇再比较两种运行时。
+>
+> **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`；历史实验按各自材料冻结的版本和切点解释。
+>
+> **证据口径**：源码结论来自当前 `BootstrapRunner`、`SharedMySQLCapture` 和 Split 调用链；实验结果只对应列出的真实 MySQL、Actor Journal、Sink 和固定切点；历史材料不会被当前提交自动继承。
 
 本文的 LOW/HIGH 历史实验来自各自冻结版本；当前源码阅读基线是 `b17b9d1659f923fc256e3b09ad73777ac7acc677`。除非段落明确写出“本轮重跑”，历史 I01—I24 的结果只说明当时版本和切点，不自动升级为当前提交的端到端结果。
 
@@ -246,7 +248,6 @@ $$
 已有 I08、I11、I16 材料验证了范围边界、双向主键迁移和 T 已提交/J 未推进时的页面重放。它们证明的是固定窗口中的递推关系和目标幂等，不是任意隔离级别、任意排序键或任意多主键表都满足该归纳。
 
 
-
 ## 4 三个关键故障窗口
 
 ### 窗口一：初始化中取消
@@ -316,16 +317,20 @@ $$
 
 任何一项未知都进入 `PAUSED` 或 `UNKNOWN`，由后续恢复流程重新取得证据。宁可延后发布，也不能把尚未完成的全量表伪装成实时表。
 
+## 下一篇：把状态机放回运行时选择
+
+LOW/HIGH、B/K/F 解决的是一张新表如何安全进入持续流；最后还要回答一个运行时问题：这些责任应该由 Pekko 的 Actor 与控制存储承载，还是交给 Flink CDC 的 Source、Checkpoint 和 Sink 运行时。第五篇据此做条件式比较。
+
 ## 附录：源码与实验入口
 
 | 责任 | 入口 |
 |---|---|
-| 共享 Reader、控制 marker、原始 ACK | [`SharedMySQLCapture.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
-| 启动与任务装配 | [`CdcBootstrapKernel.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala) |
-| 任务资源、恢复和状态 | [`CdcPlatformRuntime.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
-| Journal 与批次 receipt | [`BootstrapJournal.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
-| ACK proof 分页 | [`CaptureAckPaging.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
-| 真实闭环与 GC 材料 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
-| 跨重启分页反例 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
+| 共享 Reader、控制 marker、原始 ACK | [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
+| 启动与任务装配 | [`CdcBootstrapKernel.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala) |
+| 任务资源、恢复和状态 | [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
+| Journal 与批次 receipt | [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
+| ACK proof 分页 | [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
+| 真实闭环与 GC 材料 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
+| 跨重启分页反例 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
 
 最终结论很具体：批转流不是一个 Reader API，而是一条包含 B、LOW/HIGH、K、F、T/J/D 和 Schema 的状态机。当前实现已经把主要边界写进代码和实验，但跨重启分页证明、marker 事务计数和未知 B 自动恢复仍需单独证据，不能用“全量转流已测过”笼统代替。

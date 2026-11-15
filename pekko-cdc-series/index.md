@@ -34,8 +34,8 @@ last_modified_at: 2026-11-15
 | 篇目 | 本篇要讲透的问题 |
 |---|---|
 | [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) | 70 万张表常驻场景下的 Shared Reader 与有界调度 |
-| [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) | 一条 MySQL UPDATE 如何穿过 Reader、Journal 与 Sink |
-| [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 为什么 offset 不能单独恢复，ACK proof 如何形成恢复许可 |
+| [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) | 一条 MySQL UPDATE 如何取得身份，并完成 L、T、J、D 的交接 |
+| [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 提交未知、ACK proof 与 owner fence 如何形成恢复许可 |
 | [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) | LOW/HIGH 水位、窗口回填与全量转流 |
 | [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/) | Pekko 与 Flink CDC 的运行时边界 |
 
