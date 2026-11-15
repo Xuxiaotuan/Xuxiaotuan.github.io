@@ -19,7 +19,7 @@ last_modified_at: 2026-11-15
 # Pekko CDC 深入解析（一）：70 万张表常驻场景下的 Shared Reader 与有界调度
 
 作者：xuyinyin
-[系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
+[系列导读](/pekko-cdc-series/) · [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) · [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) · [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) · [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
 > 本文以 `b17b9d1659f923fc256e3b09ad73777ac7acc677` 的源码为准；实验数据引用各自材料中冻结的版本和切点。两者不一致时，正文会直接说明适用范围。
 
@@ -86,7 +86,7 @@ stateDiagram-v2
 
 ## 1 先把“70 万张表”拆成三个集合
 
-### 1. 目录不是执行器
+### 1.1 目录不是执行器
 
 如果把每张目录记录直接映射成 Reader，最先耗尽的通常不是 CPU，而是 MySQL 连接、binlog dump 会话、JDBC metadata、Schema 缓存和故障恢复状态。更糟的是，许多表长期没有写入，却仍然占用一套运行时对象。
 
@@ -98,7 +98,7 @@ stateDiagram-v2
 
 这里仍有一个边界：真实 700,000 张物理表、同时发生 DDL、持续 binlog 写入和动态增删表时的 MySQL metadata 成本，仍然没有测量。
 
-### 2. 一个 capture 对应一个 Reader
+### 1.2 一个 capture 对应一个 Reader
 
 当前入口由 `CdcBootstrapKernel.start()` 组装 capture：先打开控制状态库，创建 `MySQLCaptureStore`，再创建一个 `SharedMySQLCapture`。Reader 使用 source 账号连接源库，使用 state 账号连接独立的状态库；启动时明确检查两者不是同一个 MySQL 实例：
 
@@ -124,7 +124,7 @@ require(inside.compareAndSet(false, true),
 
 这解释了为什么“共享 Reader”不是“只用一个线程”。Reader 的 binlog 会话是共享的，表级初始化和 Sink 写入仍然由独立的 bounded step worker 执行。共享的是捕获顺序和源连接，不是把所有表的业务工作串成一个无限长函数。
 
-### 3. 从启动入口到第一条事件：实际调用链
+### 1.3 从启动入口到第一条事件：实际调用链
 
 把“一个 capture 一个 Reader”写成类图还不够，真正决定边界的是启动顺序。当前实现的同步链可以压缩成下面这段伪代码（省略日志和异常包装）：
 
@@ -191,7 +191,7 @@ sequenceDiagram
 
 Reader 只负责把源事件变成可重放的 L 前缀；表级任务负责消费这个前缀。这样既保留共享 binlog 会话，也不会让某一张表的慢 Sink 阻塞 Reader 的原始回调确认。
 
-### 4. 共享 Reader 的确认点是一个前缀屏障
+### 1.4 共享 Reader 的确认点是一个前缀屏障
 
 `SharedMySQLCapture` 的关键不是“收到回调后把事件扔给 Actor”，而是把 Debezium 的原始确认句柄变成一个可证明的前缀屏障。`accept` 为每次回调分配递增的 `nextCallback`，把回调放入 `pending`，然后逐条执行 `processCallbackRecord`。数据记录要先经过 `MySQLCdcGroupAssembler`，控制记录要等事务 `END`，Schema 记录要先写入 Schema frame。每条路径最后都只能减少当前回调的 `remaining`，不能直接确认 SDK 句柄。
 
