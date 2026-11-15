@@ -4,13 +4,14 @@ title: "从 Flink CDC 到 Pekko：共享捕获、全量转流与恢复协议"
 description: "五篇源码与实验文章：共享Reader、Split分页、LOW/HIGH、B到F、T/J/D恢复及Flink CDC比较。"
 permalink: /pekko-cdc-series/
 last_modified_at: 2026-11-15
+mermaid: true
 ---
 
 一个 MySQL 实例有 70 多万张表，按需选择其中几张，先同步已有数据再持续追实时，并允许不停其他表地增加、取消订阅。本系列围绕这个目标解释当前代码、实验和剩余设计。70 万是业务目录背景，不是已完成的活跃复制规模验收。
 
 2026-10-27 的修订把持久任务索引、有界步骤和平台入口接回原来的五篇主线：目标与执行资源 → 分页/LOW/HIGH/B→F 源码 → 真实实验与反例 → 恢复状态与确认协议 → 与 Flink CDC 的具体取舍。源码变化、当前实测和历史材料分别标识；Actor 机制、旧 T/J/D 推导及失败仍保留在独立[技术附录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/README.md)。文章更新不自动改变旧实验的版本或结果。
 
-> **历史链接说明**：首页中标注为 `f6313c0`、`74b6d9a`、`55fad0c` 等的 GitHub 链接，都是历史源码或历史实验快照，用于复算当时材料；当前五篇文章的源码阅读基线是 `0157b07a2f9f8a658063ce62711d2b996c37240e`；上一轮技术风格重写提交是 `b17b9d1`，本轮源码调用链和算法补强提交是 `0157b07`；本次正文重写提交是 `6ce4e15`，公式渲染修复提交为 `04ff73db2cb72490676e45330d605705c700104b`；本轮机制深化提交为 `e043a81d77f759a19eeb4bdc179564eb0badc638`。
+> **历史链接说明**：首页中标注为 `f6313c0`、`74b6d9a`、`55fad0c`、`0157b07` 等的 GitHub 链接，都是历史源码或历史实验快照，用于复算当时材料；当前五篇正文的源码阅读基线统一为 `b17b9d1659f923fc256e3b09ad73777ac7acc677`。此前的 `0157b07`、`6ce4e15`、`04ff73d` 和 `e043a81` 仍保留为文章演进历史，不再作为当前源码入口。
 
 ## 独立 Runtime 的当前边界（2026-11-13）
 
@@ -25,7 +26,7 @@ last_modified_at: 2026-11-15
 | 未知 B | C1 的 PAUSED、UNKNOWN grant 及失败日志保留 | 安全暂停；自动恢复未通过 |
 | L 的 GC | 独立 Runtime 持久化 namespace、pin、proof、operation，并按受保护前缀小批删除可重建 GROUP | 最终 acceptance 的 proof 进入 ACTIVE；重启后小批次节省不足时安全 BLOCKED，原始 L 保留；未证明物理文件缩容 |
 
-最终 acceptance 使用真实 MySQL、Actor Journal、Debezium JDBC offset/history 和 MySQL Sink：全量 B/F、实时更新/插入/删除、GC proof、owner STOPPED→ACTIVE 重启和逐字段对账均有材料。早期 ClusterIP、非 PID1、wildcard writer、namespace 摘要和权限失败没有覆盖；详见 [最终 acceptance 材料](https://github.com/Xuxiaotuan/pekko-reference/tree/main/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final)。
+最终 acceptance 使用真实 MySQL、Actor Journal、Debezium JDBC offset/history 和 MySQL Sink：全量 B/F、实时更新/插入/删除、GC proof、owner STOPPED→ACTIVE 重启和逐字段对账均有材料。早期 ClusterIP、非 PID1、wildcard writer、namespace 摘要和权限失败没有覆盖；详见 [最终 acceptance 材料](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)。
 
 [历史源码与实验材料快照（f6313c0）](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)固定运行范围。以下各历史报告仍按原版本解释，不因目录调整重标通过。
 
@@ -92,7 +93,7 @@ flowchart LR
 
 初始化矩阵在 `00ad18e` 加未提交实现的冻结工作区运行，全源树摘要为 `c71f260870325aa54bb6818200a875689afaace93d10dc8496a11c99e5f362da`。后续启动探针候选 1—4 生产文件一致，但测试设施不同，不能用一个全源树 hash 冒充所有运行。candidate4 保留 339 项源码清单，与发布后的相应源码逐项匹配；发布提交、运行时 HEAD 和材料复算是三种事实。[初始化版本记录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/final-version.json) · [启动候选 4](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/candidate-4.json)
 
-历史版本 `d88ec80`、`65ab541` 和 `00ad18e` 的来源、运行 HEAD 与证据见[独立版本档案](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/00-versions-and-evidence-history.md)。第五篇的 Flink CDC 源码对照固定 3.6.0；另一组[Flink CDC 系列](https://xuyinyin.cn/flink-cdc-series/)的 3.7.0 与 Paimon 实验不混作同版或同 Sink 结果。没有同负载性能基准。
+历史版本 `d88ec80`、`65ab541` 和 `00ad18e` 的来源、运行 HEAD 与证据见[独立版本档案](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/00-versions-and-evidence-history.md)。第五篇的 Flink CDC 源码对照固定 3.6.0；另一组[Flink CDC 系列](https://xuyinyin.cn/flink-cdc-series/)的 3.7.0 与 Paimon 实验不混作同版或同 Sink 结果。第五篇只做运行时责任映射：它以前四篇已经建立的 Shared Reader、L、LOW/HIGH、F、T/J/D 和 GC 语义为前提，再对照 Flink 的 Split、Checkpoint 和 Source Reader，不重新定义前四篇的协议。没有同负载性能基准。
 
 全文区分：**源码结论**、**真实实验结果**、**保存材料复算**、**条件性推理/模型**、**设计提案/未验证**。小规模终值一致、组件 suite 通过或归档校验都不能替代更高层验收。
 
@@ -123,8 +124,8 @@ flowchart LR
 
 ## 当前材料与源码入口
 
-- [BootstrapRunner](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapRunner.scala)及[步骤结果/continuation](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapStep.scala)：内核与有界调度边界。
-- [CdcTaskStore](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala)、[CdcPlatformRuntime](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala)、[CdcBootstrapKernel](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala)：持久意图、grant、L 唤醒及活动会话。
+- [BootstrapRunner](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapRunner.scala)及[步骤结果/continuation](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapStep.scala)：内核与有界调度边界。
+- [CdcTaskStore](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala)、[CdcPlatformRuntime](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala)、[CdcBootstrapKernel](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala)：持久意图、grant、L 唤醒及活动会话。
 - [初始化报告、范围与故障清单](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/README.md)、[独立复算](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/final-summary.json)、[归档索引](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/artifacts/archive-index.json)。
 - [启动恢复反例](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/README.md)、[结果摘要](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/summary.json)、[材料摘要清单](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/SHA256SUMS.json)。
 - [双槽与资源释放报告](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-cdc-lab-pool/README.md)、[双槽 suite 与后置结果](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-cdc-lab-pool/scala-dual-slot-summary.json)。
