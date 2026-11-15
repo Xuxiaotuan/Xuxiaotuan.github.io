@@ -34,8 +34,8 @@ last_modified_at: 2026-11-15
 | 篇目 | 本篇要讲透的问题 |
 |---|---|
 | [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) | 70 万张表常驻场景下的 Shared Reader 与有界调度 |
-| [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) | T/J/D 恢复协议与 ACK 祖先证明 |
-| [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 一条 MySQL UPDATE 如何穿过 Reader、Journal 与 Sink |
+| [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) | 一条 MySQL UPDATE 如何穿过 Reader、Journal 与 Sink |
+| [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 为什么 offset 不能单独恢复，ACK proof 如何形成恢复许可 |
 | [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) | LOW/HIGH 水位、窗口回填与全量转流 |
 | [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/) | Pekko 与 Flink CDC 的运行时边界 |
 
@@ -54,7 +54,7 @@ flowchart LR
 
 全文区分源目录 N、已订阅 S 和活动工作 A(t)：70 万是 N 的需求背景，5→7 是本次案例中的 S，不能互换为容量证据。正面证据包括历史共享捕获、动态初始化及指定恢复样本；后续 A1/A2 又增加启动恢复分类和准入实测。本轮又经过真实平台 P01 的动态 5→7、P02 的十表 tail 后新增第十一表，以及独立的 700,000 条冷索引实验。它们各自支持对应层次，不从旧内核直接继承结论，也不合并成 70 万真实表验收。
 
-第三篇沿一条真实 UPDATE 追踪“回调—L—T—J—D—GC”，并保留 I08/I11/I16/I21 与启动反例材料。第四篇统一解释 B、LOW/HIGH、K、F 和 T/J/D 的状态关系；安全暂停不等于历史漏数已经补齐。
+第二篇沿一条真实 UPDATE 追踪“回调—L—T—J—D—GC”，并保留 I08/I11/I16/I21 与启动反例材料。第三篇统一解释 T/J/D、ACK proof、owner fence 和安全 GC；安全暂停不等于历史漏数已经补齐。
 
 ## 主流程与关键术语
 
