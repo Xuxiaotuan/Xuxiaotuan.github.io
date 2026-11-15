@@ -249,7 +249,7 @@ WHERE ... AND revision=?
 
 全量初始化不是“读完表再打开 binlog”。正确的顺序是：先建立 B（增量保留边界），再固定 LOW，读取分页快照，写 HIGH，回填 LOW—HIGH 窗口，最后在 F 点把全量输出和增量重放接成一个连续流。
 
-在这个过程中，B 的控制事务可能和目录写入、marker、业务行事件共存。Reader 必须把控制事件绑定到实际 binlog 事务和 ACK ancestry；不能只按 `event_count == 1` 或单一 marker 行数决定“捕获已生效”。本文只讨论恢复契约，完整的 LOW/HIGH 与 B→F 算法见第一篇和第四篇。
+在这个过程中，B 的控制事务可能和目录写入、marker、业务行事件共存。Reader 必须把控制事件绑定到实际 binlog 事务和 ACK ancestry；不能只按 `event_count == 1` 或单一 marker 行数决定“捕获已生效”。本文只讨论恢复契约，完整的 LOW/HIGH 与 B→F 算法见第四篇。
 
 对恢复而言，关键不是 LOW/HIGH 的名字，而是以下关系：
 
@@ -363,7 +363,7 @@ T、J、D 各自记录不同事实。L 把 Source 的 ACK 和 ancestry 固定下
 | proof GC 候选、引用保护、删除顺序 | `.../CaptureAckPaging.scala:164-197` |
 | capture descriptor、Journal projection、ACK coverage | `server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/MySQLCaptureStore.scala` |
 | fence receipt、Journal consume、reader recovery gate | `server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala:170-227, 380-495` |
-| source fence、guardian 和恢复入口 | `server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcManagedRecovery.scala:20-253` |
+| source fence、guardian 和恢复入口 | `server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcManagedRecovery.scala:20-233` |
 | 长链预算失败与分页结果 | `docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/` |
 | proof GC 与逐字段对账 | `docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/` |
 
