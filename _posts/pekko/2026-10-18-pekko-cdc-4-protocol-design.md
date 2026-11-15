@@ -21,13 +21,13 @@ last_modified_at: 2026-11-15
 作者：xuyinyin
 [系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
-> **本文口径**：源码阅读基线为 `b17b9d1659f923fc256e3b09ad73777ac7acc677`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
+> 本文以 `b17b9d1659f923fc256e3b09ad73777ac7acc677` 的源码为准；实验数据引用各自材料中冻结的版本和切点。两者不一致时，正文会直接说明适用范围。
 
 本文的 LOW/HIGH 历史实验来自各自冻结版本；当前源码阅读基线是 `b17b9d1659f923fc256e3b09ad73777ac7acc677`。除非段落明确写出“本轮重跑”，历史 I01—I24 的结果只说明当时版本和切点，不自动升级为当前提交的端到端结果。
 
 > 本文回答一个经常被简化的问题：一张新表先做全量，再追上实时变更，究竟需要哪些边界？答案不是“读完快照再启动 binlog”，而是把订阅意图、读视图、窗口回填、日志回放和流式发布串成一条可恢复状态机。
 >
-> 文中的“源码结论”来自当前 Pekko CDC Runtime；“实验结果”只对应列出的真实 MySQL、Actor Journal 和 Sink；“未验证边界”保留为未验证，不因状态机画得完整而自动成为保证。
+> 本文以当前 Pekko CDC Runtime 的状态机为主线；实验只用来检验其中明确列出的窗口和切点，历史版本与当前源码不一致时按段落说明。
 
 ## 0 结论
 
@@ -99,7 +99,7 @@ STREAMING
 
 `SharedMySQLCapture` 要在源库控制表写入 marker，并通过 Debezium 回调看到对应事务结束，才能将意图绑定到真实 capture point。当前 Reader 对控制事务有 `event_count == 1` 的要求；如果 marker 和目录写入混入一个事务，实际事件数可能不再是 1，B 必须停在未知或失败态。
 
-**源码结论**：`processTransactionMetadata` 将控制事务解析、意图匹配和 barrier sequence 写入作为一个边界；没有匹配到当前 generation 时不能推进 K。
+从调用链可以看到，`processTransactionMetadata` 将控制事务解析、意图匹配和 barrier sequence 写入作为一个边界；没有匹配到当前 generation 时不能推进 K。
 
 **实验边界**：marker 与目录表同事务导致的 Debezium 事件计数，尚未在当前最终 Reader 版本完成实测，不能把“单条 SQL”写成“单条行事件”。
 
@@ -206,9 +206,9 @@ Rows(W)=Snapshot(LOW,HIGH)\;\oplus\;Replay(L[LOW,HIGH])
 
 如果任务只有 B 还没有 K，取消可以删除待接纳意图，但不能推进 D，也不能删除其他表共享的 L。若已经拿到 K，取消需要写 STOP marker，等待当前回调前缀处理完，再关闭该表的 assembler、Journal session 和目标临时表。
 
-**源码结论**：取消路径区分 pending 与 capture-ready；共享 Reader 的 ACK 前缀不能被一个表的取消越过。
+从调用链可以看到，取消路径区分 pending 与 capture-ready；共享 Reader 的 ACK 前缀不能被一个表的取消越过。
 
-**未验证边界**：所有取消时刻叠加 Schema 变更、目标写入超时和 source disconnect 的组合窗口，还没有完整矩阵。
+这里仍有一个边界：所有取消时刻叠加 Schema 变更、目标写入超时和 source disconnect 的组合窗口，还没有完整矩阵。
 
 ### 窗口二：T/J/D 不同速
 
@@ -222,7 +222,7 @@ Rows(W)=Snapshot(LOW,HIGH)\;\oplus\;Replay(L[LOW,HIGH])
 
 这条边界直接影响 LOW/HIGH 的定义：LOW/HIGH 证明的是捕获窗口，不是单独的分页游标正确性。
 
-## 5 从实验得到的结果
+## 5 把状态机放进真实实验
 
 ### 5.1 已完成的真实闭环
 
@@ -270,7 +270,7 @@ Rows(W)=Snapshot(LOW,HIGH)\;\oplus\;Replay(L[LOW,HIGH])
 | 任务资源、恢复和状态 | [`CdcPlatformRuntime.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
 | Journal 与批次 receipt | [`BootstrapJournal.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
 | ACK proof 分页 | [`CaptureAckPaging.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
-| 真实闭环与 GC 材料 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
-| 跨重启分页反例 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
+| 真实闭环与 GC 材料 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
+| 跨重启分页反例 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
 
 最终结论很具体：批转流不是一个 Reader API，而是一条包含 B、LOW/HIGH、K、F、T/J/D 和 Schema 的状态机。当前实现已经把主要边界写进代码和实验，但跨重启分页证明、marker 事务计数和未知 B 自动恢复仍需单独证据，不能用“全量转流已测过”笼统代替。

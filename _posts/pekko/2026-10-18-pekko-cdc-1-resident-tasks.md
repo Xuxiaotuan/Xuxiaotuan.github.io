@@ -21,7 +21,7 @@ last_modified_at: 2026-11-15
 作者：xuyinyin
 [系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
-> **本文口径**：源码阅读基线为 `b17b9d1659f923fc256e3b09ad73777ac7acc677`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
+> 本文以 `b17b9d1659f923fc256e3b09ad73777ac7acc677` 的源码为准；实验数据引用各自材料中冻结的版本和切点。两者不一致时，正文会直接说明适用范围。
 
 > 本文讨论一个具体问题：在一个 MySQL 实例上登记 70 万张表，但任意时刻只有少量表需要全量初始化或持续同步，怎样让 CDC 长期运行，又不把“70 万”直接变成 70 万个连接、Reader 和线程？
 
@@ -74,11 +74,11 @@ flowchart LR
 
 当前 Runtime 的 SQL 任务表把冷任务和执行中的 grant 分开。`CdcTaskStore` 的 `claim` 只从 `schedulable=TRUE` 且 `due_at<=now` 的任务中取一个候选，并在事务内写入 `pekko_cdc_grants_v1`，同时将任务改为 `IN_USE`。这意味着目录行可以很多，但一次调度只把有限数量的任务带入执行态。
 
-**源码结论**：目录规模和执行资源是两层状态；`CdcTaskStore` 的索引和 `claim` 路径支持按 capture、pool、due time 取头部任务，不要求扫描全部表。
+从调用链可以看到，目录规模和执行资源是两层状态；`CdcTaskStore` 的索引和 `claim` 路径支持按 capture、pool、due time 取头部任务，不要求扫描全部表。
 
-**实验结果**：冷元数据实验精确插入并遍历 700,000 条任务记录，完整扫描 7,000 页并执行索引检查；实验没有启动 ActorSystem、Shared Reader，也没有创建 700,000 张源表。它只证明在给定索引和配置下，冷目录可分页访问。
+在固定版本的真实实验中，冷元数据实验精确插入并遍历 700,000 条任务记录，完整扫描 7,000 页并执行索引检查；实验没有启动 ActorSystem、Shared Reader，也没有创建 700,000 张源表。它只证明在给定索引和配置下，冷目录可分页访问。
 
-**未验证边界**：真实 700,000 张物理表、同时发生 DDL、持续 binlog 写入和动态增删表时的 MySQL metadata 成本，仍然没有测量。
+这里仍有一个边界：真实 700,000 张物理表、同时发生 DDL、持续 binlog 写入和动态增删表时的 MySQL metadata 成本，仍然没有测量。
 
 ### 2. 一个 capture 对应一个 Reader
 
@@ -102,7 +102,7 @@ require(inside.compareAndSet(false, true),
 
 它先把原始回调放入有限 `pending` 队列，再逐条处理事件。每一条数据事件必须进入 `MySQLCdcGroupAssembler` 并写入 `L`；只有回调前缀的所有记录都获得持久覆盖，才调用 Debezium 的 `markProcessedAndFinished()`。
 
-**源码结论**：Reader 是一个带 owner lease、原始 ACK 前缀和持久 L 的共享组件；回调并发被拒绝，pending 数量和字节数都有上限。一个表的 ACK 不能越过前面仍未覆盖的回调。
+从调用链可以看到，Reader 是一个带 owner lease、原始 ACK 前缀和持久 L 的共享组件；回调并发被拒绝，pending 数量和字节数都有上限。一个表的 ACK 不能越过前面仍未覆盖的回调。
 
 这解释了为什么“共享 Reader”不是“只用一个线程”。Reader 的 binlog 会话是共享的，表级初始化和 Sink 写入仍然由独立的 bounded step worker 执行。共享的是捕获顺序和源连接，不是把所有表的业务工作串成一个无限长函数。
 
@@ -165,7 +165,7 @@ val direct: ExecutionContext = ExecutionContext.parasitic
 
 任务的实际并行度由两层共同限制。`CdcPlatformRuntime` 创建大小为 `snapshotSteps + tailSteps` 的 worker 池；`CdcBootstrapKernel.admissibleTasks(pool)` 又根据当前 session 和 reservation 数量拒绝超过预算的任务。`CdcTaskStore.claim` 在 SQL 事务中持久化 grant，因此进程重启时不会把一个未释放的 grant 当成可用资源。
 
-**源码结论**：当前实现没有为每一条冷目录记录预先创建 Actor、JDBC 连接或 worker；活动任务才有 Journal 和执行 session，执行 session 仍受 snapshot/tail 两个预算约束。
+从调用链可以看到，当前实现没有为每一条冷目录记录预先创建 Actor、JDBC 连接或 worker；活动任务才有 Journal 和执行 session，执行 session 仍受 snapshot/tail 两个预算约束。
 
 **设计含义**：如果把 Actor 当作线程，会错误地调大 dispatcher；如果把 Actor 当作表的永久进程，又会错误地估计 70 万表的常驻成本。正确的划分是“表级状态身份 + 活动期 Journal + 有界执行槽位”。
 
@@ -237,9 +237,9 @@ C_{peak}=1_{binlog}+1_{owner}+C_{obs}+A_s(C_{scan}+C_{sink})+A_t C_{sink}+C_{gc}
 
 对单实例 70 万表，真正需要测量的是 `N`、capture domain 数 `R`、活跃表 `A(t)` 和 L 增长率的四元组，而不是只测 `N=700000`。如果 `R=1`、`A(t)=5`，连接上界主要由一个 Reader 加 5 个活动 step 决定；如果 `A(t)=50000`，同一架构仍可能被 Sink 和 L 的增长率击穿。这个区分是资源模型的可证伪部分。
 
-**未验证边界**：当前仓库没有完成单实例 70 万表的长时间压力测试，也没有在真实活跃表数量逐步增加时记录 MySQL `Threads_connected`、binlog dump 延迟、JVM RSS、L 增长和 GC 延迟曲线。因此“Actor 天然节省资源”只能作为执行模型解释，不能写成容量结论。
+这里仍有一个边界：当前仓库没有完成单实例 70 万表的长时间压力测试，也没有在真实活跃表数量逐步增加时记录 MySQL `Threads_connected`、binlog dump 延迟、JVM RSS、L 增长和 GC 延迟曲线。因此“Actor 天然节省资源”只能作为执行模型解释，不能写成容量结论。
 
-## 5 真实证据能支持到哪一步
+## 5 把模型放进真实运行
 
 ### 1. 本地完整回归
 
@@ -253,9 +253,9 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 
 相关材料：
 
-- [运行时与 GC 集群证据](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
-- [proof GC 证据](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)
-- [700,000 条冷元数据实验](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce/)
+- [运行时与 GC 集群证据](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
+- [proof GC 证据](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)
+- [700,000 条冷元数据实验](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce/)
 
 ## 6 几个容易被设计图掩盖的反例
 

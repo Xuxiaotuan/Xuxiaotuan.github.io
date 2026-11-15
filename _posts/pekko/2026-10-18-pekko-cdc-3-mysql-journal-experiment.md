@@ -21,7 +21,7 @@ last_modified_at: 2026-11-15
 作者：xuyinyin
 [系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
-> **本文口径**：源码阅读基线为 `b17b9d1659f923fc256e3b09ad73777ac7acc677`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
+> 本文以 `b17b9d1659f923fc256e3b09ad73777ac7acc677` 的源码为准；实验数据引用各自材料中冻结的版本和切点。两者不一致时，正文会直接说明适用范围。
 
 > 观测版本：`pekko-reference`，2026-11-13 的独立 CDC Runtime 与真实 KubeSphere 验收材料。
 >
@@ -37,7 +37,7 @@ release(g) \Rightarrow covered_L(g) \land verified_T(g) \land accepted_J(g) \lan
 
 这不是 exactly-once 的全局定理，而是当前目标账本、Journal、ACK proof 与 GC 之间的最低联结条件。
 
-本文沿着一条具体的 `UPDATE` 往下追。源码结论、实际运行结果、历史失败证据和未验证边界分别标记，避免把局部测试结果写成端到端保证。
+本文沿着一条具体的 `UPDATE` 往下追：先看它如何获得稳定身份，再看它如何进入 L、目标事务和 Journal，最后回到 D 与 GC。调用链、真实运行和限制都放在对应机制旁边展开，避免把局部测试结果写成端到端保证。
 
 ```mermaid
 sequenceDiagram
@@ -201,7 +201,7 @@ ACK(parent=上一条 ACK, references=[该 GROUP]) 已落盘
 原始 callback handle 才被调用
 ```
 
-**源码结论：** 原始 callback 的“返回”证明 L 覆盖了 callback 的完整前缀；它不证明目标端已经写入。
+从调用链可以看到， 原始 callback 的“返回”证明 L 覆盖了 callback 的完整前缀；它不证明目标端已经写入。
 
 ## 2 T：目标事务如何做到重放不产生第二次业务效果
 
@@ -245,7 +245,7 @@ connection.commit()
 
 `MySQLCdcApplyEngine` 在 `connection.commit()` 抛异常时包装为 `ExecutionFailure.CommitUnknown`。这是一个重要边界：客户端不知道服务端是否已经提交，重试前必须读取 ledger；不能直接 rollback 后假定目标没有变化。
 
-**源码结论：** T 的幂等性由目标库 ledger 和同事务 DML 共同提供；`Committed` 与 `AlreadyCommitted` 都只表示目标事务路径已完成，不能代替 J 或 D 的证明。
+从调用链可以看到， T 的幂等性由目标库 ledger 和同事务 DML 共同提供；`Committed` 与 `AlreadyCommitted` 都只表示目标事务路径已完成，不能代替 J 或 D 的证明。
 
 ### 2.1 一个 group 的提交线性化点
 
@@ -298,9 +298,9 @@ T committed
 2. ledger 的 evidence 与 replay 内容一致；
 3. Journal 仍保留原 execution 或有足够的恢复身份，不能把当前源表快照替换成另一个 batch。
 
-**实验结果：** 旧 Bootstrap 矩阵的 I16 固定过“目标页已经提交、Journal 仍停在第 0 页”，恢复日志中同一窗口第 0 页从 `new=true` 变为 `new=false`，最终 64 行、384 个字段逐字段相等。该结果证明指定窗口能够按 ledger 重放，不证明任意外部副作用也恰好一次。
+在固定版本的真实实验中， 旧 Bootstrap 矩阵的 I16 固定过“目标页已经提交、Journal 仍停在第 0 页”，恢复日志中同一窗口第 0 页从 `new=true` 变为 `new=false`，最终 64 行、384 个字段逐字段相等。该结果证明指定窗口能够按 ledger 重放，不证明任意外部副作用也恰好一次。
 
-**未验证边界：** 本文没有把 I16 的 baseline 结果扩大为所有 Sink、所有事务隔离级别或所有 Journal provider 的保证；它只覆盖实验中使用的真实 MySQL 目标、Actor Journal 和固定切点。
+这里仍有一个边界： 本文没有把 I16 的 baseline 结果扩大为所有 Sink、所有事务隔离级别或所有 Journal provider 的保证；它只覆盖实验中使用的真实 MySQL 目标、Actor Journal 和固定切点。
 
 把 I16 写成验收表，比“恢复成功”更准确：
 
@@ -384,7 +384,7 @@ update(_.copy(
 
 F 的意义是：初始化已经覆盖到一个固定的源点；随后从 B 之后的 L 前缀回放到 F，目标 activation receipt 验证通过后，Journal 才能进入 STREAMING。进入 STREAMING 后，`deltaAfter` 是 L sequence，不是 binlog position；D 仍由 Debezium offset 表维护。
 
-**源码结论：** F 是状态机中的交接证明，不是“最后一条 UPDATE 的时间”。
+从调用链可以看到， F 是状态机中的交接证明，不是“最后一条 UPDATE 的时间”。
 
 ## 6 真实故障顺序：哪些窗口自动重放，哪些必须暂停
 
@@ -520,9 +520,9 @@ Source 与 Sink 均得到：
 
 ## 附录 B：真实材料和失败材料
 
-* [ACK proof 预算修复与真实集群验证](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/README.md)：旧 4096/15 秒预算失败、分页 proof 通过、Source/Sink 对账。
-* [分页 proof 表 GC 与容量边界](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/README.md)：旧 proof 回收、当前 proof 保留、容量与未验证边界。
-* [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：B/F、重启、资源状态、逐字段对账和完整回归摘要。
-* [历史初始化故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-10-25-bootstrap/README.md)：I08、I11、I16、I21 的固定窗口与失败证据。
+* [ACK proof 预算修复与真实集群验证](https://github.com/Xuxiaotuan/pekko-reference/blob/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/README.md)：旧 4096/15 秒预算失败、分页 proof 通过、Source/Sink 对账。
+* [分页 proof 表 GC 与容量边界](https://github.com/Xuxiaotuan/pekko-reference/blob/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/README.md)：旧 proof 回收、当前 proof 保留、容量与未验证边界。
+* [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：B/F、重启、资源状态、逐字段对账和完整回归摘要。
+* [历史初始化故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-10-25-bootstrap/README.md)：I08、I11、I16、I21 的固定窗口与失败证据。
 
 这四份材料的时间、源码版本和实验入口不同。阅读时应以每个目录中的 `README.md`、状态快照、原始日志和 checksum 为准，不把不同版本的通过项相加成一项未执行的保证。
