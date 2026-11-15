@@ -215,9 +215,9 @@ Flink 的优势在于 Checkpoint 将 Source 和算子状态放进统一恢复协
 
 可以先把比较拆成四个成本项：
 
-\[
+$$
 C_{total}=C_{cold}(N)+C_{capture}(R)+C_{active}(A,W)+C_{proof}(L,T,J,D)
-\]
+$$
 
 其中 `N` 是目录规模，`R` 是共享 Reader 数，`A` 是活动表数，`W` 是执行预算，`L/T/J/D` 的变化率决定证明和保留成本。Pekko 主要试图压低 `C_active` 的冷启动部分；它不能消除 Schema、binlog、日志保留和证明成本。Flink 主要把 `C_active`、状态和故障恢复交给统一运行时，但同样需要为 Source、Split、Checkpoint 和 Sink 保留状态。
 
@@ -285,8 +285,8 @@ Pekko CDC 的合理目标不是复制 Flink 的全部能力，而是用更细的
 | 任务、预算和恢复 | [`CdcPlatformRuntime.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
 | ACK proof 与保护引用 | [`CaptureAckPaging.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
 | 安全 GC | [`CaptureGcRetention.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
-| 集群闭环与逐字段对账 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
-| 真实失败证据 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
+| 集群闭环与逐字段对账 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
+| 真实失败证据 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
 | 对照阅读风格 | [MySQL Monthly](http://mysql.taobao.org/monthly/) |
 
 如果下一步要做真正的技术对比，应把同一 MySQL 数据集、同一 Source/Sink 语义、同一故障窗口和同一逐字段对账脚本同时跑在两套系统上。否则，文章最多能说明架构取舍，不能说明谁在生产上“更快”或“更稳”。

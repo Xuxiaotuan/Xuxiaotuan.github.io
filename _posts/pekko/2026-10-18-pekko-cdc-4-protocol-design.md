@@ -112,9 +112,9 @@ STREAMING
 
 一个安全的转流条件应至少满足：
 
-\[
+$$
 bind(B, generation, sourceFence) = K, \quad F \geq HIGH, \quad cover(T,J,D)=verified
-\]
+$$
 
 这里有三种不同关系：B 是订阅意图，K 是 Reader 看到控制 marker 后形成的绑定边界，两者不是可以直接比较大小的数字；F 与 HIGH 只有在同一 capture、同一 generation、同一 source lineage 下才可以比较；`cover(T,J,D)=verified` 表示三条证据对当前发布前缀形成覆盖关系，不要求三个位置数值相等。若 owner、generation 或 Schema 不一致，即使序列号更大，也不能视为覆盖。
 
@@ -192,9 +192,9 @@ advance nextLower = upper
 
 窗口不变量可以写成：若 `W=(LOW,HIGH,RAW,DELTA)` 已 seal，则
 
-\[
+$$
 Rows(W)=Snapshot(LOW,HIGH)\;\oplus\;Replay(L[LOW,HIGH])
-\]
+$$
 
 其中 `⊕` 不是简单拼接，而是按主键折叠 INSERT/UPDATE/DELETE；`verifyWindow` 同时检查窗口 spec、LOW/HIGH fence、每个 RAW page hash，以及 L groupRoot。只要其中一个 hash 或 sequence 变化，窗口就不能进入 `applyPage`。
 
@@ -270,7 +270,7 @@ Rows(W)=Snapshot(LOW,HIGH)\;\oplus\;Replay(L[LOW,HIGH])
 | 任务资源、恢复和状态 | [`CdcPlatformRuntime.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
 | Journal 与批次 receipt | [`BootstrapJournal.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
 | ACK proof 分页 | [`CaptureAckPaging.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
-| 真实闭环与 GC 材料 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
-| 跨重启分页反例 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
+| 真实闭环与 GC 材料 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
+| 跨重启分页反例 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
 
 最终结论很具体：批转流不是一个 Reader API，而是一条包含 B、LOW/HIGH、K、F、T/J/D 和 Schema 的状态机。当前实现已经把主要边界写进代码和实验，但跨重启分页证明、marker 事务计数和未知 B 自动恢复仍需单独证据，不能用“全量转流已测过”笼统代替。

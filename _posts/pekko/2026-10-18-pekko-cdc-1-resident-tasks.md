@@ -37,17 +37,17 @@ last_modified_at: 2026-11-15
 
 因此，目标不是让 `N` 个表都“活着”，而是让下面的关系长期成立：
 
-\[
+$$
 \text{source sessions} \approx O(\text{capture domains}) + O(A(t))
-\]
+$$
 
-\[
+$$
 \text{step workers} \leq W_{snapshot}+W_{tail}
-\]
+$$
 
-\[
+$$
 A(t) \leq W_{snapshot}+W_{tail}
-\]
+$$
 
 这三条是资源上界模型，不是 70 万张真实表的容量实测。当前仓库有 700,000 条冷任务元数据的分页实验，却没有 700,000 张真实活跃表、吞吐和天级 churn 的证据。
 
@@ -229,9 +229,9 @@ Reader 代码对这条边界做了显式检查：`unsubscribe` 只接受 `CAPTUR
 
 可以把单个 capture 的最坏连接数写成一个审查公式：
 
-\[
+$$
 C_{peak}=1_{binlog}+1_{owner}+C_{obs}+A_s(C_{scan}+C_{sink})+A_t C_{sink}+C_{gc}
-\]
+$$
 
 其中 `1_binlog` 是 Debezium dump 会话，`1_owner` 是 state owner lease，`C_obs` 是排空观察器的并发连接，`A_s`/`A_t` 是 snapshot/tail grant 数，`C_scan` 和 `C_sink` 是一个 step 的源读、目标写连接上限，`C_gc` 是 GC 校验连接。这个式子不是压测结果，而是把“目录有 70 万行”转换为可检查的活跃资源上界。当前实现另外对 Reader pending 施加 `pending.size < 8` 和 16 MiB retained bytes 上限；超过后停在回调边界，而不是无限堆积 JVM 内存。
 
@@ -253,9 +253,9 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 
 相关材料：
 
-- [运行时与 GC 集群证据](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
-- [proof GC 证据](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)
-- [700,000 条冷元数据实验](https://github.com/Xuxiaotuan/pekko-reference/tree/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce/)
+- [运行时与 GC 集群证据](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
+- [proof GC 证据](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)
+- [700,000 条冷元数据实验](https://github.com/Xuxiaotuan/pekko-reference/tree/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce/)
 
 ## 6 几个容易被设计图掩盖的反例
 

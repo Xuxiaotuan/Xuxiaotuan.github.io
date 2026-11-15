@@ -31,9 +31,9 @@ last_modified_at: 2026-11-15
 
 释放一个组 `g` 的必要条件可以写成：
 
-\[
+$$
 release(g) \Rightarrow covered_L(g) \land verified_T(g) \land accepted_J(g) \land covered_D(g) \land no_protected_reference(g)
-\]
+$$
 
 这不是 exactly-once 的全局定理，而是当前目标账本、Journal、ACK proof 与 GC 之间的最低联结条件。
 
@@ -253,13 +253,13 @@ connection.commit()
 
 这给出一个可验证的线性化关系：
 
-\[
+$$
 T(G)=\begin{cases}
 \text{AlreadyCommitted},& ledger(G)=e(G)\\
 \text{Committed},& ledger(G)\text{ 从无到 }e(G)\text{ 且 DML 同事务提交}\\
 \text{Conflict},& ledger(G)=e'\ne(G)
 \end{cases}
-\]
+$$
 
 因此重放只会落入第一行或第二行，不能把同一个 `groupId` 的两个不同 payload 当作正常重复。`CommitUnknown` 发生在 JDBC `commit()` 抛出异常时；此时关系式的结果不是 `Committed` 或 `RolledBack`，而是“需要读回 ledger”。这也是为什么在恢复协议里，目标账本必须包含完整 evidence，而不能只存一个自增批次号。
 
@@ -520,9 +520,9 @@ Source 与 Sink 均得到：
 
 ## 附录 B：真实材料和失败材料
 
-* [ACK proof 预算修复与真实集群验证](https://github.com/Xuxiaotuan/pekko-reference/blob/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/README.md)：旧 4096/15 秒预算失败、分页 proof 通过、Source/Sink 对账。
-* [分页 proof 表 GC 与容量边界](https://github.com/Xuxiaotuan/pekko-reference/blob/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/README.md)：旧 proof 回收、当前 proof 保留、容量与未验证边界。
-* [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：B/F、重启、资源状态、逐字段对账和完整回归摘要。
-* [历史初始化故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/6ce4e15beaad788859703a2877cce1db3f09562e/docs/experiments/2026-10-25-bootstrap/README.md)：I08、I11、I16、I21 的固定窗口与失败证据。
+* [ACK proof 预算修复与真实集群验证](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/README.md)：旧 4096/15 秒预算失败、分页 proof 通过、Source/Sink 对账。
+* [分页 proof 表 GC 与容量边界](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/README.md)：旧 proof 回收、当前 proof 保留、容量与未验证边界。
+* [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：B/F、重启、资源状态、逐字段对账和完整回归摘要。
+* [历史初始化故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/04ff73db2cb72490676e45330d605705c700104b/docs/experiments/2026-10-25-bootstrap/README.md)：I08、I11、I16、I21 的固定窗口与失败证据。
 
 这四份材料的时间、源码版本和实验入口不同。阅读时应以每个目录中的 `README.md`、状态快照、原始日志和 checksum 为准，不把不同版本的通过项相加成一项未执行的保证。
