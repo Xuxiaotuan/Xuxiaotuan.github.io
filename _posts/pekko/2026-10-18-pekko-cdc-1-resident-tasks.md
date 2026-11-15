@@ -15,12 +15,12 @@ mermaid: true
 last_modified_at: 2026-11-15
 ---
 
-
-[系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
+# 70 万张表常驻 CDC，为什么需要 Shared Reader、表级执行单元和有界资源
 
 作者：xuyinyin
+[系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
-> **本文口径**：源码阅读基线为 `cc09559`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
+> **本文口径**：源码阅读基线为 `b17b9d1659f923fc256e3b09ad73777ac7acc677`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
 
 > 本文讨论一个具体问题：在一个 MySQL 实例上登记 70 万张表，但任意时刻只有少量表需要全量初始化或持续同步，怎样让 CDC 长期运行，又不把“70 万”直接变成 70 万个连接、Reader 和线程？
 
@@ -105,6 +105,49 @@ require(inside.compareAndSet(false, true),
 
 这解释了为什么“共享 Reader”不是“只用一个线程”。Reader 的 binlog 会话是共享的，表级初始化和 Sink 写入仍然由独立的 bounded step worker 执行。共享的是捕获顺序和源连接，不是把所有表的业务工作串成一个无限长函数。
 
+### 3. 从启动入口到第一条事件：实际调用链
+
+把“一个 capture 一个 Reader”写成类图还不够，真正决定边界的是启动顺序。当前实现的同步链可以压缩成下面这段伪代码（省略日志和异常包装）：
+
+```scala
+CdcBootstrapKernel.start()
+  -> stateIdentity(cfg)
+  -> new MySQLCaptureStore(...).initialize()
+  -> new SharedMySQLCapture(...)
+  -> reader.start()
+       -> sourceConnection(): source UUID / ROW / FULL
+       -> stateConnection(): state UUID / GET_LOCK(captureId)
+       -> readCheckpoint() / recoveryInventory()
+       -> factory.create(debeziumProps)
+       -> engine.start(handleBatch)
+```
+
+`CdcBootstrapKernel.start()` 先检查持久化 source fence 是否仍然被当前配置承认，再为每个 capture 建立 `MySQLCaptureStore` 和 `SharedMySQLCapture`；只有 `reader.start()` 成功后，刷新线程才把 `ADMISSION_READY` 传播给调度层。源码中的顺序是 `CdcBootstrapKernel.scala:131-175`。这意味着调度器看到的“可接纳”晚于 Reader owner、checkpoint、Schema history 和控制表准入，而不是应用进程刚启动就可用。
+
+`SharedMySQLCapture.start()` 又有三个不可交换的检查：
+
+1. 源库必须是同一 `server_uuid`，binlog 必须是 `ROW/FULL`；
+2. 状态库必须是不同实例，且 `GET_LOCK('pekko_capture_' + captureId)` 成功；
+3. checkpoint、L 的 recovery inventory 和 source fence 通过后，才创建 Debezium engine。
+
+因此，source connection、state owner connection 和 Debezium dump session 的生命周期并不相同。`requestClose()` 首先设置 `stopping`，然后交给 `CaptureReleaseGuard` 依次确认本地 engine 已停止、owner lock 已释放、observer 看到连接和事务排空；`Future[Done]` 返回不能单独升级成“可接管”。
+
+第一条数据进入后的链路也有一个明确的顺序：
+
+```text
+Debezium handleBatch
+  -> SharedMySQLCapture.accept
+  -> processDataRecord
+  -> MySQLCdcEnvelope.decode / MySQLCdcGroup.id
+  -> MySQLCdcGroupAssembler.accept
+  -> MySQLCaptureStore.append(GROUP)
+  -> acknowledgeCoveredCallbacks
+  -> store.coverSequence(ACK)
+  -> markProcessedAndFinished()
+```
+
+只要 `append`、`coverSequence` 或 owner 校验任一步失败，原始 callback 就不能被确认；反过来，callback 被确认也只证明 L 覆盖了该回调前缀，并不证明目标 Sink 已提交。这条调用链是后文 T/J/D 推导的基础。
+
 ## 2 表级 Actor 到底负责什么
 
 ### 1. Actor 是身份和串行化边界，不等于一张表一个线程
@@ -183,6 +226,16 @@ Reader 代码对这条边界做了显式检查：`unsubscribe` 只接受 `CAPTUR
 
 工程上应先给出 `W_snapshot`、`W_tail` 和每个 capture 的连接上限，再反推允许的活动表数，而不是从目录行数反推线程数。若 source、state、Journal、Sink 都共用同一个 MySQL，连接数虽然看起来少，事务反馈会混入源库，故当前启动代码反而拒绝这种布局。
 
+可以把单个 capture 的最坏连接数写成一个审查公式：
+
+\[
+C_{peak}=1_{binlog}+1_{owner}+C_{obs}+A_s(C_{scan}+C_{sink})+A_t C_{sink}+C_{gc}
+\]
+
+其中 `1_binlog` 是 Debezium dump 会话，`1_owner` 是 state owner lease，`C_obs` 是排空观察器的并发连接，`A_s`/`A_t` 是 snapshot/tail grant 数，`C_scan` 和 `C_sink` 是一个 step 的源读、目标写连接上限，`C_gc` 是 GC 校验连接。这个式子不是压测结果，而是把“目录有 70 万行”转换为可检查的活跃资源上界。当前实现另外对 Reader pending 施加 `pending.size < 8` 和 16 MiB retained bytes 上限；超过后停在回调边界，而不是无限堆积 JVM 内存。
+
+对单实例 70 万表，真正需要测量的是 `N`、capture domain 数 `R`、活跃表 `A(t)` 和 L 增长率的四元组，而不是只测 `N=700000`。如果 `R=1`、`A(t)=5`，连接上界主要由一个 Reader 加 5 个活动 step 决定；如果 `A(t)=50000`，同一架构仍可能被 Sink 和 L 的增长率击穿。这个区分是资源模型的可证伪部分。
+
 **未验证边界**：当前仓库没有完成单实例 70 万表的长时间压力测试，也没有在真实活跃表数量逐步增加时记录 MySQL `Threads_connected`、binlog dump 延迟、JVM RSS、L 增长和 GC 延迟曲线。因此“Actor 天然节省资源”只能作为执行模型解释，不能写成容量结论。
 
 ## 5 真实证据能支持到哪一步
@@ -199,9 +252,9 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 
 相关材料：
 
-- [运行时与 GC 集群证据](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113)
-- [proof GC 证据](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113)
-- [700,000 条冷元数据实验](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce)
+- [运行时与 GC 集群证据](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
+- [proof GC 证据](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)
+- [700,000 条冷元数据实验](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce/)
 
 ## 6 几个容易被设计图掩盖的反例
 
@@ -233,12 +286,12 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 
 | 责任 | 当前源码 |
 |---|---|
-| capture 组装、Reader 生命周期、任务 session | [`CdcBootstrapKernel.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala) |
-| 共享 Debezium Reader、原始回调、ACK 前缀、marker | [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
-| 任务 grant、双池调度、owner 状态、恢复 | [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
-| 持久化任务索引、grant 与 continuation | [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala) |
-| Journal 顺序与恢复 receipt | [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
-| ACK proof 分页与安全 GC | [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
-| GC 保留策略与实际 D | [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
+| capture 组装、Reader 生命周期、任务 session | [`CdcBootstrapKernel.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala) |
+| 共享 Debezium Reader、原始回调、ACK 前缀、marker | [`SharedMySQLCapture.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
+| 任务 grant、双池调度、owner 状态、恢复 | [`CdcPlatformRuntime.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
+| 持久化任务索引、grant 与 continuation | [`CdcTaskStore.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala) |
+| Journal 顺序与恢复 receipt | [`BootstrapJournal.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
+| ACK proof 分页与安全 GC | [`CaptureAckPaging.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
+| GC 保留策略与实际 D | [`CaptureGcRetention.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
 
 最终判断应保持克制：当前实现已经具备“一个 capture 共享 Reader、表级可恢复执行、有界调度和保守释放”的源码结构，也有指定真实环境下的逐字段闭环；但它还没有把 70 万张真实活跃表的连接、吞吐、长期稳定性和全部故障窗口证明完。这个差距不是文章措辞可以消除的，必须用下一轮容量与端到端实验补齐。

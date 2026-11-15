@@ -15,12 +15,12 @@ mermaid: true
 last_modified_at: 2026-11-15
 ---
 
-
-[系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
+# 一条 MySQL UPDATE 什么时候才算被 CDC 接受？
 
 作者：xuyinyin
+[系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
-> **本文口径**：源码阅读基线为 `cc09559`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
+> **本文口径**：源码阅读基线为 `b17b9d1659f923fc256e3b09ad73777ac7acc677`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
 
 > 观测版本：`pekko-reference`，2026-11-13 的独立 CDC Runtime 与真实 KubeSphere 验收材料。
 >
@@ -246,6 +246,24 @@ connection.commit()
 
 **源码结论：** T 的幂等性由目标库 ledger 和同事务 DML 共同提供；`Committed` 与 `AlreadyCommitted` 都只表示目标事务路径已完成，不能代替 J 或 D 的证明。
 
+### 2.1 一个 group 的提交线性化点
+
+`commitBatchConfigured` 的关键不是 `commit()` 这一行，而是 ledger claim 与业务 DML 位于同一个 JDBC transaction。代码先解析整个 batch 的 identity，再打开目标连接、读取目标表元数据、验证 group protocol；随后对每个 group 执行 `SELECT ... FOR UPDATE`。只有 ledger 中不存在该 group 时，才插入 evidence 并应用事件；最后统一 `connection.commit()`。
+
+这给出一个可验证的线性化关系：
+
+\[
+T(G)=\begin{cases}
+\text{AlreadyCommitted},& ledger(G)=e(G)\\
+\text{Committed},& ledger(G)\text{ 从无到 }e(G)\text{ 且 DML 同事务提交}\\
+\text{Conflict},& ledger(G)=e'\ne(G)
+\end{cases}
+\]
+
+因此重放只会落入第一行或第二行，不能把同一个 `groupId` 的两个不同 payload 当作正常重复。`CommitUnknown` 发生在 JDBC `commit()` 抛出异常时；此时关系式的结果不是 `Committed` 或 `RolledBack`，而是“需要读回 ledger”。这也是为什么在恢复协议里，目标账本必须包含完整 evidence，而不能只存一个自增批次号。
+
+从调用链看，`BootstrapRunner.replay` 只负责选择 L 的连续 sequence 和维护 `deltaAfter`；真正的业务幂等由 `MySQLCdcApplyEngine.commitBatchConfigured` 负责。两者之间没有跨数据库原子提交，所以 Journal 只能在 Sink Future 返回后再推进；这正是 T 已提交、J 未持久化窗口产生的原因。
+
 ## 3 J：为什么目标已经提交，Journal 仍然可能落后
 
 Bootstrap Runner 对每一个有界工作单元先调用 Sink，再更新 Journal。`replay` 的主线是：
@@ -282,6 +300,16 @@ T committed
 **实验结果：** 旧 Bootstrap 矩阵的 I16 固定过“目标页已经提交、Journal 仍停在第 0 页”，恢复日志中同一窗口第 0 页从 `new=true` 变为 `new=false`，最终 64 行、384 个字段逐字段相等。该结果证明指定窗口能够按 ledger 重放，不证明任意外部副作用也恰好一次。
 
 **未验证边界：** 本文没有把 I16 的 baseline 结果扩大为所有 Sink、所有事务隔离级别或所有 Journal provider 的保证；它只覆盖实验中使用的真实 MySQL 目标、Actor Journal 和固定切点。
+
+把 I16 写成验收表，比“恢复成功”更准确：
+
+| 切点 | T | J | D/ACK | 恢复动作 | 实际结果 |
+|---|---|---|---|---|---|
+| 目标页提交后 | 已有 group ledger | 页 0 | 未推进到该页 | 从旧 `deltaAfter` 重读 | `AlreadyCommitted`，不重复应用 |
+| Journal 更新后 | 已提交 | 页 receipt 已存在 | 仍按 source proof 校验 | 读回 receipt 与 proof | 允许继续后继页 |
+| 全部窗口结束 | 64 行目标 | progress 完成 | ACK proof 可验证 | 对账 | 64 行、384 字段一致 |
+
+表中没有把 `D` 省略掉：即使目标已经是最终值，若 D 的 ACK ancestry 不能证明同一 source prefix，恢复仍不能推进 reader。
 
 ## 4 D：offset 不是“读到了”，而是一个需要被 L 反向证明的事实
 
@@ -480,20 +508,20 @@ Source 与 Sink 均得到：
 
 ## 附录 A：关键源码入口
 
-* [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)：Reader owner、callback pending、L 覆盖、原始 ACK、启动门。
-* [`MySQLCdcGroupAssembler.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcGroupAssembler.scala)：普通事件和主键 DELETE/CREATE 的跨 callback 组装。
-* [`MySQLCaptureStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/MySQLCaptureStore.scala)：L frame、ACK parent、B/F fence、D 反查。
-* [`CapturedLogReader.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CapturedLogReader.scala)：从 L 构造 checkpoint-aware `CdcCapturedBatch`。
-* [`MySQLCdcApplyEngine.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/sink/MySQLCdcApplyEngine.scala)：目标事务、group ledger、`CommitUnknown`。
-* [`BootstrapRunner.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapRunner.scala)：LOW/HIGH、F、replay、J progress 和 GC checkpoint。
-* [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala)：revision CAS、恢复 receipt、Journal 事件状态。
-* [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala)：长 ACK ancestry 的分页持久化证明和 proof GC。
+* [`SharedMySQLCapture.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)：Reader owner、callback pending、L 覆盖、原始 ACK、启动门。
+* [`MySQLCdcGroupAssembler.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcGroupAssembler.scala)：普通事件和主键 DELETE/CREATE 的跨 callback 组装。
+* [`MySQLCaptureStore.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/MySQLCaptureStore.scala)：L frame、ACK parent、B/F fence、D 反查。
+* [`CapturedLogReader.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CapturedLogReader.scala)：从 L 构造 checkpoint-aware `CdcCapturedBatch`。
+* [`MySQLCdcApplyEngine.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/sink/MySQLCdcApplyEngine.scala)：目标事务、group ledger、`CommitUnknown`。
+* [`BootstrapRunner.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapRunner.scala)：LOW/HIGH、F、replay、J progress 和 GC checkpoint。
+* [`BootstrapJournal.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala)：revision CAS、恢复 receipt、Journal 事件状态。
+* [`CaptureAckPaging.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala)：长 ACK ancestry 的分页持久化证明和 proof GC。
 
 ## 附录 B：真实材料和失败材料
 
-* [ACK proof 预算修复与真实集群验证](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/README.md)：旧 4096/15 秒预算失败、分页 proof 通过、Source/Sink 对账。
-* [分页 proof 表 GC 与容量边界](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/README.md)：旧 proof 回收、当前 proof 保留、容量与未验证边界。
-* [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：B/F、重启、资源状态、逐字段对账和完整回归摘要。
-* [历史初始化故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-10-25-bootstrap/README.md)：I08、I11、I16、I21 的固定窗口与失败证据。
+* [ACK proof 预算修复与真实集群验证](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/README.md)：旧 4096/15 秒预算失败、分页 proof 通过、Source/Sink 对账。
+* [分页 proof 表 GC 与容量边界](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/README.md)：旧 proof 回收、当前 proof 保留、容量与未验证边界。
+* [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：B/F、重启、资源状态、逐字段对账和完整回归摘要。
+* [历史初始化故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-10-25-bootstrap/README.md)：I08、I11、I16、I21 的固定窗口与失败证据。
 
 这四份材料的时间、源码版本和实验入口不同。阅读时应以每个目录中的 `README.md`、状态快照、原始日志和 checksum 为准，不把不同版本的通过项相加成一项未执行的保证。

@@ -15,12 +15,12 @@ mermaid: true
 last_modified_at: 2026-11-15
 ---
 
-
-[系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
+# Pekko CDC 和 Flink CDC：在 70 万表常驻场景下，谁解决了什么问题
 
 作者：xuyinyin
+[系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
-> **本文口径**：源码阅读基线为 `cc09559`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
+> **本文口径**：源码阅读基线为 `b17b9d1659f923fc256e3b09ad73777ac7acc677`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
 
 Flink 对照按 Flink CDC 3.6.0 的运行模型和源码阅读组织；本轮没有在同一数据集、同一 Sink 和同一故障切点上重跑 Flink。Flink CDC 3.7.0 与 Paimon 实验属于另一组材料，不混入本文的性能或可靠性结论。
 
@@ -95,6 +95,30 @@ Flink CDC 的典型模型是：Source 产生 Snapshot Split 和 Binlog Split，E
 
 但动态新增和取消 70 万条表目录仍然有成本：Job 图、Source 配置、Split 元数据和 checkpoint 状态需要有明确的更新策略。本文没有把 Flink 的动态表变更部署、扩缩容和实际连接数重新跑一遍，因此这些方面只保留为比较维度，不写成当前实验结论。
 
+### 2.1 Flink 侧的源码调用链
+
+为了避免把“Flink 有 Checkpoint”写成空泛优点，这里按 Flink CDC 3.6.0 的 MySQL Source 代码追一遍实际责任：
+
+```text
+MySqlSourceEnumerator
+  -> MySqlHybridSplitAssigner.getNext()
+       -> MySqlSnapshotSplitAssigner.getNext()
+            -> MySqlChunkSplitter.splitChunks()
+       -> createBinlogSplit(finishedSnapshotSplitInfos)
+  -> SourceReader.addSplits()
+       -> MySqlSnapshotSplitReader / MySqlBinlogSplitReader
+  -> checkpoint: enumerator state + reader split state
+```
+
+`MySqlSnapshotSplitAssigner` 的 checkpoint state 至少包含 `remainingSplits`、`assignedSplits`、`tableSchemas` 和每个 snapshot split 的 finished offset；恢复构造函数从 `SnapshotPendingSplitsState` 重建这些集合。它不是把整张表一次性读完，而是由 `MySqlChunkSplitter` 按主键范围生成可分配的 split。源码入口可以直接对照：
+
+- [`MySqlSnapshotSplitAssigner`](https://github.com/apache/flink-cdc/blob/release-3.6.0/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/assigners/MySqlSnapshotSplitAssigner.java)
+- [`MySqlHybridSplitAssigner`](https://github.com/apache/flink-cdc/blob/release-3.6.0/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/assigners/MySqlHybridSplitAssigner.java)
+- [`MySqlSourceEnumerator`](https://github.com/apache/flink-cdc/blob/release-3.6.0/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/enumerator/MySqlSourceEnumerator.java)
+- [`MySqlSourceReader`](https://github.com/apache/flink-cdc/blob/release-3.6.0/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/reader/MySqlSourceReader.java)
+
+这条链和本文 Pekko 实现的差异是边界归属：Flink 把 split 分配、reader state 和 checkpoint 交给 Source API；Pekko 把窗口 spec、`appliedPage`、L groupRoot 和 Journal receipt 分开持久化。两者都能表达“可重试的有限范围”，但恢复时要验证的对象不同。
+
 ## 3 Pekko CDC 的强项：把常驻任务的生命周期拆开
 
 当前 Pekko Runtime 的核心分层是：
@@ -158,6 +182,19 @@ CdcPlatformRuntime
 | 取消单表 | 依赖作业拓扑和 connector 能力 | STOP marker + 单表资源释放 |
 
 这个表描述的是模型，不代表两边每个 connector 的实现完全相同。尤其是 Sink 的幂等和 DDL 传播，需要按具体连接器单独验证。
+
+### 4.1 同一业务承诺下的责任矩阵
+
+| 语义问题 | Pekko 当前实现 | Flink CDC 3.6.0 典型承载 | 本文证据等级 |
+|---|---|---|---|
+| 快照拆分 | `BootstrapRunner` 的主键范围窗口、RAW page | `MySqlChunkSplitter` + snapshot split | 两边源码可读；未做同负载 benchmark |
+| 快照期间变更 | LOW/HIGH 之间读取 L 并 fold | snapshot split finished offset + binlog split | Pekko 有真实固定窗口；Flink 未在本轮重跑 |
+| 进度持久化 | Journal progress + task state + L ACK proof | enumerator/reader checkpoint state | 源码结论 |
+| 目标幂等 | MySQL group ledger evidence | 由具体 Sink/两阶段提交实现 | Pekko MySQL Sink 已做固定实验；跨 Sink 未证 |
+| 动态新增表 | 写 B marker，复用已有 Reader | 依赖 enumerator 的表发现/作业配置策略 | Pekko 有设计和固定材料；Flink 动态增表未测 |
+| 资源边界 | snapshot/tail grant、pending bytes、capture owner | 并行度、slot、背压和 Source reader | 都是运行模型，不是本轮容量实测 |
+
+这个矩阵的目的，是防止把“Flink 有统一 Checkpoint”或“Pekko 有 ACK proof”直接翻译成端到端 exactly-once。真正的比较必须把相同的 source table、同一个事件身份、同一个目标账本和同一故障切点同时放进两边；本轮没有这样的对照实验。
 
 ## 5 故障恢复：Pekko 更灵活，也更容易把协议写错
 
@@ -243,12 +280,12 @@ Pekko CDC 的合理目标不是复制 Flink 的全部能力，而是用更细的
 
 | 内容 | 材料 |
 |---|---|
-| 共享 Reader 和 owner | [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
-| 任务、预算和恢复 | [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
-| ACK proof 与保护引用 | [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
-| 安全 GC | [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
-| 集群闭环与逐字段对账 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113) |
-| 真实失败证据 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-10-29-proof-cursor-snapshot) |
+| 共享 Reader 和 owner | [`SharedMySQLCapture.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
+| 任务、预算和恢复 | [`CdcPlatformRuntime.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
+| ACK proof 与保护引用 | [`CaptureAckPaging.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
+| 安全 GC | [`CaptureGcRetention.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
+| 集群闭环与逐字段对账 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
+| 真实失败证据 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
 | 对照阅读风格 | [MySQL Monthly](http://mysql.taobao.org/monthly/) |
 
 如果下一步要做真正的技术对比，应把同一 MySQL 数据集、同一 Source/Sink 语义、同一故障窗口和同一逐字段对账脚本同时跑在两套系统上。否则，文章最多能说明架构取舍，不能说明谁在生产上“更快”或“更稳”。

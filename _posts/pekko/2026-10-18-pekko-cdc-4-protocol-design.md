@@ -15,14 +15,14 @@ mermaid: true
 last_modified_at: 2026-11-15
 ---
 
-
-[系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
+# 从批到流：LOW/HIGH、B/F/K 为什么必须是一个状态机
 
 作者：xuyinyin
+[系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
-> **本文口径**：源码阅读基线为 `cc09559`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
+> **本文口径**：源码阅读基线为 `b17b9d1659f923fc256e3b09ad73777ac7acc677`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
 
-本文的 LOW/HIGH 历史实验来自各自冻结版本；当前源码阅读基线是 `cc09559`。除非段落明确写出“本轮重跑”，历史 I01—I24 的结果只说明当时版本和切点，不自动升级为当前提交的端到端结果。
+本文的 LOW/HIGH 历史实验来自各自冻结版本；当前源码阅读基线是 `b17b9d1659f923fc256e3b09ad73777ac7acc677`。除非段落明确写出“本轮重跑”，历史 I01—I24 的结果只说明当时版本和切点，不自动升级为当前提交的端到端结果。
 
 > 本文回答一个经常被简化的问题：一张新表先做全量，再追上实时变更，究竟需要哪些边界？答案不是“读完快照再启动 binlog”，而是把订阅意图、读视图、窗口回填、日志回放和流式发布串成一条可恢复状态机。
 >
@@ -156,6 +156,49 @@ bind(B, generation, sourceFence) = K, \quad F \geq HIGH, \quad cover(T,J,D)=veri
 
 这个转换是单向的：`STREAMING` 不是“Reader 有数据”，而是“该表的全量和窗口变更已经被目标吸收，并且从 F 开始可以继续消费实时增量”。
 
+### 3.4 `BootstrapRunner.scanStep` 的实际算法
+
+源码中的 `scanStep` 不是一个大事务，而是一个可重复调用的推进函数。把 `BootstrapRunner.scala:174-229` 展开，可以得到以下伪代码：
+
+```text
+if no current window and nextLower == frozenUpper:
+    write F fence; phase = REPLAYING; deltaAfter = B.sequence
+else if no current window:
+    u = source.nextUpper(nextLower, frozenUpper, chunkRows)
+    persist WINDOW_REGISTERED(index, lower, u, schema)
+
+if window has no sealed manifest:
+    LOW = fence(window + "_L")
+    source.scan(lower, upper, pageRows) -> RAW pages
+    HIGH = fence(window + "_H")
+    fold RAW rows and L groups in (LOW, HIGH]
+    seal(manifest, rawPageHashes, groupRoot, finalRows)
+
+verifyWindow(manifest)
+for page from appliedPage until pageCount:
+    target.applyPage(window, page, manifest, finalRows)
+    persist appliedPage = page + 1
+complete(window, completionRoot)
+advance nextLower = upper
+```
+
+这里有四个容易被忽略的顺序约束：
+
+1. `LOW` 在 `source.scan` 之前写入，且只对当前 window 生效；
+2. `HIGH` 在源扫描关闭后写入，`fold` 只消费 LOW 之后、HIGH 之前的 L；
+3. `seal` 先把原始页 hash、窗口 spec 和 group root 固化，`applyPage` 只接收已 seal 的 manifest；
+4. `appliedPage` 每成功一页才推进，重启从最后一个已确认 page 继续验证，而不是重读一个未证明的整表结果。
+
+窗口不变量可以写成：若 `W=(LOW,HIGH,RAW,DELTA)` 已 seal，则
+
+\[
+Rows(W)=Snapshot(LOW,HIGH)\;\oplus\;Replay(L[LOW,HIGH])
+\]
+
+其中 `⊕` 不是简单拼接，而是按主键折叠 INSERT/UPDATE/DELETE；`verifyWindow` 同时检查窗口 spec、LOW/HIGH fence、每个 RAW page hash，以及 L groupRoot。只要其中一个 hash 或 sequence 变化，窗口就不能进入 `applyPage`。
+
+`complete` 还要求相邻窗口的 `lower` 等于前一窗口的 `upper`，并把本窗口 digest 纳入 completion root。因此，多 Chunk 的正确性来自“范围无缝 + 每窗可验证”，不是来自最后一次全量 count。
+
 ## 4 三个关键故障窗口
 
 ### 窗口一：初始化中取消
@@ -221,12 +264,12 @@ bind(B, generation, sourceFence) = K, \quad F \geq HIGH, \quad cover(T,J,D)=veri
 
 | 责任 | 入口 |
 |---|---|
-| 共享 Reader、控制 marker、原始 ACK | [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
-| 启动与任务装配 | [`CdcBootstrapKernel.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala) |
-| 任务资源、恢复和状态 | [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
-| Journal 与批次 receipt | [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
-| ACK proof 分页 | [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
-| 真实闭环与 GC 材料 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113) |
-| 跨重启分页反例 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-10-29-proof-cursor-snapshot) |
+| 共享 Reader、控制 marker、原始 ACK | [`SharedMySQLCapture.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
+| 启动与任务装配 | [`CdcBootstrapKernel.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala) |
+| 任务资源、恢复和状态 | [`CdcPlatformRuntime.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
+| Journal 与批次 receipt | [`BootstrapJournal.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
+| ACK proof 分页 | [`CaptureAckPaging.scala`](../../../server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
+| 真实闭环与 GC 材料 | [`cluster-live-20261113`](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/) |
+| 跨重启分页反例 | [`proof-cursor-snapshot`](https://github.com/Xuxiaotuan/pekko-reference/tree/0157b07a2f9f8a658063ce62711d2b996c37240e/docs/experiments/2026-10-29-proof-cursor-snapshot/) |
 
 最终结论很具体：批转流不是一个 Reader API，而是一条包含 B、LOW/HIGH、K、F、T/J/D 和 Schema 的状态机。当前实现已经把主要边界写进代码和实验，但跨重启分页证明、marker 事务计数和未知 B 自动恢复仍需单独证据，不能用“全量转流已测过”笼统代替。

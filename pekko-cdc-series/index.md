@@ -10,7 +10,7 @@ last_modified_at: 2026-11-15
 
 2026-10-27 的修订把持久任务索引、有界步骤和平台入口接回原来的五篇主线：目标与执行资源 → 分页/LOW/HIGH/B→F 源码 → 真实实验与反例 → 恢复状态与确认协议 → 与 Flink CDC 的具体取舍。源码变化、当前实测和历史材料分别标识；Actor 机制、旧 T/J/D 推导及失败仍保留在独立[技术附录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/README.md)。文章更新不自动改变旧实验的版本或结果。
 
-> **历史链接说明**：首页中标注为 `f6313c0`、`74b6d9a`、`55fad0c` 等的 GitHub 链接，都是历史源码或历史实验快照，用于复算当时材料；当前五篇文章的源码阅读基线是 `cc09559`，本次技术风格重写提交是 `b17b9d1`。
+> **历史链接说明**：首页中标注为 `f6313c0`、`74b6d9a`、`55fad0c` 等的 GitHub 链接，都是历史源码或历史实验快照，用于复算当时材料；当前五篇文章的源码阅读基线是 `0157b07a2f9f8a658063ce62711d2b996c37240e`；上一轮技术风格重写提交是 `b17b9d1`，本轮源码调用链和算法补强提交是 `0157b07`。
 
 ## 独立 Runtime 的当前边界（2026-11-13）
 
@@ -123,8 +123,8 @@ flowchart LR
 
 ## 当前材料与源码入口
 
-- [BootstrapRunner](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/bootstrap/BootstrapRunner.scala)及[步骤结果/continuation](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/bootstrap/BootstrapStep.scala)：内核与有界调度边界。
-- [CdcTaskStore](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/cdc/CdcTaskStore.scala)、[CdcPlatformRuntime](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/cdc/CdcPlatformRuntime.scala)、[CdcBootstrapKernel](https://github.com/Xuxiaotuan/pekko-reference/blob/2fd592f0c7e43af9b15f68801b7ac8f242da696b/server/src/main/scala/cn/xuyinyin/magic/workflow/cdc/CdcBootstrapKernel.scala)：持久意图、grant、L 唤醒及活动会话。
+- [BootstrapRunner](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapRunner.scala)及[步骤结果/continuation](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapStep.scala)：内核与有界调度边界。
+- [CdcTaskStore](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala)、[CdcPlatformRuntime](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala)、[CdcBootstrapKernel](https://github.com/Xuxiaotuan/pekko-reference/blob/0157b07a2f9f8a658063ce62711d2b996c37240e/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala)：持久意图、grant、L 唤醒及活动会话。
 - [初始化报告、范围与故障清单](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/README.md)、[独立复算](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/final-summary.json)、[归档索引](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/artifacts/archive-index.json)。
 - [启动恢复反例](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/README.md)、[结果摘要](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/summary.json)、[材料摘要清单](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/SHA256SUMS.json)。
 - [双槽与资源释放报告](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-cdc-lab-pool/README.md)、[双槽 suite 与后置结果](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-cdc-lab-pool/scala-dual-slot-summary.json)。
