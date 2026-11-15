@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "70 万张表常驻 CDC：为什么需要 Shared Reader、表级执行单元和有界资源"
+title: "Pekko CDC 深入解析（一）：70 万张表常驻场景下的 Shared Reader 与有界调度"
 description: "从 70 万张表的目录规模出发，拆解 Shared Reader、表级状态和有界执行资源的源码模型。"
 permalink: /2026/10/18/pekko-cdc-1-resident-tasks/
 keywords: Pekko, CDC, MySQL, Flink CDC, Actor Journal
@@ -16,7 +16,7 @@ math: true
 last_modified_at: 2026-11-15
 ---
 
-# 70 万张表常驻 CDC，为什么需要 Shared Reader、表级执行单元和有界资源
+# Pekko CDC 深入解析（一）：70 万张表常驻场景下的 Shared Reader 与有界调度
 
 作者：xuyinyin
 [系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
@@ -65,6 +65,24 @@ flowchart LR
 ```
 
 图中最关键的箭头是 `N → C → G → W`：目录记录只进入持久索引，只有拿到 grant 的任务才进入活动执行。Reader 与表级 worker 共享日志，不共享目标进度。
+
+Reader 和表级任务的生命周期可以压缩成一张状态机：
+
+```mermaid
+stateDiagram-v2
+    [*] --> COLD
+    COLD --> ADMISSION_READY: source/state/fence/checkpoint passed
+    ADMISSION_READY --> SNAPSHOT: grant acquired
+    SNAPSHOT --> REPLAYING: HIGH sealed
+    REPLAYING --> STREAMING: F verified and target published
+    STREAMING --> STOPPING: cancel or close
+    STOPPING --> RELEASED: engine, transaction and owner drained
+    STOPPING --> UNKNOWN: drain proof missing
+    UNKNOWN --> STOPPING: evidence refreshed
+    RELEASED --> [*]
+```
+
+这张图把“目录存在”和“任务执行”分开：`COLD` 只保留任务索引，`ADMISSION_READY` 才获得 Reader 准入，`SNAPSHOT`/`REPLAYING` 才消耗有界执行资源。`UNKNOWN` 不是失败重试的别名，而是释放证明缺失时禁止新 owner 接管的持久状态。
 
 ## 1 先把“70 万张表”拆成三个集合
 
@@ -149,6 +167,30 @@ Debezium handleBatch
 
 只要 `append`、`coverSequence` 或 owner 校验任一步失败，原始 callback 就不能被确认；反过来，callback 被确认也只证明 L 覆盖了该回调前缀，并不证明目标 Sink 已提交。这条调用链是后文 T/J/D 推导的基础。
 
+一条事件从源端进入表级执行单元时，真实的并行边界是下面这条时序，而不是“一个 Actor 对应一个线程”：
+
+```mermaid
+sequenceDiagram
+    participant M as MySQL Binlog
+    participant R as Shared Reader
+    participant L as Capture Log
+    participant A as Table Task
+    participant W as Step Worker
+    participant J as Journal
+    participant T as Target Ledger
+    M->>R: row event
+    R->>L: append GROUP / ACK
+    L-->>R: covered prefix
+    R->>A: publish group identity
+    A->>W: acquire bounded grant
+    W->>T: apply group and ledger
+    W->>J: persist receipt
+    J-->>A: revision accepted
+    A-->>R: no effect on raw ACK ordering
+```
+
+Reader 只负责把源事件变成可重放的 L 前缀；表级任务负责消费这个前缀。这样既保留共享 binlog 会话，也不会让某一张表的慢 Sink 阻塞 Reader 的原始回调确认。
+
 ### 4. 共享 Reader 的确认点是一个前缀屏障
 
 `SharedMySQLCapture` 的关键不是“收到回调后把事件扔给 Actor”，而是把 Debezium 的原始确认句柄变成一个可证明的前缀屏障。`accept` 为每次回调分配递增的 `nextCallback`，把回调放入 `pending`，然后逐条执行 `processCallbackRecord`。数据记录要先经过 `MySQLCdcGroupAssembler`，控制记录要等事务 `END`，Schema 记录要先写入 Schema frame。每条路径最后都只能减少当前回调的 `remaining`，不能直接确认 SDK 句柄。
@@ -169,7 +211,7 @@ $$
 
 ## 2 表级 Actor 到底负责什么
 
-### 1. Actor 是身份和串行化边界，不等于一张表一个线程
+### 2.1 Actor 是身份和串行化边界，不等于一张表一个线程
 
 当前任务创建路径在 `CdcBootstrapKernel.create()`：它为任务创建 `BootstrapJournal`、`BootstrapTarget`、`BootstrapSnapshot` 和 `BootstrapReplaySink`，再组合成 `BootstrapRunner`。Journal 是 Pekko Actor，但注释明确说明 Sink 执行仍在调用者提供的 bounded step worker 上：
 
@@ -187,7 +229,7 @@ val direct: ExecutionContext = ExecutionContext.parasitic
 
 **设计含义**：如果把 Actor 当作线程，会错误地调大 dispatcher；如果把 Actor 当作表的永久进程，又会错误地估计 70 万表的常驻成本。正确的划分是“表级状态身份 + 活动期 Journal + 有界执行槽位”。
 
-### 2. Journal 保存的是恢复边界，不是业务吞吐缓存
+### 2.2 Journal 保存的是恢复边界，不是业务吞吐缓存
 
 任务执行过程中，`BootstrapJournal` 记录 phase、revision、execution id 和 recovery receipt；`CdcTaskStore.finish` 只在 step 返回 `releaseConfirmed` 时把 grant 改成 `RELEASED`，否则调用 `finishUnknown`，把 grant 和任务置于保守状态：
 
@@ -220,7 +262,7 @@ update(c,
 
 在 `CdcBootstrapKernel.refreshCaptures()` 中，capture health 由 `startupEvidence` 和 `streamingConnected` 计算；在 `CdcPlatformRuntime.observed` 中，任务还会根据 owner 是否 ACTIVE、最近 dispatch 时间和 capture health 显示 `HEALTHY`、`CATCHING_UP` 或 `UNKNOWN`。这两个状态不能相互替代。
 
-### 初始化中取消
+### 3.1 初始化中取消
 
 取消也分两种：
 
@@ -259,11 +301,19 @@ $$
 
 ## 5 把模型放进真实运行
 
-### 1. 本地完整回归
+| 观察对象 | 实验材料 | 实际结果 | 对模型的支撑 |
+|---|---|---|---|
+| 冷目录 | 700,000 条任务元数据、7,000 页 | 分页扫描和索引检查完成 | 目录规模可以与活动执行资源分离 |
+| Shared Reader | R07/R08、真实 MySQL 与 Debezium | marker 后续 END 可抵达；多行、重复更新、主键变更完成组装 | 原始 ACK 是 Reader 前缀屏障，不是 Actor 消息 |
+| 集群运行 | 真实 MySQL、Journal、MySQL Sink | Source/Sink 两行六字段一致；proof head 7742；GC 回收 235 字节 | 固定数据量和故障窗口形成闭环 |
+| 容量边界 | 70 万真实物理表长期运行 | 尚未测量 | 不能把冷元数据实验写成容量证明 |
+
+
+### 5.1 本地完整回归
 
 同一 JDK 17 下本地完整回归报告为 722 个测试成功、0 个失败，另有 415 个专用外部环境测试被取消。这是代码回归证据；被取消项没有被算成通过。
 
-### 2. 真实集群上的共享运行时与 proof GC
+### 5.2 真实集群上的共享运行时与 proof GC
 
 KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启后 owner 为 `ACTIVE`，任务处于 `STREAMING/ADMISSION_READY/HEALTHY/RELEASED`；Source 与 Sink 的 `source_rows`、`target_source_rows` 各两行、六个投影字段逐字段一致。ACK proof 分页的实际 head 为 7742，ACK 节点为 7731，page `done=1`；一次已完成删除操作从 42 推进到 44，删除 1 个 GROUP，回收 235 字节。
 

@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "一条 MySQL UPDATE 什么时候才算被 CDC 接受？"
+title: "Pekko CDC 深入解析（三）：一条 MySQL UPDATE 如何穿过 Reader、Journal 与 Sink"
 description: "沿一条真实 MySQL UPDATE 追踪 Debezium、持久日志、目标事务、Journal、ACK proof 和安全 GC。"
 permalink: /2026/10/18/pekko-cdc-3-mysql-journal-experiment/
 keywords: Pekko, CDC, MySQL, Flink CDC, Actor Journal
@@ -16,7 +16,7 @@ math: true
 last_modified_at: 2026-11-15
 ---
 
-# 一条 MySQL UPDATE 什么时候才算被 CDC 接受？
+# Pekko CDC 深入解析（三）：一条 MySQL UPDATE 如何穿过 Reader、Journal 与 Sink
 
 作者：xuyinyin
 [系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
@@ -57,6 +57,25 @@ sequenceDiagram
 ```
 
 本图只表示允许推进的顺序；任意箭头的结果未知，下一步都必须停在可重放或安全暂停状态。
+
+同一事件在恢复状态机中的位置如下：
+
+```mermaid
+stateDiagram-v2
+    [*] --> RECEIVED
+    RECEIVED --> GROUPED: identity decoded / PK pair complete
+    GROUPED --> L_COVERED: GROUP durable and ACK prefix covered
+    L_COVERED --> TARGET_COMMITTED: target ledger commit
+    TARGET_COMMITTED --> JOURNAL_ACCEPTED: receipt CAS succeeds
+    JOURNAL_ACCEPTED --> D_VERIFIED: ACK ancestry covers D
+    D_VERIFIED --> RELEASABLE: no protected reference remains
+    TARGET_COMMITTED --> REPLAY: J or D lags after restart
+    REPLAY --> TARGET_COMMITTED: AlreadyCommitted or retry
+    L_COVERED --> PAUSED: source fence / proof unknown
+    PAUSED --> [*]
+```
+
+`RECEIVED` 到 `RELEASABLE` 不是一条必然成功的流水线，而是一组必须逐步成立的证据关系。尤其是 `TARGET_COMMITTED` 不能直接跳到 `D_VERIFIED`；目标提交和源前缀覆盖属于两个存储域。
 
 ## 0 结论：这套实现保存的是一条可检查的证据链
 
@@ -131,7 +150,7 @@ revision=4
 
 随后还插入了 `id=6`，用于验证同一运行中不止一种事件。这里先只看 `id=4`，因为它足够暴露所有确认边界。
 
-### 2.1 Debezium 回调不是一个可直接提交的 Batch
+### 1.1 Debezium 回调不是一个可直接提交的 Batch
 
 Debezium Embedded Engine 将一批 `SourceRecord` 和一个原始 `CdcBatchCommitHandle` 交给 `DebeziumBatchConsumer`。`MySQLCdcSourceNode.CdcResource` 只是把这个回调交给 `MySQLCdcGroupAssembler` 或 `DebeziumBatchBridge`：
 
@@ -155,7 +174,7 @@ trait CdcBatchCommitHandle {
 
 该句柄的语义来自 Debezium SDK：调用它会通知 SDK 这一批可以被标记为已处理，之后 offset 才可能被 flush。它不包含目标事务状态，也不包含 Journal 状态。把这个句柄当成 Sink 的 ACK，是最容易犯的错误。
 
-### 2.2 `SourceRecord` 先获得稳定身份，再进入组装器
+### 1.2 `SourceRecord` 先获得稳定身份，再进入组装器
 
 `SharedMySQLCapture.processDataRecord` 先从 Debezium `source` 结构中取出 file、position、row，构造 `CapturePoint`。如果这个点命中某个有效订阅，代码会把 record 的 source offset 中的 collection-order 字段去掉，再解析为 `MySQLCdcEnvelope`：
 
@@ -171,7 +190,7 @@ val groupId = MySQLCdcGroup.id(store.protocol, envelope)
 
 对于普通 UPDATE，组装器生成 `single.u` group；对于主键修改，MySQL CDC 会先产生带 `__debezium.newkey` 的 DELETE，再在后续 record 中产生 CREATE。`MySQLCdcGroupAssembler` 暂存半组，并要求两条 record 的 source offset、partition 和 schema 相同，最后形成有序的 `pk.d` / `pk.c` group。半组没有完成前，原始 callback 不会被确认。
 
-### 2.3 L 的写入和原始 ACK
+### 1.3 L 的写入和原始 ACK
 
 组装器回调 `publish`，进入 `SharedMySQLCapture` 的闭包：
 
@@ -350,7 +369,7 @@ BLOCKED / ACK proof budget exceeded
 
 这个失败不是 Source/Sink 不一致，也不是目标 COMMIT 失败，而是证明算法的单次预算不足。它说明“D 已经有值”和“D 的 ancestry 已经被验证”是两个不同事实。
 
-### 5.1 分页 proof 如何把长链改成可恢复状态机
+### 4.1 分页 proof 如何把长链改成可恢复状态机
 
 修复后的 `CaptureAckPaging` 不再把整条 proof 放在一次堆栈调用中。它把 proof identity、head、anchor、next_seq、digest、revision、phase 和 done 写入：
 
@@ -372,13 +391,13 @@ pekko_capture_ack_page_pins_v1
 
 `BootstrapRunner` 把一次表初始化拆成窗口，而不是把整张表放进一个长事务。
 
-### 6.1 LOW/HIGH 窗口
+### 5.1 LOW/HIGH 窗口
 
 `scanStep` 为窗口生成固定 spec：`lower`、`upper`、schema fingerprint。先写 LOW fence，再按分页读取源表；读完后写 HIGH fence。LOW 和 HIGH 是源 Binlog 中的控制点，不是 Reader 内存里的两个时间戳。
 
 随后 Runner 从 L 中读取 LOW 到 HIGH 之间的 group，折叠到窗口 manifest，再按 page 应用目标。manifest 中保存 LOW/HIGH、raw page hash、groupRoot 和 page 证明。Journal 只接受 manifest hash 不变的后续进度。
 
-### 6.2 F：全量转持续流
+### 5.2 F：全量转持续流
 
 当最后一个窗口完成，Runner 写 F fence：
 
@@ -400,7 +419,7 @@ F 的意义是：初始化已经覆盖到一个固定的源点；随后从 B 之
 
 把上面的状态放进真实故障时间线，可以得到四类不同结论。
 
-### 7.1 T 已提交，J 未持久化
+### 6.1 T 已提交，J 未持久化
 
 ```text
 L GROUP/ACK 已存在
@@ -412,17 +431,17 @@ J revision 尚未写入
 
 在 I16 中，最终 64 行、384 个字段相等。这是“可重放”的窗口。
 
-### 7.2 J 已持久化，D 或 raw ACK 仍滞后
+### 6.2 J 已持久化，D 或 raw ACK 仍滞后
 
 J 的 `deltaAfter` 只会在 `sink.commitBatch` 成功后更新，但原始 Debezium callback 的 ACK 仍由 `SharedMySQLCapture.acknowledgeCoveredCallbacks` 管理。若进程在 L ACK 或 SDK offset flush 之间退出，重启必须重新检查 D 的 ACK ancestry；不能凭 J 的 revision 直接前移 D。
 
 当前代码在证明不足时进入启动门或 GC 的安全暂停。这个结果是正确的安全边界：它宁可重复读取已持久化 L，也不把未经证明的 D 当成已经消费。
 
-### 7.3 COMMIT 回复丢失
+### 6.3 COMMIT 回复丢失
 
 目标端 commit 结果未知时，`MySQLCdcApplyEngine` 返回 `CommitUnknown`。恢复归属在 Sink：先查询 batch/group ledger，再决定 `AlreadyCommitted`、重试或暂停。Journal 不应单独决定目标是否已提交。
 
-### 7.4 两个原始 ACK 之间崩溃
+### 6.4 两个原始 ACK 之间崩溃
 
 `pending` 是队列，ACK 只能按 callback 前缀推进。队头尚未 `markProcessedAndFinished` 时，后续 callback 即使已经进入内存，也不能跳过队头。重启后，SDK 可能重放队头及其后续记录；L 的 occurrence unique key 和 group ledger 负责去重。若无法证明原始 source connection 已关闭，新的 owner 不应创建 Reader。
 
@@ -445,6 +464,14 @@ J 的 `deltaAfter` 只会在 `sink.commitBatch` 成功后更新，但原始 Debe
 | Source/Sink 对账 | 两行六字段完全相等 | 不能推导 70 万活跃物理表已验收 |
 
 ## 8 逐字段对账：它证明了什么，没证明什么
+
+| 证据 | 采集内容 | 实际结果 | 能支持的判断 |
+|---|---|---|---|
+| 原始事件 | SourceRecord、headers、组装日志、ACK 顺序 | R08 覆盖同事务多行、重复更新、主键 DELETE/CREATE | 当前 Debezium 3.6.1、单主键、串行 callback 下的组装关系 |
+| 目标结果 | `source_rows` 与 `target_source_rows` | 2 行、6 字段逐字段一致 | 指定运行和故障窗口下的最终可见行集一致 |
+| 长链 proof | head、nodes、refs、GC operation | head 7742，分页 `done=1`，GC 回收 235 字节 | 长 ACK 链可分页验证并受保护回收 |
+| 未闭合证据 | 统一 groupId trace | 本轮没有逐条导出 `row event → L → T → J → D` | 不能宣称每一条事件都有完整线上 trace |
+
 
 本轮 `reconciliation.json` 的字段顺序是：
 

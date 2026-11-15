@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Pekko CDC 和 Flink CDC：在 70 万表常驻场景下，谁解决了什么问题"
+title: "Pekko CDC 深入解析（五）：Pekko 与 Flink CDC 的运行时边界"
 description: "在同一 70 万表常驻业务承诺下比较 Pekko CDC 与 Flink CDC 的责任边界和验证范围。"
 permalink: /2026/10/18/pekko-cdc-5-flink-comparison/
 keywords: Pekko, CDC, MySQL, Flink CDC, Actor Journal
@@ -16,7 +16,7 @@ math: true
 last_modified_at: 2026-11-15
 ---
 
-# Pekko CDC 和 Flink CDC：在 70 万表常驻场景下，谁解决了什么问题
+# Pekko CDC 深入解析（五）：Pekko 与 Flink CDC 的运行时边界
 
 作者：xuyinyin
 [系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
@@ -59,7 +59,46 @@ flowchart TB
 
 比较的不是组件数量，而是同一业务承诺被哪一层运行时承载。
 
+两套系统在一次“新增表、初始化中发生写入、随后重启”的生命周期中，可以画成两条状态机：
+
+```mermaid
+stateDiagram-v2
+    state Pekko {
+        [*] --> P_COLD
+        P_COLD --> P_CAPTURE_READY: B/K and owner ready
+        P_CAPTURE_READY --> P_REPLAYING: LOW/HIGH and F
+        P_REPLAYING --> P_STREAMING: T/J/D verified
+    }
+    state Flink {
+        [*] --> F_PENDING
+        F_PENDING --> F_SNAPSHOT: split assigned
+        F_SNAPSHOT --> F_BINLOG: finished split offset
+        F_BINLOG --> F_CHECKPOINTED: checkpoint completed
+    }
+```
+
+Pekko 把表级发布与 Reader owner、Journal 和 ACK proof 分开保存；Flink 把 split、reader state 和 checkpoint 交给 Source API 和运行时。图中的状态名不能直接互相等价，比较的是恢复责任落在哪一层。
+
 ## 1 先比较语义，而不是比较组件数量
+
+下面的时序把同一个故障窗口放到两套运行时中：
+
+```mermaid
+sequenceDiagram
+    participant U as 新增表请求
+    participant P as Pekko Runtime
+    participant F as Flink Runtime
+    U->>P: write B / prepare Schema
+    P->>P: bind K, LOW, snapshot pages
+    P->>P: append L and replay to F
+    P-->>U: STREAMING after T/J/D verification
+    U->>F: discover table / create snapshot split
+    F->>F: assign split and capture binlog start
+    F->>F: checkpoint split and reader state
+    F-->>U: continuous binlog split after restore boundary
+```
+
+这不是性能时序图：它只说明两边把“新增表”和“恢复边界”放进了不同的状态对象。Flink 的持续边界由 split state 和 checkpoint 承载；Pekko 的持续边界由 B/K、窗口 manifest、Journal、目标 ledger 和 ACK proof 共同承载。
 
 一个可比的 CDC 任务至少需要回答六个问题：
 
@@ -242,13 +281,20 @@ $$
 
 ## 7 把比较落到实际运行
 
-### 6.1 真实端到端证据
+| 比较对象 | 本轮实际材料 | 可以说什么 | 不能说什么 |
+|---|---|---|---|
+| Pekko Runtime | 真实 MySQL、Actor Journal、MySQL Sink、KubeSphere | Source/Sink 逐字段一致；owner 重启后恢复；proof 可分页并回收 | 不能外推到 70 万活跃物理表长期容量 |
+| Flink CDC | 3.6.0 源码和公开运行模型 | 可以比较 split、reader state、checkpoint 的责任归属 | 没有同数据集、同 Sink、同故障点的本轮实测 |
+| 共同业务承诺 | 新增表、全量转流、重启、提交未知 | 可以比较需要维护哪些状态 | 不能凭架构图推出吞吐、延迟或 exactly-once 优势 |
+
+
+### 7.1 真实端到端证据
 
 当前集群实验使用真实 MySQL、Actor Journal 和 MySQL Sink。Source 与 Sink 的 `source_rows`、`target_source_rows` 各为 2 行，投影字段 `id,label,amount,note,updated_at,revision` 逐字段一致。重启后 owner 为 ACTIVE，任务处于 STREAMING/HEALTHY，ACK proof head 为 7742，节点 7731，引用 7740。
 
 这些证据支持以下结论：在当前版本、固定数据量和固定故障窗口下，Shared Reader、表级任务、Journal、Sink、ACK proof 和安全 GC 能形成一个可恢复闭环。
 
-### 6.2 真实失败也属于结论
+### 7.2 真实失败也属于结论
 
 已有实验保留了三类失败：
 
@@ -258,7 +304,7 @@ $$
 
 这些失败说明 Pekko 的灵活性并不自动带来更强的语义。它要求系统在无法证明隔离、提交或排空时安全暂停。
 
-### 6.3 回归与未覆盖范围
+### 7.3 回归与未覆盖范围
 
 本地 JDK 17 回归为 722 成功、0 失败、415 个外部环境测试取消。取消项没有被算成通过。ACK proof GC 的集群实验已经验证小批量删除、保护引用和实际 D 更新，但没有证明 70 万真实活跃表的长期容量。
 

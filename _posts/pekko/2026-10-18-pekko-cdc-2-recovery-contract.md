@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "一条 ACK 链如何成为可恢复的 T/J/D 协议"
+title: "Pekko CDC 深入解析（二）：T/J/D 恢复协议与 ACK 祖先证明"
 description: "从 T/J/D、ACK ancestry 和 owner fence 推导 CDC 提交未知时的恢复许可。"
 permalink: /2026/10/18/pekko-cdc-2-recovery-contract/
 keywords: Pekko, CDC, MySQL, Flink CDC, Actor Journal
@@ -16,7 +16,7 @@ math: true
 last_modified_at: 2026-11-15
 ---
 
-# 二：一条 ACK 链如何成为可恢复的 T/J/D 协议
+# Pekko CDC 深入解析（二）：T/J/D 恢复协议与 ACK 祖先证明
 
 作者：xuyinyin
 [系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
@@ -252,6 +252,30 @@ $$
 
 ## 5 T/J/D 故障时间线：如何处理“提交结果未知”
 
+```mermaid
+sequenceDiagram
+    participant R as Recovery
+    participant D as Reader D
+    participant P as ACK Proof
+    participant T as Target Ledger
+    participant J as Journal
+    R->>D: read actual offset
+    R->>P: build proof(D, B, owner, anchor)
+    P-->>R: VERIFY / BLOCKED
+    alt proof verified
+        R->>T: query group identity
+        T-->>R: Committed / AlreadyCommitted
+        R->>J: CAS receipt revision
+        J-->>R: accepted
+        R->>D: allow covered prefix
+    else proof or commit unknown
+        R->>J: persist UNKNOWN / PAUSED
+        R-->>R: do not advance D or GC
+    end
+```
+
+这条时序说明了恢复协议的核心：`D` 先经过 ACK ancestry 证明，目标账本再解决重放，Journal 最后接受状态机推进。任何一个结果为 `UNKNOWN`，恢复都停在可重试或安全暂停状态。
+
 以一组事件 `G` 为例，设它已经有稳定的 `groupIdentity`，Source 端 B 也已经被 fence：
 
 ```text
@@ -300,13 +324,13 @@ $$
 
 ## 7 真实长链实验：4096 的上限为什么不够
 
-### 8.1 失败证据
+### 7.1 失败证据
 
 真实集群的 `pekko_capture_log` 已有 7,110 条 ACK，最新 ACK 序号 7,121。旧 `CaptureAckProof.inspect` 固定最多遍历 4096 条，于是 GC 实际 D proof 返回 `ACK proof budget exceeded`。失败材料见 [`gc-ack-proof-budget-20261113/failure-before.txt`](https://github.com/Xuxiaotuan/pekko-reference/blob/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/failure-before.txt)。
 
 这次失败说明的是 proof 算法预算不适配长链，不是 Source/Sink 行数据已经不一致。不能把 “ACK proof budget exceeded” 写成“目标丢数据”，也不能因为后续修复成功而抹掉它。
 
-### 8.2 分页实现与运行结果
+### 7.2 分页实现与运行结果
 
 部署分页 proof 后，真实运行观察到：
 
@@ -321,7 +345,7 @@ $$
 
 逐字段结果在 [`reconciliation.json`](https://github.com/Xuxiaotuan/pekko-reference/blob/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/reconciliation.json)，证明分页可以推进到 DONE 并完成目标对账。运行材料同时记录了重启前后 proof 状态；这属于真实集群运行结果，不是单元测试推断。
 
-### 8.3 proof GC 的独立验证
+### 7.3 proof GC 的独立验证
 
 随后建立新的 actual-D proof 后，旧 proof `d9b4921a...`（head 7742、7731 nodes、7740 refs）被回收；当前 proof `f777e7d3...`（head 13052，nodes/refs 各 12,672）仍保留。GC 只删除 `done=1`、非当前、未被 audit/frame/proof anchor 引用的 proof，并且先删 refs、nodes、prior、pin，最后删 page。源码位置：`CaptureAckPaging.scala:164-197`；真实材料见 [`gc-ack-proof-gc-20261113/`](https://github.com/Xuxiaotuan/pekko-reference/tree/e043a81d77f759a19eeb4bdc179564eb0badc638/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)。
 

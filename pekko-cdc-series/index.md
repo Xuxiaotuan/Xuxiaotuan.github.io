@@ -33,11 +33,11 @@ last_modified_at: 2026-11-15
 
 | 篇目 | 本篇要讲透的问题 |
 |---|---|
-| [一：70 万张表常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) | 为什么目录规模、Reader 和活动执行资源必须分开 |
-| [二：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) | LOW/HIGH、B/F/K 和动态新增表如何进入 STREAMING |
-| [三：源码执行链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 一条 UPDATE 如何穿过 Reader、L、Sink、Journal 和 ACK proof |
-| [四：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) | T/J/D、ACK proof、owner fence 和安全 GC 如何协作 |
-| [五：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) | 两种运行时如何承载同一个 CDC 业务承诺 |
+| [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) | 70 万张表常驻场景下的 Shared Reader 与有界调度 |
+| [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) | T/J/D 恢复协议与 ACK 祖先证明 |
+| [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 一条 MySQL UPDATE 如何穿过 Reader、Journal 与 Sink |
+| [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) | LOW/HIGH 水位、窗口回填与全量转流 |
+| [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/) | Pekko 与 Flink CDC 的运行时边界 |
 
 ## 主线图
 

@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "从批到流：LOW/HIGH、B/F/K 为什么必须是一个状态机"
+title: "Pekko CDC 深入解析（四）：LOW/HIGH 水位、窗口回填与全量转流"
 description: "用 LOW/HIGH、B/F/K 和窗口回填解释一张新表如何从全量进入持续同步。"
 permalink: /2026/10/18/pekko-cdc-4-protocol-design/
 keywords: Pekko, CDC, MySQL, Flink CDC, Actor Journal
@@ -16,7 +16,7 @@ math: true
 last_modified_at: 2026-11-15
 ---
 
-# 从批到流：LOW/HIGH、B/F/K 为什么必须是一个状态机
+# Pekko CDC 深入解析（四）：LOW/HIGH 水位、窗口回填与全量转流
 
 作者：xuyinyin
 [系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
@@ -61,6 +61,31 @@ stateDiagram-v2
 这张图把“捕获就绪”“初始化完成”和“业务可见”拆成三个转移；任何一个转移条件未知，都只能停在 `PAUSED`。
 
 当前实现已经有这个方向的代码骨架：`CdcBootstrapKernel` 负责把任务和 capture 组装起来，`SharedMySQLCapture` 负责共享 Reader 与原始回调前缀，`BootstrapRunner` 驱动快照、回放和尾部增量，`CdcTaskStore` 持久化任务 phase、grant 和 continuation。它能表达这条状态机，但并不意味着所有状态转移都已经在真实环境覆盖。
+
+状态机中的一次正常转移对应下面的时序：
+
+```mermaid
+sequenceDiagram
+    participant C as Control Plane
+    participant R as Shared Reader
+    participant S as Snapshot Split
+    participant L as Capture Log
+    participant T as Target
+    participant J as Journal
+    C->>R: subscribe B / prepare Schema
+    R-->>C: bind K
+    R->>L: write LOW fence
+    S->>S: read bounded page
+    S->>T: apply baseline page
+    S->>J: persist appliedPage
+    R->>L: capture (LOW,HIGH] changes
+    R-->>C: write HIGH fence
+    C->>L: replay window to F
+    C->>T: verify target and activation receipt
+    C->>J: CAS STREAMING
+```
+
+这里的关键不是“快照和 binlog 同时运行”，而是每个边界都能在恢复时重新定位：B/K 约束订阅身份，LOW/HIGH 约束窗口，F 约束发布，T/J/D 约束交接。
 
 先用一张状态图固定阅读顺序：
 
@@ -245,6 +270,14 @@ $$
 这条边界直接影响 LOW/HIGH 的定义：LOW/HIGH 证明的是捕获窗口，不是单独的分页游标正确性。
 
 ## 5 把状态机放进真实实验
+
+| 故障窗口 | 固定边界 | 实际结果 | 说明 |
+|---|---|---|---|
+| I08 | LOW/HIGH 窗口、边界键变化 | 范围重建后逐字段收敛 | 证明固定窗口可以重读，不证明任意游标续扫安全 |
+| I11 | 双向主键迁移 | 旧/新键组装后目标结果一致 | 证明当前单主键组装路径，不扩展到复合主键 |
+| I16 | T 已提交、J 停在第 0 页 | 页重放返回 `AlreadyCommitted`，最终 64 行、384 字段一致 | 证明目标 ledger 能承接指定重放窗口 |
+| 跨重启游标反例 | RR 视图中先读 `b`，后提交更小键 `a` | 新连接从 `b` 续扫可能漏掉 `a` | 持久化游标不能单独证明范围稳定 |
+
 
 ### 5.1 已完成的真实闭环
 
