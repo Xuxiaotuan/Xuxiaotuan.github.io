@@ -4,7 +4,7 @@ title: "C：启动恢复探针（2026-10-25）"
 permalink: /pekko-cdc-series/capture-startup/
 ---
 
-[系列导读与验证范围](/pekko-cdc-series/) · [1：目标架构](/2026/10/18/pekko-cdc-1-resident-tasks/) · [2：批转流源码](/2026/10/18/pekko-cdc-2-recovery-contract/) · [3：真实实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [4：恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [5：框架比较](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](/flink-cdc-series/) · [初始化实验](/pekko-cdc-series/bootstrap/) · [启动恢复反例](/pekko-cdc-series/capture-startup/)
+[系列导读与验证范围](/pekko-cdc-series/) · [1：目标架构](/2026/10/18/pekko-cdc-1-resident-tasks/) · [2：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [3：真实实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [4：恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [5：框架比较](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](/flink-cdc-series/) · [初始化实验](/pekko-cdc-series/bootstrap/) · [启动恢复反例](/pekko-cdc-series/capture-startup/)
 
 > **历史取证报告：**以下正文保留原运行结果。报告中的“未提交/未推送”指取证当时状态；源码与材料现已收录于 [`55fad0c`](https://github.com/Xuxiaotuan/pekko-reference/tree/55fad0cf27f3a289dbb5d4fb4f2a31d60a661059)。当前整体验收仍为 `evidence_incomplete`。原始报告和证据文件按原字节提供，本次网站发布不等于重跑或修复。
 

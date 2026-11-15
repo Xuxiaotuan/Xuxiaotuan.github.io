@@ -1,9 +1,9 @@
 ---
 layout: post
-title: "从 Flink CDC 到 Pekko（三）：批转流怎样验收——从恢复命题到真实故障证据"
-description: "用真实 MySQL、Journal、Sink 和故障材料验证 T/J/D、B→F 与恢复命题。"
+title: "一条 MySQL UPDATE 什么时候才算被 CDC 接受？"
+description: "沿一条真实 MySQL UPDATE 追踪 Debezium、持久日志、目标事务、Journal、ACK proof 和安全 GC。"
 permalink: /2026/10/18/pekko-cdc-3-mysql-journal-experiment/
-keywords: Pekko, Flink CDC, MySQL, Actor Journal, 故障恢复
+keywords: Pekko, CDC, MySQL, Flink CDC, Actor Journal
 categories:
   - Pekko
 tags:
@@ -16,240 +16,484 @@ last_modified_at: 2026-11-15
 ---
 
 
-[系列导读](/pekko-cdc-series/) · [第一篇：架构](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：批转流](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：源码执行](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：恢复证明](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
+[系列导读](/pekko-cdc-series/) · [第一篇：常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) · [第二篇：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [第三篇：真实 UPDATE 链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [第四篇：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) · [第五篇：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
-> **源码基线**：`cc09559`。实验材料保留各自冻结版本和失败记录；文章不把不同版本的结果合并成一次验收。
+作者：xuyinyin
+
+> **本文口径**：源码阅读基线为 `cc09559`。文中把源码结论、真实实验、保存材料复算和未验证边界分开；历史失败材料不因后续重跑通过而覆盖。
+
+> 观测版本：`pekko-reference`，2026-11-13 的独立 CDC Runtime 与真实 KubeSphere 验收材料。
 >
-> **证据标记**：**源码结论**来自当前调用链；**实际实验**来自真实 MySQL、Actor Journal、Sink 或集群；**保存材料复算**不等于重新运行；**未验证边界**不写成产品保证。
+> 本文只回答一个问题：**一条已经从 MySQL Binlog 读出的变更，经过 Debezium 回调、L、目标事务 T、Actor Journal J、源端 D 和 Checkpoint 之后，系统凭什么认为它可以从内存中释放，并在重启后继续？**
 
-> **2026-11-11 当前源码与证据：** 本轮把 guardian、supervisor、worker 的子 JVM 类路径中的测试类移除，再验证单表进入实时后硬停 worker、隔离、接管和后续更新：源与目标 64 行、384 字段相等，缺行、额外行、字段差异均为空，结束后会话释放。另有真实 MySQL 的历史 Journal 重放和 Bootstrap 跨 JVM receipt 重签测试；这是不同层次的证据，不能相加为任意故障可恢复。旧 C1 自动恢复断言超时的失败材料保留；当前承诺仍是未知 B 安全暂停。 [拆分与验证记录](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)。
+这不是“Reader 收到一条消息，Sink 写成功一条数据”的问题。回调已经返回，不能证明事件已经写入本地日志；目标事务已经 `COMMIT`，不能证明 Journal 已经记录了目标推进；Journal 已经持久化，也不能证明 Debezium 的 D 已经覆盖这条变更。任意一个位置领先，重启时都可能出现重放、重复或漏数。
 
-[A/B 补测材料](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-10-27-ab-followup/README.md)记录了 R06、R09、R10-mid 的真实恢复和逐字段复算，也记录预复制基线、停止订阅后的预期差异以及安全暂停；不能把这些样本称为整个矩阵通过。
+释放一个组 `g` 的必要条件可以写成：
 
-> **文章修订：2026-10-27。** I08/I11/I16/I21 与 E0 保留原冻结版本；启动准入的已提交实现和新定点实验对应 [`74b6d9a`](https://github.com/Xuxiaotuan/pekko-reference/tree/74b6d9ad1ebcfe19a786f4e1869aed276a63bb52)。本轮有界执行、资源释放和平台调度候选的源码版本、运行摘要及实际结果另见[平台实验报告](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-10-27-cdc-platform/README.md)，不把不同版本的通过项相加。
+\[
+release(g) \Rightarrow covered_L(g) \land verified_T(g) \land accepted_J(g) \land covered_D(g) \land no_protected_reference(g)
+\]
 
-仍以五张表增加到七张为例：f/g 要先获得完整存量，再持续追上变更。本文回答这条路径在故障窗口中凭什么被接受。我们先从原初始化实验选取三个恢复案例和一个启动反例，再检验后续启动门是否阻止同类不安全重入。最后讨论有界执行和资源释放怎样改变验收条件。它们检验不同命题，不能合并成无条件的端到端保证。
+这不是 exactly-once 的全局定理，而是当前目标账本、Journal、ACK proof 与 GC 之间的最低联结条件。
 
-## 0. 一条 UPDATE 的源码链路
+本文沿着一条具体的 `UPDATE` 往下追。源码结论、实际运行结果、历史失败证据和未验证边界分别标记，避免把局部测试结果写成端到端保证。
 
 ```mermaid
-flowchart TD
-    MySQL["MySQL Binlog"] --> Debezium["Debezium SourceRecord"]
-    Debezium --> Callback["SharedMySQLCapture.accept"]
-    Callback --> Assemble["MySQLCdcGroupAssembler"]
-    Assemble --> L["pekko_capture_log<br/>L"]
-    L --> Reader["CapturedLogReader"]
-    Reader --> Sink["MySQLCdcApplyEngine"]
-    Sink --> Ledger["Group Ledger<br/>T"]
-    Sink --> Journal["BootstrapJournal<br/>J"]
-    Journal --> D["D / ACK proof"]
-    D --> GC["Protected GC"]
+sequenceDiagram
+    participant M as MySQL binlog
+    participant R as Debezium callback
+    participant L as Capture log L
+    participant S as Target Sink
+    participant J as Journal
+    participant D as ACK / offset D
+    M->>R: row event UPDATE(id=4)
+    R->>L: append GROUP + raw event
+    L-->>R: callback coverage
+    R->>S: commit group ledger T
+    S-->>J: receipt / batch progress
+    J-->>D: ACK ancestry covers L prefix
+    D-->>L: retain until protected floor
 ```
 
-每个节点都要问三个问题：写入哪个存储、是否处于 JDBC 事务、异常时谁拥有重试责任。只要这三个问题没有答案，最终行相等就不能被写成 exactly-once 证明。
+本图只表示允许推进的顺序；任意箭头的结果未知，下一步都必须停在可重放或安全暂停状态。
 
-```scala
-// 解释性代码：展示 callback 不能越过 L 的覆盖边界
-val group = assembler.accept(record)
-val durable = group match {
-  case CompleteGroup(value) => captureLog.append(value)
-  case IgnoredGroup(reason) => captureLog.appendIgnore(reason)
-  case PendingGroup(_) => false
-}
-if (durable) callbackHandle.markProcessedAndFinished()
+## 0 结论：这套实现保存的是一条可检查的证据链
+
+当前实现把一次变更拆成六个可观察位置：
+
+```text
+MySQL row event
+    │
+    ▼
+Debezium SourceRecord + 原始 callback handle
+    │  callback 只有在 L 覆盖后才允许返回
+    ▼
+L: pekko_capture_log（GROUP / BARRIER / ACK / SCHEMA）
+    │  CapturedLogReader 按 L sequence 组成 SourceBatch
+    ▼
+T: Sink 目标事务 + pekko_sync_cdc_group_ledger
+    │  commit 返回后只说明目标事务的本地结果
+    ▼
+J: BootstrapJournal 的有序进度事件
+    │  recordProgress 先收到 Journal，再投影 consumer floor
+    ▼
+D: Debezium JDBC offset/history 的实际消费位置
+    │  CaptureAckPaging 证明 D 的 ACK ancestry
+    ▼
+Checkpoint / GC：只回收被完整证据保护的 L 前缀
 ```
 
+这条链有三个重要性质。
 
-原初始化的完整 61 项预期检查、运行环境、失败尝试与所有字段导出见[原实验报告](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-10-25-bootstrap/README.md)；启动门后的实际结果见[A1/A2 报告](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-10-27-capture-admission/README.md)。下文按“命题—切点—观察—判定”阅读保存的材料，协议推导见第四篇。未完成的候选实验仍保持待验证。
+先把一条事件的证据卡片固定下来，后面的故障时间线都只改变其中一列：
 
-2026-11-08 未提交候选新增一组互相对照的证据：修复前第五轮因正常重启累计恢复预算而暂停，源变更已进 L，目标未追上；修复后两组各五轮正常启停中，每轮源与目标逐字段相等，Journal 恢复次数为零。另一组在第二次运行后强制终止 JVM，替代进程因旧 owner 释放未证实而安全暂停；退出前的数据一致，但没有验证异常退出后的自动接管与追平。源码和[原始实验材料](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-11-08-cdc-standalone-entry/README.md)均与旧版本分开保存。
-
-[L 未结束事务对照](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-11-08-cdc-standalone-entry/README.md)进一步固定旧状态库事务：旧 worker 崩溃时事务仍可见，替代 worker 保持 UNKNOWN 且没有创建 Reader；旧事务回滚后它仍未自动接管。源目标缺行和多行均为零，但有 5 个字段不同，因此这项实验是安全暂停证据，不是恢复后对账成功。
-
-[D 滞后崩溃对照](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-11-08-cdc-standalone-entry/README.md)在持有真实 offset 行锁时固定了 D 不变、Journal 从 revision 16 推进到 20；杀掉受控 Runner 并释放锁后，重启取得新 D，最终 64 行、384 字段一致。该样本不覆盖独立入口的 guardian 自动接管。
-
-[目标 COMMIT 结果未知对照](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-11-08-cdc-standalone-entry/README.md)分别固定服务端 OK 丢失与 COMMIT 未转发；两次全量 baseline 最终均为 64 行、384 字段一致。这两项不是增量组账本的提交未知，也不验证独立入口的跨进程接管。
-
-[增量 replay 的目标提交对照](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-11-08-cdc-standalone-entry/README.md)分别固定服务端 OK 回复丢失和 COMMIT 未转发：前者切点组账本有 1 条，后者为 0；两者最终均为 3 条，64 行 384 字段相等。它只验证受控 Runner 的两个时序，不证明迟提交或独立入口自动接管。
-
-[增量迟提交与旧连接断开](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-11-08-cdc-standalone-entry/README.md)另固定旧目标事务：迟提交样本观察到真实 COMMIT OK，断开样本在切点观察到旧事务和锁等待；两者最终均为 64 行、384 字段一致。断开样本没有对应 PFS ROLLBACK 事件，只能确认最后事务采样为空。
-
-[独立入口 runtime18](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-11-08-cdc-standalone-entry/README.md)在 JVM 崩溃后修改源表，替代进程因旧 owner 未证明释放而保持 UNKNOWN；T、J、D 采样未前进，目标保留崩溃前数据。源目标此时有差异，因此这是拒绝越界执行的证据，不是恢复追平的证据。
-
-## 1. 先写判定规则，再看测试是否绿色
-
-| 编号 | 要检验的命题 | 成功或拒绝的判定 |
+| 位置 | 记录什么 | 当前材料能证明什么 |
 |---|---|---|
-| [G1](04-protocol-and-validation.md#g1) | 读视图丢失后，原范围不漂移 | 新 attempt 重读原 spec；不能接旧页游标，也不能重算边界 |
-| [G2](04-protocol-and-validation.md#g2) | 同一封存身份对应同一内容 | T 已提交/J 未接受时核实原 receipt；内容冲突必须暂停 |
-| [G3](04-protocol-and-validation.md#g3) | 有限追赶的终点和激活依据不移动 | 恢复仍使用原 F；激活 receipt 与 J 分别核实 |
-| [G4](04-protocol-and-validation.md#g4) | 初始化结果最终覆盖到固定 F | 必要日志完整时，对整表 B→F 回放；激活后逐字段比较 |
-| [G0](04-protocol-and-validation.md#g0) | 必要源变化连续进入 L | 不能把 SDK 重选点后到达的新事件当作旧区间完整证明 |
+| SourceRecord | 源库事件身份、事务和表键 | Reader 收到了哪一条事件 |
+| L | group、Schema、ACK parent、digest | 回调前缀是否已经持久覆盖 |
+| T | 目标 DML 与 group ledger | 目标事务是否可幂等重放 |
+| J | execution、batch、revision、receipt | 哪次执行已经被 Journal 接受 |
+| D | source offset 与 ACK proof | 哪个源前缀可以安全释放 |
+| GC | actual-D、pin、audit、proof | 哪些 L 和证明允许删除 |
 
-G0 是后续推理的前提。旧启动反例证明它曾被破坏；新版启动门可以拒绝已识别的不安全状态，但没有修补旧缺失事件。G1—G4 的局部样本通过不能替历史连续性补上证据。目标终值相等、正确暂停和故障后自动继续，也必须分开报告。
+第一，**L 是回调释放的前置条件**。`SharedMySQLCapture.accept` 把原始回调放进 `pending`，每条 `SourceRecord` 必须得到组装结果或明确忽略结果；`MySQLCaptureStore.append` 以事务方式写入 `pekko_capture_log` 后，`coverSequence` 才会写 ACK。随后才调用 `CdcBatchCommitHandle.markProcessedAndFinished()`。所以“回调返回”对应的是 L 已覆盖的一个前缀，而不是“目标已经提交”。
 
-## 2. 故障门必须固定真实的因果顺序
+第二，**T 的幂等边界在目标库**。`MySQLCdcApplyEngine` 将 CDC group 的证据写入 `pekko_sync_cdc_group_ledger`，再在同一 JDBC 事务中写目标表。重放同一 group 时，ledger 中已有相同证据就返回 `AlreadyCommitted`；证据不同则抛出协议冲突。目标事务的 `COMMIT` 回复未知时，代码将其分类为 `CommitUnknown`，不能把异常当成回滚成功。
 
-实验使用两个独立 MySQL 9.5.0 实例、独立 worker JVM、真实 JDBC Journal 和生产 MySQL Apply 路径。LOW/HIGH/F 是源控制表事务，SourceRecord 来自 SDK；观察门暂停真实代码切点，没有手造 offset 或提交结果。
+第三，**J 和 D 是两个不同的游标**。J 是 Pekko Journal 的业务进度，包含窗口、`deltaAfter`、`batchSequence`、激活证明等；D 是 Debezium offset 表中的源消费位置。`MySQLCaptureStore.verifiedOffsetSequence` 只能在 L 中找到与 D 对应的 ACK，并验证其 ancestry 后，才能把 D 当作已被本地捕获证据覆盖。J 前进或 Sink 返回成功，都不会自动替 D 完成证明。
 
-[BootstrapMatrixSpec](https://github.com/Xuxiaotuan/pekko-reference/blob/55fad0cf27f3a289dbb5d4fb4f2a31d60a661059/server/src/test/scala/cn/xuyinyin/magic/workflow/integration/BootstrapMatrixSpec.scala#L70)先等待指定观察点，再做并发 SQL、断连接或硬停 JVM。例如 T/J 缺口中的门在 `target.applyPage` 返回后、Journal 更新前，不能只看到一条“准备提交”日志就命名为 T 已提交。
+因此，当前系统的安全规则是：**证据不足时暂停，证据完整时允许释放；重放依靠 ledger 和 immutable L，而不是依靠“这次看起来已经成功”。**
 
-主要夹具为 64 行、六字段，包含 DECIMAL、DATETIME(6)、NULL、空串和空白。比较器独立读取保存的源/目标完整行集，检查缺行、多行和逐字段差异；不是用 `COUNT(*)` 或测试中的 `equal=true` 代替判断。
+## 1 具体事件：`id=4` 的 UPDATE 从源端走到目标端
 
-<a id="e-i08"></a>
-
-<a id="e-i08"></a>
-## 3. I08：已完成窗口之后修改主键，怎样仍覆盖整表
-
-**命题 G4。** 如果只依赖每个窗口自己的 HIGH，已越过范围的后续变化可能失去补偿。当前实现还应通过完整 B→F 回放覆盖这类变化。
-
-**切点。** 第一段窗口已经完成，原运行状态为 `SCANNING`、`index=1`。固定这个切点后，对源表执行：
+真实验收表 `pekko_cdc_runtime_acceptance.source_rows` 有六个字段：
 
 ```sql
-UPDATE a SET id=1000, label='forward' WHERE id=1;
-UPDATE a SET id=-40, label='backward' WHERE id=40;
+id BIGINT PRIMARY KEY,
+label VARCHAR(...),
+amount DECIMAL(...),
+note VARCHAR(...),
+updated_at DATETIME(6),
+revision INT
 ```
 
-前一个键移到冻结 U 之外，后一个键移到已经越过的范围。实验还观察真实主键 DELETE/CREATE 的跨回调交付，再释放执行门。
-
-**观察。** 最终源和目标都为 64 行；主键 1、40 不再存在，目标中两个迁移键为：
-
-| 最终主键 | 目标 label | 源/目标比较 |
-|---|---|---|
-| −40 | `backward` | 本行各字段相等 |
-| 1000 | `forward` | 本行各字段相等 |
-
-整表 384 个字段相等，缺行、多行、不同字段均为空；J 已进入 STREAMING。它验证的是当前数据、源条件和固定窗口下“窗口回填加整表回放”的组合，未单独运行一个删除 B→F 的对照版本。因此不能把此结果包装成对某个替代算法的性能或必然失败证明。
-
-**判定。** 最终键集合必须反映两次迁移，且全部字段一致；只比较行数会漏掉“旧键仍在、新键缺失”。这项正面证据支持 G4 的一个指定样本，G4 的前提和逐键推理在第四篇展开。
-
-<a id="e-i11"></a>
-
-<a id="e-i11"></a>
-## 4. I11：RAW 页已保存，原边界行被删，恢复能否沿用旧页
-
-**命题 G1。** RAW 页属于某次 RR 读视图。JVM 退出后，该视图消失；恢复只能复用原范围，不能复用未封存的扫描游标。
-
-**切点。** 原窗口 `a_0_0` 已保存第一页 8 行，J 仍为 `SCANNING/index=0`，没有 sealed manifest。此时硬停 worker，修改源数据，并在重启前删除主键 32。
-
-**观察。** 恢复日志先出现 `ABANDONED a_0_0`，再从新 attempt `a_0_1` 的第 0 页读取。状态库中提取的两个 spec 为：
+本轮真实操作把 `id=4` 更新为：
 
 ```text
-a_0_0：index=0，lower=null，upper="32"
-a_0_1：index=0，lower=null，upper="32"
+id=4
+label=gc-final-update
+amount=14.2500
+note=gc-live
+updated_at=2026-11-13 05:48:00.123456
+revision=4
 ```
 
-新读视图的页行数为 8、8、8、7；不会把旧视图的第一页拼在前面。最终剩 63 行，378 个字段相等。
+随后还插入了 `id=6`，用于验证同一运行中不止一种事件。这里先只看 `id=4`，因为它足够暴露所有确认边界。
 
-**判定。** 即使最终数据相等，若重新规划导致 upper 漂移，也应失败。测试另外断言两个首范围的 upper 相同，避免终值对账掩盖恢复协议变化。这里验的是原范围整段重读，不是每个 Split 有独立 Actor 或可并行领取。
+### 2.1 Debezium 回调不是一个可直接提交的 Batch
 
-<a id="e-i16"></a>
+Debezium Embedded Engine 将一批 `SourceRecord` 和一个原始 `CdcBatchCommitHandle` 交给 `DebeziumBatchConsumer`。`MySQLCdcSourceNode.CdcResource` 只是把这个回调交给 `MySQLCdcGroupAssembler` 或 `DebeziumBatchBridge`：
 
-<a id="e-i16"></a>
-## 5. I16：目标页已经提交，Journal 仍停在第 0 页
+```scala
+override def handleBatch(
+    records: Vector[SourceRecord],
+    commitHandle: CdcBatchCommitHandle
+): Unit = {
+  if (assembler.nonEmpty) assembler.get.accept(records, commitHandle)
+  else bridge.publish(batchId, rows, cursorValue(records.last), commitHandle)
+}
+```
 
-**命题 G2。** 恢复时应重交同一封存页，并核实原目标 receipt；不能用当前源数据替换旧内容后继续沿用旧页身份。
+`CdcBatchCommitHandle` 只提供一个动作：
 
-**切点。** 窗口 `a_0_0` 已封存，第 0 页目标事务返回；J 的 `appliedPage` 仍为 0。现场目标确有 `operation_id=a_0_0:0` 的 receipt。此时硬停 JVM，再修改源数据后重启。
+```scala
+trait CdcBatchCommitHandle {
+  def markProcessedAndFinished(): Unit
+}
+```
 
-**观察。** 从原始日志摘取相同字段，省略时间和任务前缀：
+该句柄的语义来自 Debezium SDK：调用它会通知 SDK 这一批可以被标记为已处理，之后 offset 才可能被 flush。它不包含目标事务状态，也不包含 Journal 状态。把这个句柄当成 Sink 的 ACK，是最容易犯的错误。
+
+### 2.2 `SourceRecord` 先获得稳定身份，再进入组装器
+
+`SharedMySQLCapture.processDataRecord` 先从 Debezium `source` 结构中取出 file、position、row，构造 `CapturePoint`。如果这个点命中某个有效订阅，代码会把 record 的 source offset 中的 collection-order 字段去掉，再解析为 `MySQLCdcEnvelope`：
+
+```scala
+val point = CapturePoint(src.getString("file"),
+  src.getInt64("pos"), src.getInt32("row"))
+val envelope = MySQLCdcEnvelope.decode(copy, source.connectorId)
+  .fold(x => throw new IllegalArgumentException(x.message), _.get)
+val groupId = MySQLCdcGroup.id(store.protocol, envelope)
+```
+
+`MySQLCdcGroup.id` 由协议版本、源 lineage、数据库、表、binlog file、position 和 row 计算 SHA-256。这个 ID 不是数据库主键，也不是 Debezium 的 offset；它是一次源事件在本协议中的稳定出现身份。
+
+对于普通 UPDATE，组装器生成 `single.u` group；对于主键修改，MySQL CDC 会先产生带 `__debezium.newkey` 的 DELETE，再在后续 record 中产生 CREATE。`MySQLCdcGroupAssembler` 暂存半组，并要求两条 record 的 source offset、partition 和 schema 相同，最后形成有序的 `pk.d` / `pk.c` group。半组没有完成前，原始 callback 不会被确认。
+
+### 2.3 L 的写入和原始 ACK
+
+组装器回调 `publish`，进入 `SharedMySQLCapture` 的闭包：
+
+```scala
+val group = MySQLCdcGroup.parse(g, store.protocol)
+groupCoverage(group.groupId) =
+  store.append(group).getOrElse(
+    throw new IllegalArgumentException("group lost its durable route"))
+```
+
+`MySQLCaptureStore.append` 在自己的数据库事务里完成三件事：锁住 reader lineage、检查路由区间、向 `pekko_capture_log` 插入一个不可变的 `GROUP` frame。`source_key` 唯一，重复出现时要求 digest 和 payload 完全相同；内容冲突会失败。
+
+回调中每个 record 都调用一次 `done()`。只有 `Pending.remaining == 0` 时，`acknowledgeCoveredCallbacks` 才能处理队头：
+
+```scala
+val ack = store.coverSequence(ready.offset, ready.references.toVector)
+ready.handle.markProcessedAndFinished()
+confirmedAckSequence = ack
+pending.dequeue()
+```
+
+`coverSequence` 再次锁 reader，沿旧 ACK 建立 parent，写入一个新的 `ACK` frame，并把被引用的 barrier 标记为 covered。于是对 `id=4` 而言，第一条可靠事实是：
 
 ```text
-原运行：window=a_0_0, page=0, kind=BASELINE_T, new=true
-恢复后：window=a_0_0, page=0, kind=BASELINE_T, new=false
+GROUP(id=4 的 UPDATE) 已在 L 中落盘
+ACK(parent=上一条 ACK, references=[该 GROUP]) 已落盘
+原始 callback handle 才被调用
 ```
 
-恢复材料仍包含原 receipt，原内容没有被替换；随后应用其余页，再由 B→F/tail 处理源端的新变化。最终 64 行、384 个字段相等。
+**源码结论：** 原始 callback 的“返回”证明 L 覆盖了 callback 的完整前缀；它不证明目标端已经写入。
 
-**判定。** `new=false` 证明本次页操作复用了已有 receipt；真实 T、J、封存材料和最终行集共同支持这一结论。它不等于任意外部触发器、通知或审计副作用恰好一次——首版目标明确禁止业务 trigger、外键和额外唯一约束。
+## 2 T：目标事务如何做到重放不产生第二次业务效果
 
-I21 进一步覆盖 G3：切点已经存在目标激活 receipt，但 J 仍为 ACTIVATING、F 的 L 序号为 54；恢复保留原激活证明和 F，进入 STREAMING，后续消费游标到 57，384 个字段相等。54 和 57 是 L 游标，不是“第 54/57 批”，也不能与 D 的 pos 直接比较。此处 384 字段核对的是恢复后继续追赶的终值，不能把 F 之后的值称为 F 时刻的快照。
+从 L 读取时，`CapturedLogReader.readBatch` 以 sequence 为边界取 group，而不是按当前 MySQL 表重新查询：
 
-<a id="e-startup"></a>
+```scala
+val entries = consumer
+  .map(store.readForConsumer(id, after, limit, _))
+  .getOrElse(store.read(id, after, limit))
+val groups = entries.map { r =>
+  require(r.schemaId == sub.schemaId, "capture row schema mismatch")
+  MySQLCdcGroup(...).canonicalJson
+}
+```
 
-<a id="e-startup"></a>
-## 6. E0：后续事件已到目标，仍不能证明旧区间完整
+它返回 `CdcCapturedBatch`，其中包含 `batchSequence`、`batchId`、`cursor.value` 和 `cursor.upperBound`。`batchId` 根据 execution、source node、partition 和 sequence 计算，重启后如果继续同一 execution，身份可复原；如果是新 execution，目标仍以 group ledger 的稳定 groupId 做幂等保护。
 
-**命题 G0。** 既有 B 所承诺的区间，在重启之后仍必须被连续捕获。仅凭 Reader 再次有输出，无法证明这一点。
+Sink 的核心事务可简化成下面的伪代码：
 
-**切点与真实顺序。** 独立启动探针固定 B 已绑定、原始 ACK 尚未开始，而实际持久 D 仍为 INITIAL 的窗口：
+```scala
+connection.setAutoCommit(false)
+for ((group, events) <- plannedGroups) {
+  val old = SELECT evidence
+    FROM pekko_sync_cdc_group_ledger
+    WHERE group_id = ? FOR UPDATE
+  old match {
+    case Some(evidence) if evidence == expected => // replay
+    case Some(_) => throw ProtocolConflict
+    case None =>
+      INSERT INTO pekko_sync_cdc_group_ledger(group_id, evidence)
+      applyEvent(target, events)
+  }
+}
+connection.commit()
+```
 
-| 顺序 | 观察到的事实 |
-|---|---|
-| 崩溃前 D | `binlog.000003:194970`，snapshot=INITIAL |
-| B 已绑定 | ROW195262、END195412，L sequence18 |
-| id1 业务更新已提交 | ROW195705、END195893，GTID 后缀 488 |
-| SDK 重启后重选点 | 实际 Schema callback 显示 196292，已越过前述更新 |
-| 后续 id2 witness | GTID 后缀 490，到达真实目标和 Journal |
+`evidence` 不只包含 groupId，还包含 cursor identity、target table 和完整 group JSON。这样可以区分两种情况：
 
-**观察与判定。** 两端各四行、没有缺失或额外主键，但 id1 的 `label/amount/revision/note/updated_at` 五字段仍旧；id2 的六字段一致。witness 对应目标组账本已存在，J 接受 L sequence20；整体仍判定失败。它直接反驳“后续 T/J 继续推进就代表恢复完整”。
+* 同一 group 重放，返回 `AlreadyCommitted`，目标业务行不再执行第二次；
+* 同一 groupId 对应不同内容，直接拒绝，避免把数据冲突伪装成幂等。
 
-**实验边界。** 该探针的初始目标为已复制的四行基线，并非完整 LOW/HIGH 初始化；恢复 batch128、测试代理禁 TLS，并由 producer/callback 双门命中切点。它证明本配置的一次实际不一致，不估计所有配置的失败频率。[启动报告与原始材料](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-10-25-capture-startup/README.md)
+`MySQLCdcApplyEngine` 在 `connection.commit()` 抛异常时包装为 `ExecutionFailure.CommitUnknown`。这是一个重要边界：客户端不知道服务端是否已经提交，重试前必须读取 ledger；不能直接 rollback 后假定目标没有变化。
 
-<a id="e-conclusions"></a>
+**源码结论：** T 的幂等性由目标库 ledger 和同事务 DML 共同提供；`Committed` 与 `AlreadyCommitted` 都只表示目标事务路径已完成，不能代替 J 或 D 的证明。
 
-## 7. 怎样从代表性证据回到整体验收
+## 3 J：为什么目标已经提交，Journal 仍然可能落后
 
-| 证据 | 已得到的结论 | 当前状态 |
+Bootstrap Runner 对每一个有界工作单元先调用 Sink，再更新 Journal。`replay` 的主线是：
+
+```scala
+val batch = log.readBatch(...)
+admission.writing {
+  waitSink(sink.commitBatch(id, s.executionId, batch, _ => ()))
+  emit("REPLAY_T", ...)
+}
+update(_.copy(
+  deltaAfter = entries.last.sequence,
+  batchSequence = s.batchSequence + 1
+))
+```
+
+`update` 通过 `BootstrapJournalAccess.update` 读取当前状态、递增 revision，并向 `BootstrapJournal.Write` 发送 CAS。Actor 的 `Write` 只接受满足 expected revision、phase 转移、execution identity、recovery attempts 和 gc checkpoint 不变的状态。写入成功后，`recordProgress` 才产生 `J_COMMITTED` 观察事件。
+
+因此有一个明确的故障窗口：
+
+```text
+T committed
+    │ JVM 在 Journal.update 之前退出
+    ▼
+目标 ledger 已有 group，J 仍指向旧 deltaAfter
+```
+
+重启时 Runner 从旧 `deltaAfter` 重新读 L。Sink 读到相同 group ledger 后返回 `AlreadyCommitted`，随后 J 才能推进。这个窗口的安全性依赖三件事：
+
+1. L 的 group payload 不可变；
+2. ledger 的 evidence 与 replay 内容一致；
+3. Journal 仍保留原 execution 或有足够的恢复身份，不能把当前源表快照替换成另一个 batch。
+
+**实验结果：** 旧 Bootstrap 矩阵的 I16 固定过“目标页已经提交、Journal 仍停在第 0 页”，恢复日志中同一窗口第 0 页从 `new=true` 变为 `new=false`，最终 64 行、384 个字段逐字段相等。该结果证明指定窗口能够按 ledger 重放，不证明任意外部副作用也恰好一次。
+
+**未验证边界：** 本文没有把 I16 的 baseline 结果扩大为所有 Sink、所有事务隔离级别或所有 Journal provider 的保证；它只覆盖实验中使用的真实 MySQL 目标、Actor Journal 和固定切点。
+
+## 4 D：offset 不是“读到了”，而是一个需要被 L 反向证明的事实
+
+Debezium 使用 JDBC offset store。真实运行日志中可以看到：
+
+```text
+offset table: capture_offsets_986a1b7135f4986150aa5fa0028feeaa
+previous offset: binlog.000017 / 325166188 / event=3
+```
+
+D 的值由 SDK 的 offset flush 产生，应用代码不能把它当作 Sink commit 的结果。`SharedMySQLCapture.readCheckpoint` 从 state MySQL 读取 offset 表；`verifiedOffsetSequence` 再根据 D 的 offset key 查找 L 中同 offset 的最新 ACK，并调用 `verifyChain` 检查 parent chain。
+
+这一点决定了启动和 GC 的顺序：
+
+```text
+读 D
+  └─找到与 D 绑定的 ACK
+      └─验证 ACK parent / reference / digest
+          └─才能说 D 覆盖到某个 L sequence
+```
+
+旧版 `CaptureAckProof.inspect` 直接在一次调用里遍历整条链，固定最多 4096 个节点和 15 秒预算。真实集群的 `primary` 已有 7,110 条 ACK，最新 ACK 序号为 7,121，因此 GC 返回：
+
+```text
+BLOCKED / ACK proof budget exceeded
+```
+
+这个失败不是 Source/Sink 不一致，也不是目标 COMMIT 失败，而是证明算法的单次预算不足。它说明“D 已经有值”和“D 的 ancestry 已经被验证”是两个不同事实。
+
+### 5.1 分页 proof 如何把长链改成可恢复状态机
+
+修复后的 `CaptureAckPaging` 不再把整条 proof 放在一次堆栈调用中。它把 proof identity、head、anchor、next_seq、digest、revision、phase 和 done 写入：
+
+```text
+pekko_capture_ack_pages_v1
+pekko_capture_ack_page_nodes_v1
+pekko_capture_ack_page_refs_v1
+pekko_capture_ack_prior_v1
+pekko_capture_ack_page_pins_v1
+```
+
+每次最多处理 128 个父链节点或引用，处理结果先提交。下一次 tick 或重启可从 `revision`、`next_seq` 和 `next_digest` 继续。只有 `phase=VERIFY`、`done=1`、anchor 在链中且 offset 匹配，GC 才能进入删除计划。
+
+**实际结果：** 真实 KubeSphere PipelineRun `pekko-cdc-runtime-g7kcr` 成功。proof head 为 `7742`，分页状态 `done=1`、revision `242`，ACK 节点 `7731`；GC operation `runtime_315c...` 从 `DELETING 42→44` 变为 `DONE 44→44`，删除 1 个 GROUP，回收 235 字节。Source 与 Sink 的两行六字段完全相等，Source 保留 Binlog Dump 会话且没有未提交 InnoDB 事务。
+
+这次结果证明：长 ACK 链可以分页、可以跨运行推进、proof 未完成时可以安全阻塞，并在 proof 完成后再做 GC。它没有证明 70 万活跃表、无限 ACK 历史、自动扩容或所有并发 B proof。
+
+## 5 从批到流：B、F、J 与 T/D 的接缝
+
+`BootstrapRunner` 把一次表初始化拆成窗口，而不是把整张表放进一个长事务。
+
+### 6.1 LOW/HIGH 窗口
+
+`scanStep` 为窗口生成固定 spec：`lower`、`upper`、schema fingerprint。先写 LOW fence，再按分页读取源表；读完后写 HIGH fence。LOW 和 HIGH 是源 Binlog 中的控制点，不是 Reader 内存里的两个时间戳。
+
+随后 Runner 从 L 中读取 LOW 到 HIGH 之间的 group，折叠到窗口 manifest，再按 page 应用目标。manifest 中保存 LOW/HIGH、raw page hash、groupRoot 和 page 证明。Journal 只接受 manifest hash 不变的后续进度。
+
+### 6.2 F：全量转持续流
+
+当最后一个窗口完成，Runner 写 F fence：
+
+```scala
+emit("BEFORE_F")
+val f = fence(id + "_F", "F", context("F"))
+update(_.copy(
+  phase = "REPLAYING",
+  fence = Some(f.id),
+  deltaAfter = logStore.subscription(id).get.bSequence.get
+))
+```
+
+F 的意义是：初始化已经覆盖到一个固定的源点；随后从 B 之后的 L 前缀回放到 F，目标 activation receipt 验证通过后，Journal 才能进入 STREAMING。进入 STREAMING 后，`deltaAfter` 是 L sequence，不是 binlog position；D 仍由 Debezium offset 表维护。
+
+**源码结论：** F 是状态机中的交接证明，不是“最后一条 UPDATE 的时间”。
+
+## 6 真实故障顺序：哪些窗口自动重放，哪些必须暂停
+
+把上面的状态放进真实故障时间线，可以得到四类不同结论。
+
+### 7.1 T 已提交，J 未持久化
+
+```text
+L GROUP/ACK 已存在
+T ledger + target DML 已提交
+J revision 尚未写入
+进程退出
+重启读取旧 J → L replay → ledger AlreadyCommitted → J 前进
+```
+
+在 I16 中，最终 64 行、384 个字段相等。这是“可重放”的窗口。
+
+### 7.2 J 已持久化，D 或 raw ACK 仍滞后
+
+J 的 `deltaAfter` 只会在 `sink.commitBatch` 成功后更新，但原始 Debezium callback 的 ACK 仍由 `SharedMySQLCapture.acknowledgeCoveredCallbacks` 管理。若进程在 L ACK 或 SDK offset flush 之间退出，重启必须重新检查 D 的 ACK ancestry；不能凭 J 的 revision 直接前移 D。
+
+当前代码在证明不足时进入启动门或 GC 的安全暂停。这个结果是正确的安全边界：它宁可重复读取已持久化 L，也不把未经证明的 D 当成已经消费。
+
+### 7.3 COMMIT 回复丢失
+
+目标端 commit 结果未知时，`MySQLCdcApplyEngine` 返回 `CommitUnknown`。恢复归属在 Sink：先查询 batch/group ledger，再决定 `AlreadyCommitted`、重试或暂停。Journal 不应单独决定目标是否已提交。
+
+### 7.4 两个原始 ACK 之间崩溃
+
+`pending` 是队列，ACK 只能按 callback 前缀推进。队头尚未 `markProcessedAndFinished` 时，后续 callback 即使已经进入内存，也不能跳过队头。重启后，SDK 可能重放队头及其后续记录；L 的 occurrence unique key 和 group ledger 负责去重。若无法证明原始 source connection 已关闭，新的 owner 不应创建 Reader。
+
+历史真实材料中，旧 worker 的连接列表曾经为空，但五秒窗口内仍有一条未归属事务；随后该事务消失。这类结果被记录为 `OWNER_RELEASE_UNPROVEN`，不能被后续排空成功覆盖。资源释放证明属于 reader/guardian 层，不等同于数据已经对账。
+
+## 7 失败证据必须保留：ACK proof 的预算反例
+
+为了说明“为什么不能只看最终行集”，把这次真实失败单独列出。
+
+旧实现面对 7,110 条 ACK 时返回 `ACK proof budget exceeded`。当时 Source 与 Sink 的业务行仍可以对账相等；失败发生在“是否有资格回收 L”的证明阶段。若把这个失败删掉，只保留之后的通过结果，读者会错误地认为 ACK proof 从未遇到长链边界。
+
+修复后分页 proof 通过，但另一个证据仍未闭合：分页 proof 表自身的长期容量、并发 B proof、无限 ACK 历史和 70 万活跃表没有验证。文章必须同时保留：
+
+| 层级 | 本轮事实 | 不能推导出的结论 |
 |---|---|---|
-| I08 | 指定跨窗口迁移最终被整表回放补齐 | 限定样本通过 |
-| I11 | 丢失读视图后复用范围、新 attempt 整段重读 | 限定窗口通过 |
-| I16 / I21 | 目标领先 J 时复用页/激活证据，不移动原 F | 限定窗口通过 |
-| E0 | B 已绑定而 D=INITIAL 的旧恢复行为可越过更新 | 历史实际反例；新版本拒绝重入，旧差异保留 |
+| Reader/回调 | 原始 callback 只有 L 前缀覆盖后才返回 | 不能推导目标已提交 |
+| Sink/T | MySQL ledger 对同一 group 重放返回 `AlreadyCommitted` | 不能推导 Journal 已持久化 |
+| Journal/J | I16 固定窗口可在重启后推进 | 不能推导所有 provider 都一致 |
+| D/ACK proof | 7,110 条 ACK 的旧一次性证明失败；分页 proof 通过 | 不能推导无限历史不需要容量治理 |
+| Source/Sink 对账 | 两行六字段完全相等 | 不能推导 70 万活跃物理表已验收 |
 
-完整初始化矩阵有 61 项预期检查通过，其中包括正确暂停/拒绝；不是 61 次故障后都自动收敛。旧回归中的 R02 仍失败，自然触发一次通过也不消除确定性反例。数量及其他组件检查统一记在[验证范围表](README.md#全系列验证范围汇总)，不在各篇重复累计。
+## 8 逐字段对账：它证明了什么，没证明什么
 
-上述代表性 I08/I11/I16/I21 都来自 [raw-evidence-07.zip](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-10-25-bootstrap/artifacts/raw-evidence-07.zip)，目录前缀为 `target/bootstrap-matrix/matrix-all-1792931094818574000/`，子目录分别是 `I08-2b76f3b231ab`、`I11-ddb83c3124c3`、`I16-da53030119d0`、`I21-ac4cb6c37ede`。每目录的 `cut.json/final.json`、原运行与恢复日志允许复查上文摘取的字段；I08 无崩溃，因此没有 recovered.log。原始文件与摘要见[归档索引](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-10-25-bootstrap/artifacts/archive-index.json)。
+本轮 `reconciliation.json` 的字段顺序是：
 
-这些旧材料继续约束后续版本：允许重新读取，并不等于允许越过尚未进入 L 的变化；允许从固定范围重读，也不等于允许替换已封存内容。新增实现必须补证据，不能改写旧实验的版本和结果。
+```text
+id, label, amount, note, updated_at, revision
+```
 
-## 8. 启动门的实测结果：阻止不安全重入，没有修复旧漏数
+Source 与 Sink 均得到：
 
-旧 E0 的问题发生在 Reader 为旧 B 恢复之前。因此，新版本必须先读实际 D、L、history 和源控制事实，再决定是否创建 Engine。若先启动 SDK，再看到它开始输出，已经无法用这个输出证明旧起点没有移动。
+```text
+4 | gc-final-update | 14.2500 | gc-live | 2026-11-13 05:48:00.123456 | 4
+6 | gc-final-insert | 15.5000      | row-six | 2026-11-13 05:48:01.123456 | 0
+```
 
-[A1/A2 冻结实测](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-10-27-capture-admission/README.md)构造了两类真实旧状态。旧 PREPARED/INITIAL 被分为 `UNBOUND_MARKER_UNPROVEN`，旧 B-bound/INITIAL 被分为 `INITIAL_WITH_COMMITMENT`；两者在新版 Engine 创建次数为 0 时拒绝。旧 B-bound 样本仍保存 id1 五字段差异。正确结果是“没有继续扩大未经证明的同步”，不是“漏掉的数据已恢复”。
+`sameRowCount=true`、`sameRowsAndFields=true`。这证明在该真实 MySQL、该目标表、该运行版本和该故障窗口下，最终可见行集一致。
 
-新订阅的 B 也不再凭 `Engine.start` 或 Schema callback 放行。当前 attempt 必须有真实启动生命周期、原始 ACK，并核对实际完成态 D 与 L 引用，才能受理新的源 marker。真实 Reader 实验验证了提前调用没有新意图/B、两表并发新增、同身份幂等，以及撤准入后拒绝新命令。它们是控制与采集证据，不能单独算作目标恢复对账。
+它不证明：
 
-同版本另跑五个 Bootstrap 定点：I01 的五表新增两表最终 448 行、2688 字段相等；I11 为 63 行、378 字段；I16、I21、I21-postF 各为 64 行、384 字段。每项都重新读取保存的全行集，并核对 L、ACK、spool、边界和目标证据。这是五个明确变体的结果；`completeMatrix=false` 仍保留，未宣称已重跑整个扩展矩阵。
+* 目标事务只执行过一次；`AlreadyCommitted` 可能是重放后的第二次观察；
+* 每一条 row event 都有独立的线上日志映射；本轮保存的材料没有把 `id=4` 的 binlog row event 与某个 L sequence 逐条导出；
+* D、J、T 的采样在同一数据库事务中同时发生。它们是不同存储的观察，时间上可能错位；
+* 删除、DDL、主键跨回调、未知 B、自动接管等其他边界已经通过。
 
-### 源 marker COMMIT 不确定必须单列
+因此逐字段对账是端到端的必要证据，但不是单独的正确性证明。它需要和 T/J/D 的切点、ACK 顺序、连接与事务采样一起阅读。
 
-真实代理先截留源 COMMIT OK，再丢弃回复。服务端源控制行已经存在，客户端却不知道提交是否成功。实际行为是保留原 operation、进入 `PAUSED_UNPROVEN`、不补写第二个 B，并返回释放未知。
+## 9 读源码时最值得记住的四条不变量
 
-这个样本有实际 D/L/ACK 顺序，源/目标四行、24 字段相等，但目标来自预复制基线，T/J 为空。它证明没有在不确定 marker 上擅自重写或继续承诺；它没有验证 LOW/HIGH 初始化，更没有证明目标 COMMIT 回复丢失后的 T/J 恢复。源 marker 的不确定和目标事务的不确定必须分别定位。
+### 不变量一：ACK 只能覆盖连续前缀
 
-## 9. 平台实测：数据结果与运行资格分开验收
+`pending` 按 callback 顺序排队，`while (pending.headOption.exists(_.remaining == 0))` 只处理队头。任何中间 callback 未完成，后续 callback 不能让 D 越过它。
 
-本轮新 P01 经过 HTTP 增加五表，再新增两表并持续写入；七表的源/目标完整行集共 448 行、2,688 字段相等。P02 先运行十个实时订阅再增加第十一表，704 行、4,224 字段相等；snapshot 与 tail 各两个预算，观察到的活动步骤峰值不超过四。它们分别支持“动态初始化已接入平台”和“不会被旧八会话模型卡住”，不能外推到任意活跃规模。
+### 不变量二：L 的 occurrence 不能改变内容
 
-| 样本 | 实际要核对的事实 | 不能写成什么 |
-|---|---|---|
-| P03 冷任务取消 | 无 execution、J、B，独立 PREEXEC_CANCEL 凭据 | 已初始化或数据一致 |
-| P04 READ_OPEN 时取消 | 原 K、排空和部分目标不发布 | 自动完成全量 |
-| P05 已实时同步后取消 | a 至 K 停止，b 继续逐字段相等 | 取消后 a 仍追随源端变化 |
-| P06 干净重启 | 旧 owner 真实释放并 STOPPED 后，新 JVM 继续且目标相等 | 强杀后自动接管 |
-| P07 遗留 ACTIVE grant | 新 owner 保留 UNKNOWN，Engine 创建数为 0 | 故障后自动恢复成功 |
-| P08 查询/命令 | 实际 API 幂等、冲突、keyset 与权限 | 端到端数据恢复 |
+`pekko_capture_log.source_key` 唯一；相同 source key 再次写入时 digest 和 payload 必须相同。重放可以重复执行“发现”，不能改变历史 frame。
 
-保存材料的独立复算进一步反序列化真实 JDBC Journal，而非仅信任 `phase=STREAMING` 的投影。它按 task 的 journalRevision 查实际事件，检查 continuation、baseline root、目标 ACTIVATE、Schema、B/F、L 摘要和原始 ACK 前缀。控制面与 J 的采样非原子，允许查询投影落后，但不允许凭没有对应持久事件的标签宣布初始化完成。八个 P 场景中必须相等的切面合计 7,680 字段；取消、未执行和安全暂停的部分目标不凑入相等字段数。**这是保存材料复算，不是第二次数据库实验。**
+### 不变量三：目标 ledger 与事件内容必须同时匹配
 
-## 10. 通过数不能代替边界证据
+同一 groupId 已存在但 evidence 不同，必须报 `ProtocolConflict`。只有 evidence 完全相同才返回 `AlreadyCommitted`。
 
-第一个来自测试设施。首轮 P04/P07 的 gate 用 String 引用做 CAS；stdin 产生的新字符串没有命中，READ_OPEN 虽然出现，CUTPOINT 却未真正阻塞。失败保留后，修正探针并重新冻结，才取得固定窗口证据。仅看用例名不能证明故障确实发生。
+### 不变量四：证明未完成时不能做 GC
 
-第二个来自验收契约。旧 Bootstrap 用例期望源 marker COMMIT unknown 后自动进入 STREAMING，新实现却按授权规则 PAUSED。原失败与 outer 超时保留。该版本的 13 个同切点分支明确验安全暂停：原 operation 只有一次源执行尝试，J PAUSED、恢复预算为 0、无 ACTIVATE，重试不继续写源；I22 还核对取消没有被接受、没有 K。不能把这些样本称为十三次自动恢复。旧期待可通过显式 legacy flag 重现。
+`CaptureAckPaging.statusOn` 要求 proof identity、pin、parent digest、anchor 和 prior head 均成立；GC 只删除 `done=1` 且不是当前 actual-D、也没有被 audit/frame/anchor 引用的 proof。证明分页状态本身先持久化，删除后仍依靠受保护恢复点。
 
-受管 Reader 关闭也有相似边界。静默和忙源两个真实样本都曾出现“本地已结束、服务器仍 UNKNOWN”，后来同一 operation 才变为 REUSABLE。它们确认的是释放过程，未附带目标/Actor 对账，不能升级为端到端保证。首个 700,000 元数据尝试则因 redo 文件轮换撞上磁盘采样失败，部分记录没有删除；修正精确的采样竞争后另跑新 namespace，失败仍归档。
+## 10 当前结论和剩余边界
 
-还有一条已经真实修复的资源遗漏。旧 Kernel 的 L 使用共享控制账号，释放观察却只匹配专属 SDK 账号；真实 MySQL 中的 L 事务仍 RUNNING，旧代码已经返回 reusable 并把 owner 写成 STOPPED。修后保持 L 的数据库位置，改用捕获域专属状态账号；相同窗口在真实事务结束前保持 UNKNOWN 和占用，回滚之后才释放。这是 Reader/L 资源实验，没有目标效果或 Actor Journal 执行，不能混入逐字段收敛数。
+### 已由源码确认
 
-R07 也说明回调名不能替代边界：batch=1 时，原始 marker 行的 callback 返回，事务 END 还在后续回调。实际切点 f 仍 B_PENDING，重启安全拒绝。当前测试保留原切点，按持久 B 状态分别验证拒绝或恢复，不把 MARKER_RETURNED 写成完整 B 接受或原始 ACK 已完成。
+1. Debezium 原始 callback handle 被保存在私有 pending 队列中，不能直接暴露给 Sink。
+2. L 的 GROUP、ACK、BARRIER、SCHEMA frame 由 `MySQLCaptureStore` 事务写入，并具有 occurrence/digest 约束。
+3. Sink 目标事务和 group ledger 在同一 JDBC 事务中提交，重放结果区分 `Committed` 与 `AlreadyCommitted`。
+4. Journal 通过 revision CAS 接受进度；`recordProgress` 在 Journal 成功后再投影 consumer floor。
+5. D 必须通过 ACK ancestry 验证；分页 proof 把长链验证拆成可恢复步骤。
 
-[本轮报告](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/experiments/2026-10-27-cdc-platform/README.md)逐项给出最终候选、源码摘要、真实切点、结果类型、复算和资源确认。旧 61 项、旧 58 项、启动定点和新 P/B/H 各有版本，不能累加成一张“全系统已保证”的通过票。
+### 已由实际实验确认
 
-## 证据、版本与边界
+1. 真实 MySQL、Actor Journal、Debezium Reader 和 MySQL Sink 在指定运行中可完成 Source/Sink 全量逐字段对账。
+2. 目标已提交、Journal 滞后的指定 I16 窗口可按 ledger 重放并收敛。
+3. 7,110 条 ACK 的一次性 proof 会触发预算失败；分页 proof 可在 128 节点步长下跨运行完成。
+4. proof 完成后，旧 proof 可按引用保护规则回收，Source Binlog Dump 仍在且没有未提交 InnoDB 事务。
+5. 完整本地回归为 722 成功、0 失败、415 取消；取消项仍需要各自外部环境，不能当作真实故障矩阵全部通过。
 
-正文只保留支撑主论证的实验结果，按源码结论、实际实验、保存材料复算和未验证边界分开。历史补测、候选版本、失败重跑和集群流水线记录集中保存在[系列实验历史与版本补充](https://github.com/Xuxiaotuan/pekko-reference/blob/8283a91/docs/articles/cdc-design/appendices/06-series-evidence-history.md)。
+### 仍未验证或只保留失败证据
 
-实验材料本身仍位于 `docs/experiments/`，没有因正文重排而删除或覆盖。本文不能把历史候选的通过项合并成当前版本的完整验收；也不能把局部逐字段对账写成 70 万真实活跃表容量证明。
+* 70 万张真实活跃物理表的连接数、binlog 吞吐和长期 ACK/L 容量；
+* DDL 传播、共享 Reader 跨实例、多 owner 自动接管；
+* commit reply 丢失后所有目标事务隔离级别的自动恢复；
+* 分页 proof 表自身无限增长、并发 B proof 和 proof state 二次 GC；
+* source fencing 版本锁在跨库竞态中的完整端到端证明；
+* 把 `id=4` 的这次行事件逐条映射到线上 callback、L sequence、T、J 和 D 的统一 trace。
+
+最后一项很容易被忽略。当前系统已经有足够的身份、digest 和 sequence 让每一层独立校验，但本轮实验材料没有保存一条“同一个业务 UPDATE 的全链路 trace ID”。所以本文可以严谨地说明**代码如何保证边界、实验最终如何对账、长链 proof 如何恢复**，但不能伪造一条不存在的事件级日志链。要把这一点补齐，下一步应在 `observe`、target ledger evidence、Journal progress 和 D checkpoint 中记录同一个 groupId，而不是只追加一条成功日志。
+
+## 附录 A：关键源码入口
+
+* [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)：Reader owner、callback pending、L 覆盖、原始 ACK、启动门。
+* [`MySQLCdcGroupAssembler.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcGroupAssembler.scala)：普通事件和主键 DELETE/CREATE 的跨 callback 组装。
+* [`MySQLCaptureStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/MySQLCaptureStore.scala)：L frame、ACK parent、B/F fence、D 反查。
+* [`CapturedLogReader.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CapturedLogReader.scala)：从 L 构造 checkpoint-aware `CdcCapturedBatch`。
+* [`MySQLCdcApplyEngine.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/sink/MySQLCdcApplyEngine.scala)：目标事务、group ledger、`CommitUnknown`。
+* [`BootstrapRunner.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapRunner.scala)：LOW/HIGH、F、replay、J progress 和 GC checkpoint。
+* [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala)：revision CAS、恢复 receipt、Journal 事件状态。
+* [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala)：长 ACK ancestry 的分页持久化证明和 proof GC。
+
+## 附录 B：真实材料和失败材料
+
+* [ACK proof 预算修复与真实集群验证](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-budget-20261113/README.md)：旧 4096/15 秒预算失败、分页 proof 通过、Source/Sink 对账。
+* [分页 proof 表 GC 与容量边界](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/README.md)：旧 proof 回收、当前 proof 保留、容量与未验证边界。
+* [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：B/F、重启、资源状态、逐字段对账和完整回归摘要。
+* [历史初始化故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1/docs/experiments/2026-10-25-bootstrap/README.md)：I08、I11、I16、I21 的固定窗口与失败证据。
+
+这四份材料的时间、源码版本和实验入口不同。阅读时应以每个目录中的 `README.md`、状态快照、原始日志和 checksum 为准，不把不同版本的通过项相加成一项未执行的保证。

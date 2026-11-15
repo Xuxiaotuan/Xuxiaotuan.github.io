@@ -6,7 +6,7 @@ last_modified_at: 2026-10-27
 mermaid: true
 ---
 
-[系列导读与验证范围](/pekko-cdc-series/) · [1：目标架构](/2026/10/18/pekko-cdc-1-resident-tasks/) · [2：批转流源码](/2026/10/18/pekko-cdc-2-recovery-contract/) · [3：真实实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [4：恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [5：自建与复用](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
+[系列导读与验证范围](/pekko-cdc-series/) · [1：目标架构](/2026/10/18/pekko-cdc-1-resident-tasks/) · [2：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) · [3：真实实验](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [4：恢复协议](/2026/10/18/pekko-cdc-4-protocol-design/) · [5：自建与复用](/2026/10/18/pekko-cdc-5-flink-comparison/) · [Flink CDC 深入系列](https://xuyinyin.cn/flink-cdc-series/)
 
 > **材料与发布分层：**报告保留原运行版本、失败材料和未验证边界。网站同步不是数据库重跑。正文中的相对源码链接固定到本次发布提交；实际实验源码以报告内的冻结 manifest 与源码归档为准。 这是当时阶段的历史报告；后续实现与修后实验见[当前平台报告](/pekko-cdc-series/cdc-platform/)。
 

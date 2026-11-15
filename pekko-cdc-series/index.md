@@ -10,7 +10,7 @@ last_modified_at: 2026-11-15
 
 2026-10-27 的修订把持久任务索引、有界步骤和平台入口接回原来的五篇主线：目标与执行资源 → 分页/LOW/HIGH/B→F 源码 → 真实实验与反例 → 恢复状态与确认协议 → 与 Flink CDC 的具体取舍。源码变化、当前实测和历史材料分别标识；Actor 机制、旧 T/J/D 推导及失败仍保留在独立[技术附录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/README.md)。文章更新不自动改变旧实验的版本或结果。
 
-> **历史链接说明**：首页中标注为 `f6313c0`、`74b6d9a`、`55fad0c` 等的 GitHub 链接，都是历史源码或历史实验快照，用于复算当时材料；当前五篇文章的源码阅读基线是 `cc09559`，文章整理提交是 `9653daa`。
+> **历史链接说明**：首页中标注为 `f6313c0`、`74b6d9a`、`55fad0c` 等的 GitHub 链接，都是历史源码或历史实验快照，用于复算当时材料；当前五篇文章的源码阅读基线是 `cc09559`，本次技术风格重写提交是 `b17b9d1`。
 
 ## 独立 Runtime 的当前边界（2026-11-13）
 
@@ -33,10 +33,10 @@ last_modified_at: 2026-11-15
 
 | 篇目 | 本篇要讲透的问题 |
 |---|---|
-| [一：70 万张表常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) | 为什么需要共享 Reader、表级任务和有界执行 |
-| [二：从批到流](/2026/10/18/pekko-cdc-2-recovery-contract/) | LOW/HIGH、B/F/K 和动态新增表如何进入 STREAMING |
+| [一：70 万张表常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) | 为什么目录规模、Reader 和活动执行资源必须分开 |
+| [二：T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) | LOW/HIGH、B/F/K 和动态新增表如何进入 STREAMING |
 | [三：源码执行链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 一条 UPDATE 如何穿过 Reader、L、Sink、Journal 和 ACK proof |
-| [四：恢复证明](/2026/10/18/pekko-cdc-4-protocol-design/) | T/J/D、ACK proof、owner fence 和安全 GC 如何协作 |
+| [四：LOW/HIGH 批转流](/2026/10/18/pekko-cdc-4-protocol-design/) | T/J/D、ACK proof、owner fence 和安全 GC 如何协作 |
 | [五：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) | 两种运行时如何承载同一个 CDC 业务承诺 |
 
 ## 主线图
