@@ -10,6 +10,8 @@ last_modified_at: 2026-11-15
 
 2026-10-27 的修订把持久任务索引、有界步骤和平台入口接回原来的五篇主线：目标与执行资源 → 分页/LOW/HIGH/B→F 源码 → 真实实验与反例 → 恢复状态与确认协议 → 与 Flink CDC 的具体取舍。源码变化、当前实测和历史材料分别标识；Actor 机制、旧 T/J/D 推导及失败仍保留在独立[技术附录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/README.md)。文章更新不自动改变旧实验的版本或结果。
 
+> **历史链接说明**：首页中标注为 `f6313c0`、`74b6d9a`、`55fad0c` 等的 GitHub 链接，都是历史源码或历史实验快照，用于复算当时材料；当前五篇文章的源码阅读基线是 `cc09559`，文章整理提交是 `9653daa`。
+
 ## 独立 Runtime 的当前边界（2026-11-13）
 
 生产 `workflow` 目录已移除；历史执行器、Actor 和旧 receipt 投影保留为测试设施。生产包保留历史状态模型及旧 manifest 迁移，数据路径使用 BootstrapJournal。guardian 与控制存储实现位于 `cdc.guardian` / `cdc.control`。历史表结构、锁行和配额没有随目录清理删除。
@@ -25,7 +27,7 @@ last_modified_at: 2026-11-15
 
 最终 acceptance 使用真实 MySQL、Actor Journal、Debezium JDBC offset/history 和 MySQL Sink：全量 B/F、实时更新/插入/删除、GC proof、owner STOPPED→ACTIVE 重启和逐字段对账均有材料。早期 ClusterIP、非 PID1、wildcard writer、namespace 摘要和权限失败没有覆盖；详见 [最终 acceptance 材料](https://github.com/Xuxiaotuan/pekko-reference/tree/main/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final)。
 
-[本轮源码与实验材料](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)固定运行范围。以下各历史报告仍按原版本解释，不因目录调整重标通过。
+[历史源码与实验材料快照（f6313c0）](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)固定运行范围。以下各历史报告仍按原版本解释，不因目录调整重标通过。
 
 ## 阅读顺序
 
@@ -78,7 +80,7 @@ flowchart LR
 
 ## 版本与证据口径
 
-本轮平台源码以仓库相对链接进入，最终提交、生产/测试摘要与运行环境由[平台报告](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-cdc-platform/README.md)固定。项目依赖仍为 Scala 2.13.12、Pekko 1.1.3、Persistence JDBC 1.1.1、Debezium 3.6.1.Final；已归档实验使用 MySQL 9.5.0、JDK 17.0.14，没有借此升级 SDK。
+本轮平台源码以仓库相对链接进入，最终提交、生产/测试摘要与运行环境由[历史平台报告快照（f6313c0）](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-cdc-platform/README.md)固定。项目依赖仍为 Scala 2.13.12、Pekko 1.1.3、Persistence JDBC 1.1.1、Debezium 3.6.1.Final；已归档实验使用 MySQL 9.5.0、JDK 17.0.14，没有借此升级 SDK。
 
 版本分为三层，不能互换：
 
@@ -86,7 +88,7 @@ flowchart LR
 |---|---|
 | 历史 LOW/HIGH 内核与旧反例 | 文章此前固定 [`55fad0c`](https://github.com/Xuxiaotuan/pekko-reference/tree/55fad0cf27f3a289dbb5d4fb4f2a31d60a661059)；原冻结摘要和失败保留 |
 | 已提交的启动分类与准入 | [`74b6d9a`](https://github.com/Xuxiaotuan/pekko-reference/tree/74b6d9a)，实际候选源树与定点结果见[A1/A2](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-capture-admission/README.md) |
-| 本次生命周期、有界调度与入口 | 当前源码及[平台报告](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-cdc-platform/README.md)；按冻结候选分别记录 B/P/H、L 归属反例与修后结果，测试设施不同的全源 hash 不互换 |
+| 本次生命周期、有界调度与入口 | 当前源码及[历史平台报告快照（f6313c0）](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-cdc-platform/README.md)；按冻结候选分别记录 B/P/H、L 归属反例与修后结果，测试设施不同的全源 hash 不互换 |
 
 初始化矩阵在 `00ad18e` 加未提交实现的冻结工作区运行，全源树摘要为 `c71f260870325aa54bb6818200a875689afaace93d10dc8496a11c99e5f362da`。后续启动探针候选 1—4 生产文件一致，但测试设施不同，不能用一个全源树 hash 冒充所有运行。candidate4 保留 339 项源码清单，与发布后的相应源码逐项匹配；发布提交、运行时 HEAD 和材料复算是三种事实。[初始化版本记录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/final-version.json) · [启动候选 4](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/candidate-4.json)
 
@@ -126,7 +128,7 @@ flowchart LR
 - [初始化报告、范围与故障清单](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/README.md)、[独立复算](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/final-summary.json)、[归档索引](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/artifacts/archive-index.json)。
 - [启动恢复反例](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/README.md)、[结果摘要](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/summary.json)、[材料摘要清单](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/SHA256SUMS.json)。
 - [双槽与资源释放报告](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-cdc-lab-pool/README.md)、[双槽 suite 与后置结果](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-cdc-lab-pool/scala-dual-slot-summary.json)。
-- [A0/B0 探针](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-26-capture-admission-release/README.md)、[A1/A2 准入实测](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-capture-admission/README.md)、[本轮平台报告](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-cdc-platform/README.md)：按版本追踪后续变化。
+- [A0/B0 探针](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-26-capture-admission-release/README.md)、[A1/A2 准入实测](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-capture-admission/README.md)、[历史平台报告快照（f6313c0）](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-27-cdc-platform/README.md)：按版本追踪后续变化。
 - [启动准入设计](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/development/specs/2026-10-25-shared-reader-startup-recovery-design.md)、[平台生命周期设计](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/development/specs/2026-10-25-cdc-platform-lifecycle-contract.md)：原设计背景；实际实施范围以源码和对应报告为准。
 
 ## A/B 矩阵补测范围
