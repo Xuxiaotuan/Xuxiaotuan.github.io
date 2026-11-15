@@ -3,7 +3,7 @@ layout: page
 title: "从 Flink CDC 到 Pekko：共享捕获、全量转流与恢复协议"
 description: "五篇源码与实验文章：共享Reader、Split分页、LOW/HIGH、B到F、T/J/D恢复及Flink CDC比较。"
 permalink: /pekko-cdc-series/
-last_modified_at: 2026-11-14
+last_modified_at: 2026-11-15
 ---
 
 一个 MySQL 实例有 70 多万张表，按需选择其中几张，先同步已有数据再持续追实时，并允许不停其他表地增加、取消订阅。本系列围绕这个目标解释当前代码、实验和剩余设计。70 万是业务目录背景，不是已完成的活跃复制规模验收。
@@ -31,11 +31,22 @@ last_modified_at: 2026-11-14
 
 | 篇目 | 本篇要讲透的问题 |
 |---|---|
-| [一：70 万表常驻 CDC——共享 Reader、表级执行单元和有界资源](/2026/10/18/pekko-cdc-1-resident-tasks/) | 目录规模、共享 Reader、表级状态和执行资源如何分离 |
-| [二：一条 ACK 链如何成为 T/J/D 恢复协议](/2026/10/18/pekko-cdc-2-recovery-contract/) | 目标提交、Journal、ACK ancestry、恢复许可和安全暂停如何形成证明链 |
-| [三：一条 MySQL UPDATE 什么时候才算被 CDC 接受](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 沿 SourceRecord、L、T、J、D 和 GC 追踪真实故障窗口 |
-| [四：从批到流——LOW/HIGH、B/F/K 为什么必须是状态机](/2026/10/18/pekko-cdc-4-protocol-design/) | 新表如何完成全量、窗口回填、回放和持续同步切换 |
-| [五：Pekko CDC 与 Flink CDC——70 万表常驻场景的取舍](/2026/10/18/pekko-cdc-5-flink-comparison/) | 在同一业务承诺下比较资源、进度、故障和规模边界 |
+| [一：70 万张表常驻 CDC](/2026/10/18/pekko-cdc-1-resident-tasks/) | 为什么需要共享 Reader、表级任务和有界执行 |
+| [二：从批到流](/2026/10/18/pekko-cdc-2-recovery-contract/) | LOW/HIGH、B/F/K 和动态新增表如何进入 STREAMING |
+| [三：源码执行链路](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) | 一条 UPDATE 如何穿过 Reader、L、Sink、Journal 和 ACK proof |
+| [四：恢复证明](/2026/10/18/pekko-cdc-4-protocol-design/) | T/J/D、ACK proof、owner fence 和安全 GC 如何协作 |
+| [五：Pekko 与 Flink](/2026/10/18/pekko-cdc-5-flink-comparison/) | 两种运行时如何承载同一个 CDC 业务承诺 |
+
+## 主线图
+
+```mermaid
+flowchart LR
+    A["70 万表目录<br/>5 → 7 动态订阅"] --> B["四平面架构"]
+    B --> C["B → LOW/HIGH → F"]
+    C --> D["SourceRecord → L → T/J/D"]
+    D --> E["ACK proof / GC"]
+    E --> F["Pekko / Flink 取舍"]
+```
 
 ## 统一业务案例与论证入口
 
