@@ -229,7 +229,9 @@ T/J/D 关系可重读
 
 任何一项为 UNKNOWN，状态停在 `PAUSED`。`STREAMING` 不是 Reader API 返回值，而是控制面把一组证据写入同一代任务状态后的结果。
 
-下一篇把同一张 `orders_06` 放进 Flink CDC 3.6.0 的 Enumerator、Split、Reader 和 Checkpoint，比较两套运行时分别承担哪些责任。
+## 下一篇：把 `orders_06` 放进 Flink CDC 的 Split/Checkpoint
+
+第五篇把同一张 `orders_06` 放进 Flink CDC 3.6.0 的 Enumerator、Split、Reader 和 Checkpoint，比较两套运行时分别承担哪些责任。
 
 ## 附录：实验与源码入口
 
