@@ -13,21 +13,19 @@ tags:
   - 源码分析
 mermaid: true
 math: true
-last_modified_at: 2026-11-15
+last_modified_at: 2026-11-18
 ---
 
 作者：xuyinyin
 [系列导读](/pekko-cdc-series/) · [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) · [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) · [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) · [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/)
 
-> **系列主线**：第一篇先拆开 70 万张表的资源模型；第二篇沿一条真实变更解释“被 CDC 接受”的条件；第三篇处理重启、提交未知和 ACK proof；第四篇把全量初始化接到持续流；第五篇再比较 Pekko 与 Flink CDC 的运行时责任。
+> **本篇入口**：第一篇把 `orders_06` 放进共享 Reader 的资源模型。本文沿 `orders_06.id=4` 的 UPDATE，追踪它从 SourceRecord、L、目标事务到 Journal 和 D 的交接；第三篇再把同一任务放进提交未知的重启窗口。
 >
-> **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`；历史实验按各自材料冻结的版本和切点解释。
->
-> **证据口径**：源码结论来自当前仓库调用链；实验结果只对应材料中写明的真实 MySQL、Actor Journal、Sink 和切点；保存材料复算不等于本轮重跑；未验证边界保留为未验证，不因状态机或终值对账自动升级。
+> **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`。本文的源码调用链按该提交阅读，后续提交只改变文档或验证材料，不改变本文涉及的生产实现；历史实验仍按各自材料冻结的版本和切点解释。
 
 > **真实故障先行**：在固定的 I16 窗口中，目标页已经提交，Journal 仍停在第 0 页，进程随后退出。重启后同一组事件从 L 重新读出，目标 ledger 返回 `AlreadyCommitted`，Journal 才把进度向前推进；最终 64 行、384 个字段逐字段相等。这个结果首先说明一件事：**目标表里已经有值，不等于这条事件已经取得了可恢复身份**。
 >
-> 本文不把 I16 扩展成所有 Sink 的 exactly-once 证明，而是从一条 `id=4` 的 UPDATE 出发，解释它如何获得稳定的 group identity，如何经过 L、T、J、D，最后成为可以释放的事件。提交未知、长 ACK proof 和 owner 接管的完整恢复推理放到第三篇。
+> 本文不把 I16 扩展成所有 Sink 的 exactly-once 证明，而是从 `orders_06.id=4` 的 UPDATE 出发，解释它如何获得稳定的 group identity，如何经过 L、T、J、D，最后成为可以释放的事件。提交未知、长 ACK proof 和 owner 接管的完整恢复推理放到第三篇。为统一案例名，`orders_06` 是系列中的业务表名，实验材料中的真实 task、execution 和 offset 仍以各自快照为准。
 
 ## 0 先固定问题：接受不是一个回调返回值
 
@@ -121,9 +119,10 @@ updated_at DATETIME(6),
 revision INT
 ```
 
-本轮真实操作把 `id=4` 更新为：
+本轮真实操作把 `orders_06.id=4` 更新为：
 
 ```text
+table=orders_06
 id=4
 label=gc-final-update
 amount=14.2500
@@ -339,9 +338,9 @@ SourceRecord(id=4, binlog.000017:325166188,row=3)
 
 **实际实验**：R08 的真实 MySQL Reader 矩阵覆盖同事务多行、同一行多次更新和主键 DELETE/CREATE；I16 覆盖目标先提交、Journal 滞后的重启窗口。两组结果都保存了原始 SourceRecord、ACK 顺序和逐字段对账，但它们分别证明事件组装边界和指定恢复窗口，不是所有外部 Sink 的统一保证。
 
-## 下一篇：从事件接纳进入恢复证明
+## 下一篇：把 `orders_06` 停在 T/J/D 之间
 
-当 T 已提交而 J 尚未写入，或者 COMMIT 回复丢失时，事件已经满足哪一部分 `accepted(g)`？第三篇将把这个问题改写成 T/J/D 的证明关系，并说明为什么只保存 offset 仍不足以恢复。
+`orders_06.id=4` 已经取得 group identity 后，下一步不是继续堆更多 ACK，而是把任务停在 T 已提交、J 尚未写入或 COMMIT 回复丢失的窗口。第三篇将把这个问题改写成 T/J/D 的证明关系，并说明为什么只保存 offset 仍不足以恢复。
 
 ## 附录 A：关键源码入口
 

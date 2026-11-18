@@ -22,13 +22,15 @@ last_modified_at: 2026-11-18
 
 [系列导读](/pekko-cdc-series/) · [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) · [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) · [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) · [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/)
 
-上一篇把一条 UPDATE 追到了目标事务和 Journal。现在把进程停在最危险的位置。目标事务可能已经提交，Journal 还没有写入，Source offset 也可能已经向前。恢复程序凭什么决定重放、继续还是暂停？
+> **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`。Pekko 源码调用链按该提交阅读；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
+
+上一篇把 `orders_06.id=4` 的 UPDATE 追到了目标事务和 Journal。现在把同一条案例线停在最危险的位置。目标事务可能已经提交，Journal 还没有写入，Source offset 也可能已经向前。恢复程序凭什么决定重放、继续还是暂停？
 
 本文只回答这个问题。答案是让 ACK proof 保存一条可重读的祖先链，再把这条链和任务、owner、source fence、Journal receipt 绑定在同一个恢复许可里。`D` 只有被这条关系覆盖时，才有资格成为下一次恢复输入。
 
 ## 0 一个具体故障
 
-测试任务 `orders` 在 `execution=17` 中处理第 7110 个 ACK。目标 Sink 已提交该组事件，客户端在 `COMMIT` 返回前断开，Journal 仍停在旧 revision。系统留下了下面的状态：
+案例任务 `orders_06` 在 `execution=17` 中处理第 7110 个 ACK。这里沿用系列案例名，实验材料中的真实 task 标识仍以快照为准。目标 Sink 已提交该组事件，客户端在 `COMMIT` 返回前断开，Journal 仍停在旧 revision。系统留下了下面的状态：
 
 ```text
 T = target ledger 已有 group-7110
@@ -230,7 +232,7 @@ sequenceDiagram
 
 恢复协议的核心不是保存一个更大的 offset，而是保存一条可以重读、可以验证、可以和执行身份绑定的关系。只有这条关系成立，T、J、D 才能继续向前。
 
-下一篇把这条恢复关系放回初始化流程，具体推演 `orders_06` 如何从 `LOW` 和 `HIGH` 追到 `F`，再切换到持续同步。
+下一篇把这条恢复关系放回 `orders_06` 的初始化流程，具体推演它如何从 `LOW` 和 `HIGH` 追到 `F`，再切换到持续同步；第四篇给出数值化状态机，第五篇再把同一案例放进 Flink CDC 3.6.0 的 Split 和 Checkpoint。
 
 ## 附录：源码与实验入口
 

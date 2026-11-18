@@ -13,17 +13,17 @@ tags:
   - 源码分析
 mermaid: true
 math: true
-last_modified_at: 2026-11-15
+last_modified_at: 2026-11-18
 ---
 
 作者：xuyinyin
 [系列导读](/pekko-cdc-series/) · [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) · [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) · [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) · [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/)
 
-> **系列主线**：第一篇先拆开 70 万张表的资源模型；第二篇沿一条真实变更解释“被 CDC 接受”的条件；第三篇处理重启、提交未知和 ACK proof；第四篇把全量初始化接到持续流；第五篇再比较 Pekko 与 Flink CDC 的运行时责任。
+> **本篇入口**：一个 MySQL 实例已经由 `orders_01` 到 `orders_05` 共用 Shared Reader。10:00 新增 `orders_06`，本文先回答 70 万条目录记录如何与有限的 Reader、快照和尾部执行资源分离；后续四篇都沿这张表继续。
 >
-> **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`；历史实验按各自材料冻结的版本和切点解释。
->
-> **证据口径**：源码结论来自当前仓库调用链；实验结果只对应材料中写明的真实 MySQL、Actor Journal、Sink 和切点；保存材料复算不等于本轮重跑；未验证边界保留为未验证。
+> **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`。本文的源码调用链按该提交阅读，后续提交只改变文档或验证材料，不改变本文涉及的生产实现；历史实验仍按各自材料冻结的版本和切点解释。
+
+本文先建立资源模型，再把模型落到 `orders_06` 的订阅、初始化和事件处理。70 万张表是目录规模，不是 70 万个常驻 Reader。
 
 ## 0 结论
 
@@ -50,6 +50,21 @@ A(t) \leq W_{snapshot}+W_{tail}
 $$
 
 这三条是资源上界模型，不是 70 万张真实表的容量实测。当前仓库有 700,000 条冷任务元数据的分页实验，却没有 700,000 张真实活跃表、吞吐和天级 churn 的证据。
+
+### 0.1 贯穿案例：新增 `orders_06` 不重启已有 Reader
+
+`orders_01` 到 `orders_05` 已经处于持续同步，`orders_06` 在 10:00 写入订阅意图。它不会获得一条新的 binlog 会话，而是进入同一 capture domain 的控制表、Schema 准备和有界初始化队列：
+
+```text
+10:00  B：登记 orders_06 的订阅意图
+10:02  K：共享 Reader 看到 marker，绑定实际 capture point
+10:03  LOW：建立快照读视图
+10:08  HIGH：快照范围封存，开始回填 (LOW, HIGH]
+10:10  F：回放追平，目标账本和 Journal 可发布
+10:11  STREAMING：orders_06 与前五张表共用 Reader
+```
+
+这里的数值只是贯穿全文的时间线。第四篇会给出同一过程的数值化 `B=1000、K=1012、LOW=1012、HIGH=1048、F=1061` 推演；第二篇把 `orders_06.id=4` 的 UPDATE 放进这条链，第三篇再把该任务停在目标提交与 Journal 写入之间。
 
 ```mermaid
 flowchart LR
@@ -350,9 +365,9 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 
 但这套模型的前提也很明确：L 的容量、ACK 前缀、Journal receipt、目标幂等和 source owner 证明必须同时成立。任何一个环节结果未知，当前实现宁愿把任务或 owner 置为 `UNKNOWN/PAUSED`，也不会把一个“看起来完成”的 future 当成恢复许可。
 
-## 下一篇：从资源模型进入事件链
+## 下一篇：追踪 `orders_06.id=4` 的事件身份
 
-当目录、Reader 和 worker 的数量被拆开后，下一件必须回答的事是：一条真实 UPDATE 如何穿过共享 Reader，并在目标、Journal 和源 offset 之间取得可恢复身份。第二篇沿一条 `id=4` 事件继续往下追。
+当目录、Reader 和 worker 的数量被拆开后，下一件必须回答的事是：`orders_06.id=4` 的 UPDATE 如何穿过共享 Reader，并在目标、Journal 和源 offset 之间取得可恢复身份。第二篇沿这条事件继续往下追，再把 `T/J/D` 的恢复关系交给第三篇。
 
 ## 附录：源码地图
 
