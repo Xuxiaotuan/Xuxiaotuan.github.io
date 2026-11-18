@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Pekko CDC 深入解析（四）：一张新表如何从 LOW/HIGH 走到 F"
-description: "用一个新增表的完整窗口推演 LOW、HIGH、B、K、F 和 T/J/D，解释快照如何在不漏数的前提下切入持续流。"
+description: "用一个新增表的完整窗口推演 B、K、LOW、HIGH、F 和 T/J/D，解释快照如何在不漏数的前提下切入持续流。"
 permalink: /2026/10/18/pekko-cdc-4-protocol-design/
 keywords: Pekko, CDC, MySQL, Flink CDC, Actor Journal
 date: 2026-10-18 00:04:00 +0800
@@ -24,7 +24,7 @@ last_modified_at: 2026-11-18
 
 一张新表加入 CDC 时，最容易写出的方案是“先做快照，快照完成后再启动 binlog”。这个顺序没有定义快照期间发生的写入属于哪一边，也没有定义重启后从哪个位置继续。只要把全量和增量拆成两个没有交接证据的任务，就会出现漏数或重复执行。
 
-本文围绕一张新增表 `orders_06` 展开。读者会看到一组具体的 `B、LOW、HIGH、K、F` 数值如何变化，`BootstrapRunner` 如何按窗口推进，以及为什么 `STREAMING` 必须是最后一个状态。
+本文围绕一张新增表 `orders_06` 展开。读者会看到一组具体的 `B、K、LOW、HIGH、F` 数值如何变化，`BootstrapRunner` 如何按窗口推进，以及为什么 `STREAMING` 必须是最后一个状态。
 
 > **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`。Pekko 源码调用链按该提交阅读，Flink CDC 对照固定 `release-3.6.0`；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
 
@@ -77,7 +77,7 @@ stateDiagram-v2
     REPLAYING --> PAUSED: target or Journal unknown
     STREAMING --> CANCELING: K stop intent
     CANCELING --> CANCELED: drain and release confirmed
-    PAUSED --> REQUESTED: reacquire evidence
+    PAUSED --> SCANNING: permit and evidence reacquired
 ```
 
 ## 2 LOW/HIGH/F 的数值推演

@@ -106,7 +106,7 @@ $$
 
 这里的 `release` 比本文的 `accepted` 更强。第二篇只追踪事件如何进入可重放边界；第三篇才证明什么时候可以恢复、推进和 GC。
 
-## 2 具体事件：`id=4` 的 UPDATE 从源端走到目标端
+## 2 具体事件：`orders_06.id=4` 的 UPDATE 从源端走到目标端
 
 真实验收表 `pekko_cdc_runtime_acceptance.source_rows` 有六个字段：
 

@@ -147,7 +147,7 @@ CdcManagedRecovery.recover
 
 旧实现一次遍历 parent chain，最多处理 4096 个 ACK、15 秒和 65536 个 reference。这个上限不是协议上限，而是一次调用的工作预算。常驻任务的 ACK 链超过预算时，正确结果应该是 `PAUSED` 或继续分页，而不是删除旧 L。
 
-分页实现把 proof 分成 `BUILD` 和 `VERIFY` 两段。每一步最多处理 128 个 reference，并用 `revision` 做乐观并发检查：
+分页实现把 proof 分成 `BUILD` 和 `VERIFY` 两段。每一步最多处理 128 个 ACK 转移或引用检查单元，并用 `revision` 做乐观并发检查：
 
 ```scala
 require(limit > 0 && limit <= 128)
@@ -159,16 +159,17 @@ require(state("done") == "0")
 // 成功后更新 next_seq、next_digest、ref_index、revision
 ```
 
-继续使用 7110 的例子。假定旧 proof 的 head 是 7000，新 head 是 7110，分页大小为 128：
+继续使用 7110 的例子。`stepOn` 从当前 `head` 沿 ACK 的 `parent` 向后读取，每一步最多消耗 128 个 ACK 转移或引用检查单元：
 
 ```text
-page-0: 7000 → 7128 之外的前向链，按 parent 反向读取
-page-1: 继续从 page-0 的 next_seq 和 next_digest 读取
-...
-page-8: 覆盖到 7110，phase = VERIFY
+anchor=7000, head=7110：
+page-0 从 7110 向后验证到 7000，并将 phase 切到 VERIFY
+anchor=0, head=7110：
+page-0、page-1 ... 按 next_seq/next_digest 接续
+最后一页到达 anchor=0，phase=VERIFY
 ```
 
-进程在 page-4 退出时，重启读取 `next_seq、next_digest、ref_index、revision、phase`。如果 identity 没变，继续 page-4。若发现 revision、digest 或 prior head 不匹配，proof 停在 `PAUSED`，不会从剩余节点“拼出一条看起来完整的链”。
+因此，`head=7110` 不等于固定需要 8 页。页数由 anchor、每个 ACK 的引用数量和 128 的单页预算共同决定。进程在任意 page 退出时，重启读取 `next_seq、next_digest、ref_index、revision、phase`。如果 identity 没变，继续该页；若发现 revision、digest 或 prior head 不匹配，proof 停在 `PAUSED`，不会从剩余节点“拼出一条看起来完整的链”。
 
 真实实验中旧预算在 ACK 数量 7110 时返回 `ACK proof budget exceeded`。后续分页材料验证了小批量构建、校验和受保护删除。实验支持固定版本下的分页恢复和 GC 边界，不支持任意数据库管理员篡改状态表后的安全性。
 
