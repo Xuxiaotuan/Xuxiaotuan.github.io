@@ -13,7 +13,7 @@ tags:
   - 源码分析
 mermaid: true
 math: true
-last_modified_at: 2026-11-18
+last_modified_at: 2026-11-19
 ---
 
 作者：xuyinyin
@@ -64,7 +64,7 @@ $$
 10:11  STREAMING：orders_06 与前五张表共用 Reader
 ```
 
-这里的数值只是贯穿全文的时间线。第四篇会给出同一过程的数值化 `B=1000、K=1012、LOW=1012、HIGH=1048、F=1061` 推演；第二篇把 `orders_06.id=4` 的 UPDATE 放进这条链，第三篇再把该任务停在目标提交与 Journal 写入之间。
+这里的数值只是贯穿全文的时间线。第四篇会给出同一过程的数值化 `B=1000、K=1012、LOW=1018、HIGH=1048、F=1061` 推演；第二篇把 `orders_06.id=4` 的 UPDATE 放进这条链，第三篇再把该任务停在目标提交与 Journal 写入之间。
 
 ```mermaid
 flowchart LR

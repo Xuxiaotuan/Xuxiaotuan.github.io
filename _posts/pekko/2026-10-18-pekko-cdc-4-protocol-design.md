@@ -15,7 +15,7 @@ tags:
   - 全量转流
 mermaid: true
 math: true
-last_modified_at: 2026-11-18
+last_modified_at: 2026-11-19
 ---
 
 作者：xuyinyin
@@ -39,10 +39,10 @@ last_modified_at: 2026-11-18
 ```text
 10:00:00  写入订阅意图，生成 B=1000
 10:00:02  marker 被 Reader 看到并完成事务，得到 K=1012
-10:00:03  建立一致性读视图，记录 LOW=1012
+10:00:03  写入 LOW marker，记录 LOW=1018
 10:00:04  快照扫描开始
-10:00:05  源表 id=7 更新，事件进入 L，位置 1018
-10:00:06  源表 id=12 删除，事件进入 L，位置 1024
+10:00:05  源表 id=7 更新，事件进入 L，位置 1024
+10:00:06  源表 id=12 删除，事件进入 L，位置 1030
 10:00:08  快照页扫描结束，记录 HIGH=1048
 10:00:10  回放 (LOW,HIGH]，继续追到 F=1061
 10:00:11  T/J/D 和 Schema 校验通过，进入 STREAMING
@@ -84,7 +84,7 @@ stateDiagram-v2
 
 ### 2.1 LOW 为什么必须先于快照
 
-`K=1012` 表示 Reader 已经捕获到这张表的订阅边界。Reader 在这个边界上写入 LOW marker，得到 `LOW=1012`。随后快照连接以固定读视图扫描主键范围。
+`K=1012` 表示 Reader 已经捕获到这张表的订阅边界。随后单独写入 LOW marker，得到 `LOW=1018`。快照连接以固定读视图扫描主键范围。
 
 如果没有 LOW，快照连接和 Reader 之间没有共同起点。扫描结束后即使知道一个新的 offset，也无法判断扫描期间哪些事件已经被快照覆盖。
 
@@ -100,7 +100,7 @@ $$
 
 快照最后一页提交后，Reader 写入 HIGH marker，得到 `HIGH=1048`。这一步只关闭当前窗口，不表示任务可以转为流。
 
-在 `LOW=1012` 和 `HIGH=1048` 之间发生的事件已经进入 L。回放程序先把这段前缀应用到独占空目标表，再把回放位置推进到 `F`。
+在 `LOW=1018` 和 `HIGH=1048` 之间发生的事件已经进入 L。回放程序先把这段前缀应用到独占空目标表，再把回放位置推进到 `F`。
 
 本例中 `F=1061`，因为回放时又出现了位置 1052 和 1061 的事件。`F` 必须是已经完成目标提交、Journal receipt 和 source ACK proof 的前缀。只写入 `F=1061` 而没有 T/J/D 关系，仍然不能激活任务。
 
@@ -114,10 +114,10 @@ sequenceDiagram
     participant J as Journal
     C->>R: subscribe orders_06, write B=1000
     R-->>C: marker complete, K=1012
-    C->>R: write LOW=1012
+    C->>R: write LOW=1018
     S->>S: open repeatable-read view
     S->>T: apply snapshot pages
-    R->>L: append changes at 1018, 1024
+    R->>L: append changes at 1024, 1030
     S->>R: close snapshot window
     R-->>C: write HIGH=1048
     C->>L: replay (LOW,HIGH] and tail to F=1061

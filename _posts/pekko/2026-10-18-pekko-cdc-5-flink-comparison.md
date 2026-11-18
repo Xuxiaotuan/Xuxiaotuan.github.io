@@ -15,7 +15,7 @@ tags:
   - 架构比较
 mermaid: true
 math: true
-last_modified_at: 2026-11-18
+last_modified_at: 2026-11-19
 ---
 
 作者：xuyinyin
@@ -127,7 +127,7 @@ CdcBootstrapKernel
 ```text
 B=1000
 K=1012
-LOW=1012
+LOW=1018
 HIGH=1048
 F=1061
 ```
