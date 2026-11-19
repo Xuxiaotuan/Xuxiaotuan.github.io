@@ -21,7 +21,7 @@ last_modified_at: 2026-11-19
 
 > **本篇入口**：一个 MySQL 实例已经由 `orders_01` 到 `orders_05` 共用 Shared Reader。10:00 新增 `orders_06`，本文先回答 70 万条目录记录如何与有限的 Reader、快照和尾部执行资源分离；后续四篇都沿这张表继续。
 >
-> **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`。本文的源码调用链按该提交阅读，后续提交只改变文档或验证材料，不改变本文涉及的生产实现；历史实验仍按各自材料冻结的版本和切点解释。
+> **源码基线**：`472e809`。本文的源码调用链按该提交阅读，后续提交只改变文档或验证材料，不改变本文涉及的生产实现；历史实验仍按各自材料冻结的版本和切点解释。
 
 本文先建立资源模型，再把模型落到 `orders_06` 的订阅、初始化和事件处理。70 万张表是目录规模，不是 70 万个常驻 Reader。
 
@@ -223,6 +223,44 @@ $$
 共享捕获实验的 R07/R08 正是沿这条屏障取证：marker 回调返回后，后续事务 END 仍能抵达；同事务多行更新、同一行多次更新和主键变更不会因为 Bridge 等待一个未完成的 ACK 而阻塞后续回调。实验记录保存的是原始 callback、ACK 顺序和完整组，不能把它扩大成任意 Connector 的回调并发保证；源码明确拒绝并发 callback，真实运行也依赖这一前提。
 
 
+## 1.5 自动 Checkpoint 与 Runtime Savepoint 不是同一个对象
+
+前面的资源模型解决了“谁在运行”，但没有回答“Runtime 在某个时刻如何被整体描述”。当前实现把这件事分成两层。
+
+表级自动 Checkpoint 仍然由 `BootstrapProgress`、`BatchCheckpoint`、Journal 和目标账本承担。它记录某张表的 split、窗口、回放和提交边界，服务于异常重启。它不要求 70 万条目录记录同时参与一次全局协调。
+
+Runtime Savepoint 是本次新增的控制面协议。它只在一个 `captureId` 内建立一个 `captureEpoch`，把 Shared Reader 的 L 前缀和当前路由集合，与每张表的 Checkpoint 引用绑定到一个不可变 Manifest：
+
+```text
+CdcSavepointManifest
+  ├── savepointId
+  ├── captureId / sourceLineage
+  ├── captureEpoch / sealedSequence
+  ├── routeDigest / tableSetDigest
+  ├── paged TableCheckpointRef
+  ├── ownerEpoch
+  └── manifestDigest
+```
+
+这里的 `captureEpoch` 不是一个新的 binlog offset，也不会替换事件组的 `groupId`。它是一次 Runtime 级的捕获边界；表级 group identity 仍由源 lineage、表、file、position 和 row 决定。Savepoint 用 epoch 把不同表的独立恢复点放在同一个 Reader 观察面下。
+
+```mermaid
+flowchart LR
+    R[SharedMySQLCapture] --> E[captureEpoch]
+    E --> M[Savepoint Manifest]
+    T1[TableActor orders_01] --> C1[Table Checkpoint]
+    T2[TableActor orders_06] --> C2[Table Checkpoint]
+    T3[TableActor orders_07] --> C3[Table Checkpoint]
+    C1 --> M
+    C2 --> M
+    C3 --> M
+    M --> V[SEALED / 可恢复]
+```
+
+创建 Savepoint 时，Runtime 暂停新增、取消和新的 step 派发，等待已经拿到 grant 的有限工作单元排空；Reader 封存 epoch 后，任务索引按 `taskId + generation` 分页写入 Manifest。page digest、table-set digest 和 manifest digest 全部可重算时，状态才从 `CREATING` 变为 `SEALED`。任何页面缺失、摘要不一致或活动 step 在有界等待内没有返回，都只能生成失败状态，不能伪造一个可恢复快照。
+
+第一版实现已经完成模型、控制库表、分页写入、摘要校验、Runtime 冻结和 HTTP 读写入口；本地 Java 17 构建、Savepoint focused tests、任务存储、Runtime 和 Bootstrap 回归均通过。真实 MySQL、Actor Journal、Sink 的 Savepoint 创建后跨 JVM 恢复和逐字段对账尚未完成，因此这里的“可恢复”是协议和代码层语义，不是端到端实验结论。
+
 ## 2 表级 Actor 到底负责什么
 
 ### 2.1 Actor 是身份和串行化边界，不等于一张表一个线程
@@ -335,9 +373,9 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 
 相关材料：
 
-- [运行时与 GC 集群证据](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
-- [proof GC 证据](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)
-- [700,000 条冷元数据实验](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce/)
+- [运行时与 GC 集群证据](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
+- [proof GC 证据](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/gc-ack-proof-gc-20261113/)
+- [700,000 条冷元数据实验](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-08-cdc-standalone-entry/metadata-candidate/H01-metadata-63169a06a2ce/)
 
 ## 6 几个容易被设计图掩盖的反例
 
@@ -373,12 +411,12 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 
 | 责任 | 当前源码 |
 |---|---|
-| capture 组装、Reader 生命周期、任务 session | [`CdcBootstrapKernel.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala) |
-| 共享 Debezium Reader、原始回调、ACK 前缀、marker | [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
-| 任务 grant、双池调度、owner 状态、恢复 | [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
-| 持久化任务索引、grant 与 continuation | [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala) |
-| Journal 顺序与恢复 receipt | [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
-| ACK proof 分页与安全 GC | [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
-| GC 保留策略与实际 D | [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
+| capture 组装、Reader 生命周期、任务 session | [`CdcBootstrapKernel.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala) |
+| 共享 Debezium Reader、原始回调、ACK 前缀、marker | [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
+| 任务 grant、双池调度、owner 状态、恢复 | [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
+| 持久化任务索引、grant 与 continuation | [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala) |
+| Journal 顺序与恢复 receipt | [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
+| ACK proof 分页与安全 GC | [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
+| GC 保留策略与实际 D | [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
 
 最终判断应保持克制：当前实现已经具备“一个 capture 共享 Reader、表级可恢复执行、有界调度和保守释放”的源码结构，也有指定真实环境下的逐字段闭环；但它还没有把 70 万张真实活跃表的连接、吞吐、长期稳定性和全部故障窗口证明完。这个差距不是文章措辞可以消除的，必须用下一轮容量与端到端实验补齐。

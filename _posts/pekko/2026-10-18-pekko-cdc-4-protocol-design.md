@@ -26,7 +26,7 @@ last_modified_at: 2026-11-19
 
 本文围绕一张新增表 `orders_06` 展开。读者会看到一组具体的 `B、K、LOW、HIGH、F` 数值如何变化，`BootstrapRunner` 如何按窗口推进，以及为什么 `STREAMING` 必须是最后一个状态。
 
-> **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`。Pekko 源码调用链按该提交阅读，Flink CDC 对照固定 `release-3.6.0`；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
+> **源码基线**：`472e809`。Pekko 源码调用链按该提交阅读，Flink CDC 对照固定 `release-3.6.0`；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
 
 历史 I01—I24 只按各自冻结版本和切点解释，当前代码阅读和历史实验不会自动互相升级。
 
@@ -79,6 +79,50 @@ stateDiagram-v2
     CANCELING --> CANCELED: drain and release confirmed
     PAUSED --> SCANNING: permit and evidence reacquired
 ```
+
+## 1.1 在 LOW/HIGH/F 之上再加一层 Runtime Savepoint
+
+LOW/HIGH/F 解决一张表怎样从快照进入流式；Savepoint 解决多个表怎样在同一个 Shared Reader 观察面下被整体描述。二者不能互相替代。
+
+```text
+表级状态：B → K → LOW → HIGH → F → STREAMING
+Runtime 状态：REQUESTED → FREEZE_ADMISSION
+              → EPOCH_SEALED → TABLES_ALIGNING
+              → MANIFEST_WRITING → SEALED → RELEASED
+```
+
+`EPOCH_SEALED` 保存当前 capture 的 L frontier、capture position、route digest 和 table-set digest。`TABLES_ALIGNING` 逐页读取任务索引和表级 Checkpoint 引用，不重新执行快照、不创建新的表级 Actor，也不把所有 70 万条目录记录一次性装入内存。
+
+```mermaid
+stateDiagram-v2
+    [*] --> REQUESTED
+    REQUESTED --> FREEZE_ADMISSION
+    FREEZE_ADMISSION --> EPOCH_SEALED
+    EPOCH_SEALED --> TABLES_ALIGNING
+    TABLES_ALIGNING --> MANIFEST_WRITING
+    MANIFEST_WRITING --> SEALED
+    SEALED --> RELEASED
+    FREEZE_ADMISSION --> FAILED: active step timeout
+    TABLES_ALIGNING --> FAILED: page/proof mismatch
+    MANIFEST_WRITING --> FAILED: digest mismatch
+    FAILED --> [*]
+```
+
+对 `orders_06` 的数值案例，Savepoint 可以记录：
+
+```text
+captureEpoch=17
+sealedSequence=1061
+orders_01.phase=STREAMING, checkpointRef=...
+orders_06.phase=REPLAYING, F=1061, checkpointRef=...
+orders_07.phase=SCANNING, HIGH 未封存, checkpointRef=...
+```
+
+这三个表不需要有相同的 `D`，也不需要共享一个目标事务。它们只需要证明自己的表级状态都属于 `captureEpoch=17`，并且各自的 T/J/D 恢复边界可以重新读取。
+
+动态订阅的规则也必须写入协议：Savepoint 冻结前已经受理的表进入 table set；冻结期间到达的新表排在 Savepoint 之后，使用新的 B 独立初始化；冻结前已经取消的表写入 tombstone，恢复时不能自动复活。
+
+当前第一版实现已经把 Runtime 冻结接到 `SharedMySQLCapture` 和 `CdcPlatformRuntime`：创建 Savepoint 时拒绝新增、取消和新的 step 派发，等待活动 grant 排空后封存 epoch。等待超时或分页摘要不一致时，Savepoint 标记失败，现有表级任务状态不被修改。
 
 ## 2 LOW/HIGH/F 的数值推演
 
@@ -180,10 +224,10 @@ $$
 
 源码入口：
 
-- [`CdcBootstrapKernel.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala)
-- [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)
-- [`BootstrapRunner.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapRunner.scala)
-- [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala)
+- [`CdcBootstrapKernel.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala)
+- [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)
+- [`BootstrapRunner.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapRunner.scala)
+- [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala)
 
 ## 4 三个故障窗口
 
@@ -229,13 +273,13 @@ T/J/D 关系可重读
 
 任何一项为 UNKNOWN，状态停在 `PAUSED`。`STREAMING` 不是 Reader API 返回值，而是控制面把一组证据写入同一代任务状态后的结果。
 
-## 下一篇：把 `orders_06` 放进 Flink CDC 的 Split/Checkpoint
+## 下一篇：把 `orders_06` 放进 Flink CDC 的 Split、Checkpoint 与 Savepoint
 
-第五篇把同一张 `orders_06` 放进 Flink CDC 3.6.0 的 Enumerator、Split、Reader 和 Checkpoint，比较两套运行时分别承担哪些责任。
+第五篇把同一张 `orders_06` 放进 Flink CDC 3.6.0 的 Enumerator、Split、Reader、Checkpoint 和 Savepoint，比较两套运行时分别承担哪些责任。
 
 ## 附录：实验与源码入口
 
-- [LOW/HIGH 故障矩阵 I01—I24](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-10-25-bootstrap/README.md)
-- [跨重启分页反例](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-10-29-proof-cursor-snapshot/README.md)
-- [动态订阅和共享 Reader 材料](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-10-28-ab-matrix/README.md)
-- [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)
+- [LOW/HIGH 故障矩阵 I01—I24](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-25-bootstrap/README.md)
+- [跨重启分页反例](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-29-proof-cursor-snapshot/README.md)
+- [动态订阅和共享 Reader 材料](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-28-ab-matrix/README.md)
+- [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)

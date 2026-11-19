@@ -22,7 +22,7 @@ last_modified_at: 2026-11-19
 
 [系列导读](/pekko-cdc-series/) · [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) · [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) · [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) · [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/)
 
-> **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`。Pekko 源码调用链按该提交阅读；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
+> **源码基线**：`472e809`。Pekko 源码调用链按该提交阅读；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
 
 上一篇把 `orders_06.id=4` 的 UPDATE 追到了目标事务和 Journal。现在把同一条案例线停在最危险的位置。目标事务可能已经提交，Journal 还没有写入，Source offset 也可能已经向前。恢复程序凭什么决定重放、继续还是暂停？
 
@@ -62,6 +62,55 @@ $$
 $$
 
 `J` 只有在目标结果、L 的 ancestry 和执行身份同时匹配时才推进。`D` 可以比 `J` 新，前提是 L 能证明这段差距属于同一条 lineage。
+
+## 1.1 Savepoint 恢复时，Manifest 只负责定位，证据仍由 T/J/D 再验证
+
+Savepoint 不是把 `T`、`J`、`D` 的内容复制成一份更大的 JSON。它保存的是这些证据的稳定引用和摘要：
+
+```text
+Savepoint header
+  ├── captureEpoch E
+  ├── tableSetDigest
+  └── manifestDigest
+
+TableCheckpointRef
+  ├── taskId / generation / phase
+  ├── checkpointRef
+  ├── journalRef digest
+  ├── targetRef digest
+  └── tableDigest
+```
+
+恢复顺序必须先验证 Savepoint 自身，再进入表级恢复：
+
+```text
+1. sourceLineage / captureId / protocolVersion
+2. ownerEpoch / guardian identity
+3. manifestDigest / pageDigest / tableSetDigest
+4. Shared Reader captureEpoch 和当前 L frontier
+5. 每张表的 generation、Journal receipt、目标 ledger、Schema
+6. 交回现有 BootstrapRunner 和 CdcTaskStore
+```
+
+```mermaid
+stateDiagram-v2
+    [*] --> HEADER_CHECK
+    HEADER_CHECK --> PAGE_CHECK: lineage / owner / digest valid
+    HEADER_CHECK --> PAUSED: identity mismatch
+    PAGE_CHECK --> TABLE_CHECK: all pages present
+    PAGE_CHECK --> PAUSED: missing page or digest mismatch
+    TABLE_CHECK --> RESUME_TABLES: T/J/D and generation valid
+    TABLE_CHECK --> PAUSED: proof incomplete
+    RESUME_TABLES --> STREAMING: table phase was STREAMING
+    RESUME_TABLES --> REPLAYING: table phase was REPLAYING
+    RESUME_TABLES --> SCANNING: unsealed window must reread
+```
+
+这条路径有一个刻意的保守点：Savepoint 中的 `phase=STREAMING` 不是恢复许可。恢复代码仍要检查对应的 Journal receipt、目标 ledger、L ACK ancestry 和 owner fence。任何一项结果 UNKNOWN，任务保持 `PAUSED`，而不是因为 Manifest 已经 `SEALED` 就直接启动 writer。
+
+Savepoint 与安全 GC 的关系也由这个顺序决定。只有被已封存 Savepoint、活动表级 consumer 和 ACK proof 同时保护的 L 前缀，才可以进入 GC 候选。删除 proof 表中的分页记录不等于删除原始 L；恢复时仍然允许从保留的 L 重建 proof。
+
+本次实现已经在控制库完成 header/page/table 三层存储和本地摘要校验，但真实 MySQL、Actor Journal 和 Sink 的 Savepoint 重启恢复尚未跑完。因此本文可以确认源码调用链和失败分类，不能把 Savepoint Manifest 的本地读取测试写成跨 JVM 端到端恢复结果。
 
 ## 2 ACK proof 的最小结构
 
@@ -138,10 +187,10 @@ CdcManagedRecovery.recover
 
 源码入口：
 
-- [`CdcManagedRecovery.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcManagedRecovery.scala)
-- [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala)
-- [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala)
-- [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala)
+- [`CdcManagedRecovery.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcManagedRecovery.scala)
+- [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala)
+- [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala)
+- [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala)
 
 ## 4 7110 个 ACK 为什么要分页
 
@@ -239,7 +288,7 @@ sequenceDiagram
 
 ## 附录：源码与实验入口
 
-- [Reader 身份、同事务多行与主键修改实验](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-10-28-ab-matrix/README.md)
-- [初始化与重启故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-10-25-bootstrap/README.md)
-- [proof cursor snapshot 反例](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-10-29-proof-cursor-snapshot/README.md)
-- [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)
+- [Reader 身份、同事务多行与主键修改实验](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-28-ab-matrix/README.md)
+- [初始化与重启故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-25-bootstrap/README.md)
+- [proof cursor snapshot 反例](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-29-proof-cursor-snapshot/README.md)
+- [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)

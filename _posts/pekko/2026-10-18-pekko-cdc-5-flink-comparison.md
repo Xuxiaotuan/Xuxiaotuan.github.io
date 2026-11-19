@@ -24,13 +24,15 @@ last_modified_at: 2026-11-19
 
 前四篇已经把 Pekko CDC 的资源、事件身份、恢复证明和 LOW/HIGH 状态机拆开。最后一篇不再问“哪个框架更好”，而是把同一张新增表放进两套运行时，比较每一条责任由谁承载。
 
-> **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`。Pekko 源码调用链按该提交阅读，Flink CDC 对照固定 `release-3.6.0`；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
+> **源码基线**：`472e809`。Pekko 源码调用链按该提交阅读，Flink CDC 对照固定 `release-3.6.0`；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
 
 案例仍然是 `orders_06`。它在一个已经运行的 MySQL capture 中加入，先完成快照，快照期间继续发生写入，再追到一个可以发布的边界。比较对象固定为 Pekko 当前实现和 Flink CDC 3.6.0 的 MySQL Source 源码。本文没有在同一机器、同一 Sink 和同一故障点重跑 Flink，因此结论只讨论状态归属、恢复路径和资源模型。
 
 ## 0 先给出结论
 
-Pekko 和 Flink CDC 都能表达“快照之后接增量”，但它们把边界放在不同位置。
+Pekko 和 Flink CDC 都能表达“快照之后接增量”，但它们把边界放在不同位置。先把术语固定下来：Flink Checkpoint 主要服务故障恢复，保存状态和对应的流位置；Flink Savepoint 是用户触发、长期保留、面向停机恢复、升级和迁移的执行状态快照。Apache Flink 官方文档明确区分了两者的生命周期和存储目标：[Checkpoint](https://nightlies.apache.org/flink/flink-docs-stable/docs/ops/state/checkpoints/)、[Savepoint](https://nightlies.apache.org/flink/flink-docs-stable/docs/ops/state/savepoints/)、[Checkpoint vs Savepoint](https://nightlies.apache.org/flink/flink-docs-stable/docs/ops/state/checkpoints_vs_savepoints/)。
+
+Pekko 当前实现也采用两层语义，但没有复制 Flink 的 Job 全局 barrier。表级 Checkpoint 服务于单表异常恢复；Runtime Savepoint 以 `captureEpoch` 为边界，把 Shared Reader 的 L frontier、路由集合和表级 Checkpoint 引用绑定到一个分页 Manifest。
 
 Pekko 把 `B、K、LOW、HIGH、F、T/J/D、Schema` 拆成任务级状态，并由 Shared Reader、Journal、目标 ledger 和控制存储共同推进。它适合把表级生命周期放进一个长期运行的控制面。
 
@@ -47,7 +49,7 @@ flowchart LR
     P --> P3["表级 grant 与 bounded worker"]
     F --> F1["Enumerator 分配 Split"]
     F --> F2["Snapshot / Binlog Split"]
-    F --> F3["Checkpoint 保存 Source 状态"]
+    F --> F3["Checkpoint / Savepoint 保存 Source 状态"]
 ```
 
 ## 1 同一张表的业务承诺
@@ -103,6 +105,23 @@ MySqlSourceEnumerator
 - [`MySqlSourceReader.java`](https://github.com/apache/flink-cdc/blob/release-3.6.0/flink-cdc-connect/flink-cdc-source-connectors/flink-connector-mysql-cdc/src/main/java/org/apache/flink/cdc/connectors/mysql/source/reader/MySqlSourceReader.java)
 
 这些类来自 Flink CDC 的 `release-3.6.0` 源码分支。3.6.0 的发布信息和兼容范围见 Apache Flink CDC 官方仓库。[版本发布页](https://github.com/apache/flink-cdc/releases)
+
+## 2.1 Pekko Savepoint 与 Flink Savepoint 的边界不同
+
+Flink Savepoint 是整个 streaming job 的一致执行状态图，通常由 checkpointing 机制产生，并由稳定存储中的元数据和状态文件组成。Pekko 第一版 Runtime Savepoint 是控制库中的不可变 Manifest：它保存 Shared Reader 的 `captureEpoch`，以及每张表的 Checkpoint、Journal 和目标证据引用摘要。它不把所有表的目标事务合并成一个跨表原子提交，也不把 JDBC 连接或 ActorRef 序列化进去。
+
+```text
+Flink：Job checkpoint/savepoint
+  Source state + operator state + stream positions
+
+Pekko：Runtime Savepoint
+  captureEpoch + paged TableCheckpointRef
+  + T/J/D references + owner epoch
+```
+
+Pekko 的 Manifest 只有在 page digest、table-set digest 和最终 manifest digest 都可重算时才进入 `SEALED`。恢复时仍然要重新验证 source lineage、owner/guardian、L ACK ancestry、目标 ledger 和 Journal receipt。它是一层控制面索引，不是把“Manifest 已封存”当成“所有表都可以直接继续流式”。
+
+动态增删表是两者差异最大的地方。Pekko 明确规定 Savepoint 冻结前的表进入 table set，冻结期间新增的表排队到 Savepoint 之后，已经取消的表以 tombstone 恢复。Flink 的 Source split 和作业状态则由 Job/Enumerator 变更路径治理；本文没有把动态新增表的 Flink 运行实验写成已验证结果。
 
 ## 3 Pekko 的同一条路径
 
@@ -160,7 +179,7 @@ sequenceDiagram
 
 Pekko 的恢复依赖多份证据重新形成关系。目标 ledger 只能证明目标是否见过某个 group identity，不能单独推进 Journal。ACK proof 只能证明 Source 前缀，不能单独证明目标提交。所有证据都属于同一 owner 和 generation 时，才允许进入下一步。
 
-Flink 的恢复边界由 Checkpoint 统一承载 Source split state、Reader state 和下游算子状态。`MySqlSourceEnumerator` 从保存的 pending state 重建 Split，Reader 从 checkpoint 恢复未完成 split。这个模型减少了业务代码需要手工组合的持久化对象，但动态表目录的加入和取消仍然需要通过作业与 Source 运行时的变更机制治理。
+Flink 的恢复边界由 Checkpoint 统一承载 Source split state、Reader state 和下游算子状态；Savepoint 则面向用户触发的停机、升级、迁移和重部署。`MySqlSourceEnumerator` 从保存的 pending state 重建 Split，Reader 从 checkpoint 恢复未完成 split。这个模型减少了业务代码需要手工组合的持久化对象，但动态表目录的加入和取消仍然需要通过作业与 Source 运行时的变更机制治理。
 
 ## 5 两套系统各自解决了什么
 
@@ -228,13 +247,13 @@ Flink CDC 更适合这些主导矛盾：
 → Pekko 与 Flink 的运行时责任
 ```
 
-Pekko 的优势来自表级生命周期和资源准入的可编程性。Flink CDC 的优势来自 Split、Checkpoint、State 和连接器生态已经被运行时承载。最终选择取决于系统的主导问题，不取决于哪一个名字更熟悉。
+Pekko 的优势来自表级生命周期、资源准入和 captureEpoch Savepoint 的可编程性。Flink CDC 的优势来自 Split、Checkpoint、Savepoint、State 和连接器生态已经被统一运行时承载。最终选择取决于系统的主导问题，不取决于哪一个名字更熟悉。
 
 ## 附录：Pekko 源码与实验入口
 
-- [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)
-- [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala)
-- [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala)
-- [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala)
-- [集群闭环与逐字段对账](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
-- [真实失败证据](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-10-29-proof-cursor-snapshot/README.md)
+- [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)
+- [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala)
+- [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala)
+- [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala)
+- [集群闭环与逐字段对账](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
+- [真实失败证据](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-29-proof-cursor-snapshot/README.md)

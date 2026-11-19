@@ -21,7 +21,7 @@ last_modified_at: 2026-11-19
 
 > **本篇入口**：第一篇把 `orders_06` 放进共享 Reader 的资源模型。本文沿 `orders_06.id=4` 的 UPDATE，追踪它从 SourceRecord、L、目标事务到 Journal 和 D 的交接；第三篇再把同一任务放进提交未知的重启窗口。
 >
-> **源码基线**：`b17b9d1659f923fc256e3b09ad73777ac7acc677`。本文的源码调用链按该提交阅读，后续提交只改变文档或验证材料，不改变本文涉及的生产实现；历史实验仍按各自材料冻结的版本和切点解释。
+> **源码基线**：`472e809`。本文的源码调用链按该提交阅读，后续提交只改变文档或验证材料，不改变本文涉及的生产实现；历史实验仍按各自材料冻结的版本和切点解释。
 
 > **真实故障先行**：在固定的 I16 窗口中，目标页已经提交，Journal 仍停在第 0 页，进程随后退出。重启后同一组事件从 L 重新读出，目标 ledger 返回 `AlreadyCommitted`，Journal 才把进度向前推进；最终 64 行、384 个字段逐字段相等。这个结果首先说明一件事：**目标表里已经有值，不等于这条事件已经取得了可恢复身份**。
 >
@@ -105,6 +105,48 @@ release(g) \Rightarrow durable_L(g) \land verified_T(g) \land accepted_J(g) \lan
 $$
 
 这里的 `release` 比本文的 `accepted` 更强。第二篇只追踪事件如何进入可重放边界；第三篇才证明什么时候可以恢复、推进和 GC。
+
+## 1.1 `captureEpoch` 绑定的是观察面，不是事件身份
+
+事件组 `g` 的 identity 仍然是：
+
+$$
+G = H(protocol, sourceLineage, database, table, file, position, row)
+$$
+
+本次新增的 `captureEpoch` 不参与 `G` 的计算。原因很直接：同一条 L 中的事件可能被多个表级任务重放，重放不能因为 Runtime 重新封存了一个 Savepoint 就生成新的 group identity。
+
+Savepoint 额外保存一个观察面：
+
+$$
+E = (captureId, epoch, sealedSequence, position, routeDigest, tableSetDigest)
+$$
+
+因此事件的可恢复引用变成：
+
+$$
+R(g) = (G, E, generation, schemaDigest, T/J/D\ references)
+$$
+
+`G` 解决“这是哪一组源事件”，`E` 解决“它属于哪一个 Shared Reader 观察边界”，`generation` 解决“它属于哪一代表订阅”。三者缺一不可：只有 `G`，无法判断动态订阅是否已经切换；只有 `E`，无法判断目标 ledger 的内容；只有 generation，无法证明源事件没有被重复解释。
+
+当前 `CdcSavepointStore` 把表级引用分页写成 `TableCheckpointRef`。引用里保存 phase、checkpoint digest、Journal/目标证据摘要和 table digest，不保存 JDBC connection、ActorRef、Debezium engine 或 callback handle。恢复时这些运行期对象重新创建，原始 L、Journal 和目标 ledger 再按既有 T/J/D 协议校验。
+
+```mermaid
+sequenceDiagram
+    participant R as Shared Reader
+    participant L as L
+    participant A as Table Task
+    participant M as Savepoint Manifest
+    R->>L: append GROUP / ACK
+    R->>R: seal captureEpoch E
+    A->>A: read table-level checkpoint
+    A->>M: write TableCheckpointRef(E)
+    M->>M: verify page and manifest digest
+    M-->>A: SEALED or PAUSED
+```
+
+这也解释了为什么“目标表里有值”仍然不能直接升级为 Savepoint 成功：目标值只覆盖 T 的一个局部事实，Savepoint 还必须知道它属于哪个 epoch、哪一代订阅和哪条 Journal 证明。
 
 ## 2 具体事件：`orders_06.id=4` 的 UPDATE 从源端走到目标端
 
@@ -344,14 +386,14 @@ SourceRecord(id=4, binlog.000017:325166188,row=3)
 
 ## 附录 A：关键源码入口
 
-* [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)：Reader owner、callback pending、L 覆盖、原始 ACK。
-* [`MySQLCdcGroupAssembler.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcGroupAssembler.scala)：普通事件和主键 DELETE/CREATE 的跨 callback 组装。
-* [`MySQLCaptureStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/MySQLCaptureStore.scala)：L frame、ACK parent、B/F fence、D 反查。
-* [`MySQLCdcApplyEngine.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/sink/MySQLCdcApplyEngine.scala)：目标事务、group ledger、`CommitUnknown`。
-* [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala)：revision CAS、恢复 receipt、Journal 事件状态。
+* [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)：Reader owner、callback pending、L 覆盖、原始 ACK。
+* [`MySQLCdcGroupAssembler.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/MySQLCdcGroupAssembler.scala)：普通事件和主键 DELETE/CREATE 的跨 callback 组装。
+* [`MySQLCaptureStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/MySQLCaptureStore.scala)：L frame、ACK parent、B/F fence、D 反查。
+* [`MySQLCdcApplyEngine.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/sink/MySQLCdcApplyEngine.scala)：目标事务、group ledger、`CommitUnknown`。
+* [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala)：revision CAS、恢复 receipt、Journal 事件状态。
 
 ## 附录 B：真实材料
 
-* [Reader 身份、同事务多行与主键修改实验](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-10-28-ab-matrix/README.md)：R08 的 SourceRecord、ACK 顺序和逐字段结果。
-* [初始化与重启故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-10-25-bootstrap/README.md)：I16 的目标提交、Journal 滞后和恢复证据。
-* [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/b17b9d1659f923fc256e3b09ad73777ac7acc677/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：当前运行版本的 Source/Sink 对账与边界。
+* [Reader 身份、同事务多行与主键修改实验](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-28-ab-matrix/README.md)：R08 的 SourceRecord、ACK 顺序和逐字段结果。
+* [初始化与重启故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-25-bootstrap/README.md)：I16 的目标提交、Journal 滞后和恢复证据。
+* [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：当前运行版本的 Source/Sink 对账与边界。

@@ -1,9 +1,9 @@
 ---
 layout: page
 title: "从 Flink CDC 到 Pekko：共享捕获、全量转流与恢复协议"
-description: "五篇源码与实验文章：共享Reader、Split分页、LOW/HIGH、B到F、T/J/D恢复及Flink CDC比较。"
+description: "五篇源码与实验文章：共享 Reader、Split 分页、LOW/HIGH、B 到 F、T/J/D 恢复、captureEpoch Savepoint 及 Flink CDC 比较。"
 permalink: /pekko-cdc-series/
-last_modified_at: 2026-11-15
+last_modified_at: 2026-11-19
 mermaid: true
 ---
 
@@ -48,7 +48,8 @@ flowchart LR
     B --> C["B → LOW/HIGH → F"]
     C --> D["SourceRecord → L → T/J/D"]
     D --> E["ACK proof / GC"]
-    E --> F["Pekko / Flink 取舍"]
+    E --> S["captureEpoch Savepoint"]
+    S --> F["Pekko / Flink 取舍"]
 ```
 
 ## 统一业务案例与论证入口
@@ -73,6 +74,8 @@ flowchart LR
 | U | 固定的全表扫描最大主键 | binlog offset、事件时间 Watermark |
 | B / K | 一代订阅的捕获开始/停止边界 | 全量完成、取消命令刚被接受 |
 | LOW / HIGH | 一次范围读视图前后的真实日志 marker | 全局 Checkpoint、D 已经落盘 |
+| captureEpoch | Shared Reader 的 Runtime 观察边界 | 表级 groupId、跨表目标原子提交 |
+| Savepoint | 分页保存 captureEpoch 与表级 Checkpoint 引用 | 已完成的真实跨 JVM 恢复 |
 | F | 全量之后有限追赶的固定终点 | 最后一个业务 GROUP、业务已原子发布 |
 | L | 持久完整组、Schema、marker 与 ACK 引用链 | 单一最大 offset、目标 T |
 | T / J / D | 目标事务 / Actor 接受进度 / SDK 持久 offset | 可以直接比较大小的三个计数器 |
@@ -93,9 +96,34 @@ flowchart LR
 
 初始化矩阵在 `00ad18e` 加未提交实现的冻结工作区运行，全源树摘要为 `c71f260870325aa54bb6818200a875689afaace93d10dc8496a11c99e5f362da`。后续启动探针候选 1—4 生产文件一致，但测试设施不同，不能用一个全源树 hash 冒充所有运行。candidate4 保留 339 项源码清单，与发布后的相应源码逐项匹配；发布提交、运行时 HEAD 和材料复算是三种事实。[初始化版本记录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-bootstrap/final-version.json) · [启动候选 4](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-10-25-capture-startup/candidate-4.json)
 
-历史版本 `d88ec80`、`65ab541` 和 `00ad18e` 的来源、运行 HEAD 与证据见[独立版本档案](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/00-versions-and-evidence-history.md)。第五篇的 Flink CDC 源码对照固定 3.6.0；另一组[Flink CDC 系列](https://xuyinyin.cn/flink-cdc-series/)的 3.7.0 与 Paimon 实验不混作同版或同 Sink 结果。第五篇只做运行时责任映射：它以前四篇已经建立的 Shared Reader、L、LOW/HIGH、F、T/J/D 和 GC 语义为前提，再对照 Flink 的 Split、Checkpoint 和 Source Reader，不重新定义前四篇的协议。没有同负载性能基准。
+历史版本 `d88ec80`、`65ab541` 和 `00ad18e` 的来源、运行 HEAD 与证据见[独立版本档案](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/00-versions-and-evidence-history.md)。第五篇的 Flink CDC 源码对照固定 3.6.0；另一组[Flink CDC 系列](https://xuyinyin.cn/flink-cdc-series/)的 3.7.0 与 Paimon 实验不混作同版或同 Sink 结果。第五篇只做运行时责任映射：它以前四篇已经建立的 Shared Reader、L、LOW/HIGH、F、T/J/D、GC 和 captureEpoch Savepoint 语义为前提，再对照 Flink 的 Split、Checkpoint、Savepoint 和 Source Reader，不重新定义前四篇的协议。没有同负载性能基准。
 
 全文区分：**源码结论**、**真实实验结果**、**保存材料复算**、**条件性推理/模型**、**设计提案/未验证**。小规模终值一致、组件 suite 通过或归档校验都不能替代更高层验收。
+
+## 新增的 Runtime Savepoint 设计与证据边界
+
+当前生产代码新增了第一版 Runtime Savepoint：每个 capture 维护单调 `captureEpoch`，Savepoint 在有界冻结期间封存 Reader 的 L frontier、capture position、route digest 和 table-set digest，再按 `taskId + generation` 分页保存表级 Checkpoint 引用。只有 page digest、table-set digest 和 manifest digest 全部可重算时，状态才是 `SEALED`。
+
+```mermaid
+stateDiagram-v2
+    [*] --> REQUESTED
+    REQUESTED --> FREEZE_ADMISSION
+    FREEZE_ADMISSION --> EPOCH_SEALED
+    EPOCH_SEALED --> TABLES_ALIGNING
+    TABLES_ALIGNING --> MANIFEST_WRITING
+    MANIFEST_WRITING --> SEALED
+    MANIFEST_WRITING --> FAILED
+    SEALED --> RELEASED
+    FAILED --> [*]
+```
+
+本次已完成并提交的源码为 [`472e809`](https://github.com/Xuxiaotuan/pekko-reference/tree/472e809)：模型、控制库三层 Manifest、Shared Reader epoch、Runtime 冻结、分页摘要校验、创建/读取入口和 focused tests 已通过 Java 17 构建与回归。相关源码入口是 [`CdcSavepointModels.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/savepoint/CdcSavepointModels.scala)、[`CdcSavepointStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/savepoint/CdcSavepointStore.scala)、[`CdcSavepointCoordinator.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/savepoint/CdcSavepointCoordinator.scala)。
+
+这不是 Flink 风格的跨表目标事务 barrier。表级 Checkpoint 仍负责单表故障恢复，Runtime Savepoint 只绑定同一 captureEpoch 下的表级恢复引用；新增表、取消表和不同表的 T/J/D 进度都保持独立。
+
+**已验证：** 模型摘要、分页 Manifest、缺页/篡改拒绝、任务索引分页、Runtime/Bootstrap 既有回归、HTTP 创建和 sealed 读取。
+
+**未验证：** 真实 MySQL callback 持续到达时的 Savepoint 封存窗口、真实 Actor Journal/Sink 的跨 JVM Savepoint 恢复、恢复后的全量逐字段对账、Savepoint 与 GC 的长时组合。上述项目仍保持 `evidence_incomplete`，不继承已有 I16、P01 或 GC 材料的结果。
 
 <a id="全系列验证范围汇总"></a>
 
