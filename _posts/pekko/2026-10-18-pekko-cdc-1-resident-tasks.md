@@ -23,6 +23,43 @@ last_modified_at: 2026-11-19
 >
 > **源码基线**：`472e809`。本文的源码调用链按该提交阅读，后续提交只改变文档或验证材料，不改变本文涉及的生产实现；历史实验仍按各自材料冻结的版本和切点解释。
 
+
+## 这套系统的四层中心结构
+
+本文后面的 LOW/HIGH/F、L、T/J/D 和恢复许可，都建立在下面这条资源分层上：
+
+```text
+一个 MySQL 实例
+      ↓
+一个 SharedMySQLCapture
+      ↓
+大量轻量 TableActor
+      ↓
+每张表独立初始化、追平、转流、取消和恢复
+```
+
+这四行表达的是四种不同的责任：
+
+| 层 | 负责什么 | 不负责什么 |
+|---|---|---|
+| MySQL 实例 | 提供表数据、事务和 binlog | 不知道哪张表已经完成初始化 |
+| SharedMySQLCapture | 维护一个 binlog 观察面，把回调编组成可重放的 L | 不替任何表提交目标事务 |
+| TableActor | 保存表级状态、串行化阶段转换、驱动有限工作 | 不等于一条 JDBC 连接或一个专用线程 |
+| 表级 Checkpoint | 记录该表的 Split、LOW/HIGH/F、T/J/D 引用和恢复阶段 | 不等于跨表原子提交 |
+
+TableActor 可以有很多，甚至可以按目录规模创建轻量的逻辑身份；真正需要限制的是活动快照、回放、Sink 写入和连接数。当前实现的证据支持“表级状态与活动 worker 分离”，不支持把“百万 Actor”写成已经完成的容量验收。
+
+```mermaid
+flowchart TB
+    DB["一个 MySQL 实例<br/>数据、事务、binlog"] --> CAP["一个 SharedMySQLCapture<br/>单一 Reader / L 前缀"]
+    CAP --> ACT["大量轻量 TableActor<br/>每表状态与 Journal 身份"]
+    ACT --> CK["表级 Checkpoint<br/>Split / LOW / HIGH / F / T-J-D"]
+    CK --> RUN["独立初始化、追平、转流、取消、恢复"]
+    CAP -. "有界分派" .-> RUN
+```
+
+表级 Checkpoint 是自动故障恢复的主机制。Runtime Savepoint 只是把某个 captureEpoch 观察面下的多张表 Checkpoint 引用封装成可读 Manifest。后文若只出现 Savepoint 而没有表级 Checkpoint，读者应把它理解成“运行时封装”，不能理解成“Savepoint 替代了每张表的恢复状态”。
+
 本文先建立资源模型，再把模型落到 `orders_06` 的订阅、初始化和事件处理。70 万张表是目录规模，不是 70 万个常驻 Reader。
 
 ## 0 结论
@@ -416,6 +453,7 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 | 任务 grant、双池调度、owner 状态、恢复 | [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
 | 持久化任务索引、grant 与 continuation | [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala) |
 | Journal 顺序与恢复 receipt | [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
+| 表级 Checkpoint 模型与旧类型迁移 | [CheckpointModels.scala](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/checkpoint/CheckpointModels.scala)、[BootstrapProtocol.scala](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapProtocol.scala) |
 | ACK proof 分页与安全 GC | [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
 | GC 保留策略与实际 D | [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
 

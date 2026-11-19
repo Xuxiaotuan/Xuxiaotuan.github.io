@@ -28,6 +28,9 @@ last_modified_at: 2026-11-19
 
 本文只回答这个问题。答案是让 ACK proof 保存一条可重读的祖先链，再把这条链和任务、owner、source fence、Journal receipt 绑定在同一个恢复许可里。`D` 只有被这条关系覆盖时，才有资格成为下一次恢复输入。
 
+这里需要先区分两种恢复材料。异常退出时真正自动推进的是**表级 Checkpoint**：它包含某张表最近的 Split/窗口阶段、可重放的 L 引用以及 T/J/D 交接摘要。Runtime Savepoint 不是必经的故障恢复前提，它只在运维需要固定一组表的 captureEpoch 观察面时提供额外定位。即使 Savepoint 标记为 SEALED，恢复程序仍必须按表读取 Checkpoint，并重新验证 T、J、D、ACK ancestry 和 owner fence。
+
+
 ## 0 一个具体故障
 
 案例任务 `orders_06` 在 `execution=17` 中处理第 7110 个 ACK。这里沿用系列案例名，实验材料中的真实 task 标识仍以快照为准。目标 Sink 已提交该组事件，客户端在 `COMMIT` 返回前断开，Journal 仍停在旧 revision。系统留下了下面的状态：

@@ -38,6 +38,18 @@ Pekko 把 `B、K、LOW、HIGH、F、T/J/D、Schema` 拆成任务级状态，并�
 
 Flink CDC 把快照 Split、binlog Split、Split 分配状态、Reader 状态和 Checkpoint 放进 Source API 运行时。它把恢复和并行读取做成 Job 级基础设施，适合活跃表较多、吞吐和状态后端是主导问题的场景。
 
+先把两套系统的恢复对象对齐：
+
+| 对象 | Pekko 当前实现 | Flink CDC 3.6.0 |
+|---|---|---|
+| 自动故障恢复 | 每张表的 Checkpoint/BootstrapProgress、Journal receipt、L ACK ancestry 和目标 ledger | Job Checkpoint 中的 Source split state、Reader state 与下游算子状态 |
+| 运维级保存 | captureEpoch + 分页 TableCheckpointRef 的 Runtime Savepoint，首版只完成代码和本地 focused tests | 用户触发的 Savepoint，面向停机、升级和迁移 |
+| 动态增删表 | TableActor 独立进入/退出，其他表的 Checkpoint 不被覆盖 | 由作业、Enumerator 和 Source 变更机制共同治理 |
+| 全局原子性 | 没有跨表目标事务 barrier | Checkpoint 对作业状态提供一致快照，但不等于业务目标库跨表事务 |
+
+这张表也解释了本文的边界：Pekko 的“很多轻量 Actor”是表级状态组织方式，Pekko 的“表级 Checkpoint”才是异常恢复主线，Runtime Savepoint 是可选的运维封装。不能拿首版 Savepoint 的本地测试替代真实 MySQL、Journal、Sink 的跨 JVM 恢复证据。
+
+
 这不是性能结论。当前材料没有同负载 Flink benchmark，也没有 70 万真实物理表的长期容量曲线。
 
 ```mermaid

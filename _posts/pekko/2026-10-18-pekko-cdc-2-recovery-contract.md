@@ -25,7 +25,20 @@ last_modified_at: 2026-11-19
 
 > **真实故障先行**：在固定的 I16 窗口中，目标页已经提交，Journal 仍停在第 0 页，进程随后退出。重启后同一组事件从 L 重新读出，目标 ledger 返回 `AlreadyCommitted`，Journal 才把进度向前推进；最终 64 行、384 个字段逐字段相等。这个结果首先说明一件事：**目标表里已经有值，不等于这条事件已经取得了可恢复身份**。
 >
-> 本文不把 I16 扩展成所有 Sink 的 exactly-once 证明，而是从 `orders_06.id=4` 的 UPDATE 出发，解释它如何获得稳定的 group identity，如何经过 L、T、J、D，最后成为可以释放的事件。提交未知、长 ACK proof 和 owner 接管的完整恢复推理放到第三篇。为统一案例名，`orders_06` 是系列中的业务表名，实验材料中的真实 task、execution 和 offset 仍以各自快照为准。
+> 本文不把 I16 扩展成所有 Sink 的 exactly-once 证明，而是从 `orders_06.id=4` 的 UPDATE 出发，解释它如何获得稳定的 group identity，如何经过 L、T、J、D，最后成为可以释放的事件。
+
+在这条链上，TableActor 不是事件身份的来源。它只提供表级串行边界和恢复入口；稳定身份来自 SourceRecord 的源 lineage、表、位置、行键和事件序号。表级 Checkpoint 记录“这张表已经把哪一批证据交接到哪里”，captureEpoch Savepoint 只记录“这些表的 Checkpoint 在哪个 Shared Reader 观察面下被同时引用”。
+
+```text
+SharedMySQLCapture
+  └─ L：全局可重放事件前缀
+       ├─ TableActor(orders_01) → Checkpoint_01
+       ├─ TableActor(orders_06) → Checkpoint_06
+       └─ TableActor(orders_07) → Checkpoint_07
+```
+
+因此，同一个 captureEpoch 下可以存在不同的表级 J、D 和回放位置。Savepoint 不能把它们压成一个全局 offset，Checkpoint 也不能替代 L 的事件身份。
+提交未知、长 ACK proof 和 owner 接管的完整恢复推理放到第三篇。为统一案例名，`orders_06` 是系列中的业务表名，实验材料中的真实 task、execution 和 offset 仍以各自快照为准。
 
 ## 0 先固定问题：接受不是一个回调返回值
 

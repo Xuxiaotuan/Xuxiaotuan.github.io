@@ -30,6 +30,25 @@ last_modified_at: 2026-11-19
 
 历史 I01—I24 只按各自冻结版本和切点解释，当前代码阅读和历史实验不会自动互相升级。
 
+先把自动 Checkpoint 放回主流程。每张表在 SCANNING、WINDOW_CLOSED、REPLAYING 和 STREAMING 之间都要留下可恢复的表级状态；它是故障恢复的最小单位。Runtime Savepoint 只在需要对多张表做运维级冻结时，引用这些已存在的 Checkpoint，不改变 orders_06 自己的 B→K→LOW→HIGH→F 证明。
+
+```mermaid
+sequenceDiagram
+    participant C as SharedMySQLCapture
+    participant A as TableActor orders_06
+    participant K as Table Checkpoint
+    participant S as Runtime Savepoint
+    C->>A: L 中可重放事件
+    A->>K: 持久化 phase / LOW / HIGH / F / T-J-D refs
+    S->>C: 冻结 captureEpoch
+    S->>K: 分页读取各表 Checkpoint 引用
+    K-->>S: checkpointRef + digest
+    S-->>S: sealed manifest
+```
+
+这条时序说明了两个方向：表级 Checkpoint 先于 Savepoint 存在，Savepoint 不能替代它；新增表或取消表也不会修改其他表的 Checkpoint。
+
+
 ## 0 先固定一张表的时间线
 
 现有 Shared Reader 已经为 `orders_01` 到 `orders_05` 运行。10:00，控制面收到新增 `orders_06` 的订阅请求。
