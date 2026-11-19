@@ -76,7 +76,7 @@ Pekko Streams 也已经出现在源和 Sink 的边界上：BatchSourceSession �
 
 在真实 MySQL、JDBC Actor Journal 和 MySQL Sink 上，GRAPH 场景已经把上述四层 materialize 成一条独立流：SharedMySQLCapture 从 L 提供持续 Source，TableActor 只持有该表 Graph 的生命周期，MySQLTableGraphSink 复用目标 ledger，BootstrapJournalTableGraph 先持久化 Checkpoint，capture 再推进 consumer ACK。源表和目标表逐字段一致，Graph 停止后连接和 worker 释放。
 
-这证明了单表 Graph 的执行边界。多表并行 Graph、Graph 从 Journal Checkpoint 重启恢复、Runtime Savepoint 冻结多个 Graph 仍未验证。完整材料见[独立 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/8b5cf9c/docs/experiments/2026-11-19-table-graph/README.md)。实现提交为 [`4fe23bf`](https://github.com/Xuxiaotuan/pekko-reference/tree/ed06259)。
+这证明了单表 Graph 的执行边界。多表并行 Graph、Graph 从 Journal Checkpoint 重启恢复、Runtime Savepoint 冻结多个 Graph 仍未验证。完整材料见[独立 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/0371c3f/docs/experiments/2026-11-19-table-graph/README.md)。实现提交为 [`4fe23bf`](https://github.com/Xuxiaotuan/pekko-reference/tree/ed06259)。
 
 
 ## 0 结论

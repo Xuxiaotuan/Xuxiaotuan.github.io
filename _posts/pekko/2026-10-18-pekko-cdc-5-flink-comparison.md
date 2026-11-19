@@ -51,7 +51,7 @@ Flink CDC 把快照 Split、binlog Split、Split 分配状态、Reader 状态和
 
 本轮真实 Checkpoint 材料进一步说明两套语义的差别。
 
-本轮新增的单表 GRAPH 场景说明 Pekko 的可编程边界已经落到实际 materialization：每张表可以独立拥有 Source、Sink、Journal handoff 和 KillSwitch。Flink 的 SourceReader/Checkpoint 由 Job 运行时统一协调，Pekko 当前实现则把表级 Graph 生命周期交给 TableActor。该场景只覆盖单表，不是两套系统的性能比较。详见[独立 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/8b5cf9c/docs/experiments/2026-11-19-table-graph/README.md)。
+本轮新增的单表 GRAPH 场景说明 Pekko 的可编程边界已经落到实际 materialization：每张表可以独立拥有 Source、Sink、Journal handoff 和 KillSwitch。Flink 的 SourceReader/Checkpoint 由 Job 运行时统一协调，Pekko 当前实现则把表级 Graph 生命周期交给 TableActor。该场景只覆盖单表，不是两套系统的性能比较。详见[独立 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/0371c3f/docs/experiments/2026-11-19-table-graph/README.md)。
 Pekko 的表级 Checkpoint 在真实 MySQL、JDBC Actor Journal 和事务 Sink 上完成了 7/7 指定窗口的逐字段对账；这不是 Runtime Savepoint 的跨表恢复证明，也不是 Flink Checkpoint 的性能对比。当前 Pekko 源码中 Streams 主要包住批次读取、分片并发和 Sink 边界，Actor Journal 与 Runtime worker 池仍负责控制和恢复。材料见[Checkpoint 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)，既有恢复协议的源码入口固定为[472e809](https://github.com/Xuxiaotuan/pekko-reference/tree/472e809)，独立 Graph 的实现提交为[4fe23bf](https://github.com/Xuxiaotuan/pekko-reference/tree/ed06259)。
 
 
