@@ -420,3 +420,5 @@ SourceRecord(id=4, binlog.000017:325166188,row=3)
 多表 Graph 验证确认 ACK 顺序仍然按表隔离。`a` 的 Journal 和 ACK 不依赖 `b` 的提交完成，详见[多表 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/a7c48a7/docs/experiments/2026-11-20-table-graph-multi/README.md)。
 
 Graph 重启实验把 `Journal persist → 新 JVM read → L ACK` 的恢复顺序落到了真实 MySQL。恢复前后的目标 ledger 和 Journal 均有记录，逐字段对账通过。详见[Graph Journal 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/56b1daf/docs/experiments/2026-11-20-table-graph-restart/README.md)。
+
+取消后的确认边界同样按表隔离。被取消表的最终差异是预期结果，其他表的 Journal、Sink 和 ACK 不受影响。详见[Graph 取消验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/299c954/docs/experiments/2026-11-20-table-graph-cancel/README.md)。

@@ -309,3 +309,5 @@ sequenceDiagram
 在同一个 Reader 上同时运行两张表的 Graph 后，两个目标表均完成 24 字段逐字段对账，停止后的连接清理为空。详见[多表 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/a7c48a7/docs/experiments/2026-11-20-table-graph-multi/README.md)。
 
 真实重启窗口中，新 JVM 使用同一 Graph Journal 恢复 cursor，继续处理后续 binlog 变更，最终 24 字段对账通过。此前最终 STATE 探针失败仍保留为失败材料。详见[Graph Journal 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/56b1daf/docs/experiments/2026-11-20-table-graph-restart/README.md)。
+
+真实取消实验保留了被取消表的差异和继续运行表的逐字段通过结果，没有把取消表误报成最终一致。详见[Graph 取消验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/299c954/docs/experiments/2026-11-20-table-graph-cancel/README.md)。

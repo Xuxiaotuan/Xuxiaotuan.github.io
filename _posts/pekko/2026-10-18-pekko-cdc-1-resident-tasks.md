@@ -479,3 +479,5 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 本轮又在同一个 SharedMySQLCapture 上同时 materialize 了 `a`、`b` 两个 Table Graph。两张表分别维护 consumer、Journal checkpoint 和 ACK，24 个字段逐字段对账均通过。详见[多表 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/a7c48a7/docs/experiments/2026-11-20-table-graph-multi/README.md)。
 
 本轮又完成了单表 Graph 的 Journal 重启恢复。新 JVM 读取同一 persistence id 中的 `deltaAfter` 和 `batchSequence` 后继续消费 L，恢复后的 24 字段逐字段对账通过。详见[Graph Journal 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/56b1daf/docs/experiments/2026-11-20-table-graph-restart/README.md)。
+
+动态取消也已经在真实 MySQL 上验证。停止 `a` 后它不再推进，`b` 继续同步并完成 24 字段对账。详见[Graph 取消验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/299c954/docs/experiments/2026-11-20-table-graph-cancel/README.md)。

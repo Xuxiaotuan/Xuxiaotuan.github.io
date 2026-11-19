@@ -279,3 +279,5 @@ Pekko 的优势来自表级生命周期、资源准入和 captureEpoch Savepoint
 与单表结果相比，多表 GRAPH-MULTI 验证了 Pekko 表级 Graph 可以在一个 Reader 上独立 materialize。这个结果仍然不是 70 万物理表容量或 Flink 性能对比。详见[多表 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/a7c48a7/docs/experiments/2026-11-20-table-graph-multi/README.md)。
 
 Pekko 的表级 Graph 已从单表 materialize 推进到多表共享 Reader和单表 Journal 重启恢复。这个结果仍不等于跨表 Savepoint 或 Flink 性能保证。详见[Graph Journal 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/56b1daf/docs/experiments/2026-11-20-table-graph-restart/README.md)。
+
+Pekko 的表级生命周期已经覆盖独立新增、Journal 重启恢复和运行中取消。取消后的表不会继续追平，这正是独立 Graph 的语义边界。详见[Graph 取消验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/299c954/docs/experiments/2026-11-20-table-graph-cancel/README.md)。

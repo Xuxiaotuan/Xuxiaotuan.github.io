@@ -309,3 +309,5 @@ stateDiagram-v2
 随后在同一个 SharedMySQLCapture 上同时运行 `a`、`b` 两个独立 Graph，逐字段对账通过。该结果把“单表可 materialize”推进到“同一 Reader 可承载多表 Graph”，但仍未覆盖 Graph 重启恢复、跨 JVM 和 70 万物理表容量。详见[多表 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/a7c48a7/docs/experiments/2026-11-20-table-graph-multi/README.md)。
 
 单表 Graph 的 Journal 重启恢复也已通过真实 MySQL 故障验证。新 JVM 从持久化 cursor 继续消费 L，逐字段对账通过。详见[Graph Journal 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/56b1daf/docs/experiments/2026-11-20-table-graph-restart/README.md)。
+
+运行中取消也已通过真实验证。停止一张表不会停止共享 Reader 或其他表 Graph，被取消表的差异被保留为预期结果。详见[Graph 取消验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/299c954/docs/experiments/2026-11-20-table-graph-cancel/README.md)。
