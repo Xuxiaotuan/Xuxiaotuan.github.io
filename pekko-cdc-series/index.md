@@ -49,7 +49,7 @@ Checkpoint 是批转流和故障恢复的主线，Savepoint 是建立在表级 C
 
 本轮真实 Checkpoint 恢复报告记录了 7/7 表级窗口对账、9 个自动恢复 PASS、5 个 SAFE_BLOCK，以及 3 个故障注入未建立的失败材料。
 
-单表 Graph 已在真实 MySQL、Actor Journal 和 Sink 上完成一次独立 materialization。Graph 的顺序是 Source → Sink → Journal Checkpoint → L ACK，停止由 KillSwitch 和完成 Future 共同确认。这个结果支持“单表可独立 materialize”，不支持多表并发、跨 JVM Graph 恢复或 Savepoint 协调已经完成。详见[独立 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/4fe23bf/docs/experiments/2026-11-19-table-graph/README.md)。
+单表 Graph 已在真实 MySQL、Actor Journal 和 Sink 上完成一次独立 materialization。Graph 的顺序是 Source → Sink → Journal Checkpoint → L ACK，停止由 KillSwitch 和完成 Future 共同确认。这个结果支持“单表可独立 materialize”，不支持多表并发、跨 JVM Graph 恢复或 Savepoint 协调已经完成。详见[独立 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/8b5cf9c/docs/experiments/2026-11-19-table-graph/README.md)。
 它补强的是表级 Checkpoint 的真实证据，不把 Runtime Savepoint 或 70 万物理表容量写成已完成。详见[Checkpoint 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。
 
 
