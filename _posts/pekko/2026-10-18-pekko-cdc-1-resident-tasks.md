@@ -477,3 +477,5 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 最终判断应保持克制：当前实现已经具备“一个 capture 共享 Reader、表级可恢复执行、有界调度和保守释放”的源码结构，也有指定真实环境下的逐字段闭环；但它还没有把 70 万张真实活跃表的连接、吞吐、长期稳定性和全部故障窗口证明完。这个差距不是文章措辞可以消除的，必须用下一轮容量与端到端实验补齐。
 
 本轮又在同一个 SharedMySQLCapture 上同时 materialize 了 `a`、`b` 两个 Table Graph。两张表分别维护 consumer、Journal checkpoint 和 ACK，24 个字段逐字段对账均通过。详见[多表 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/a7c48a7/docs/experiments/2026-11-20-table-graph-multi/README.md)。
+
+本轮又完成了单表 Graph 的 Journal 重启恢复。新 JVM 读取同一 persistence id 中的 `deltaAfter` 和 `batchSequence` 后继续消费 L，恢复后的 24 字段逐字段对账通过。详见[Graph Journal 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/56b1daf/docs/experiments/2026-11-20-table-graph-restart/README.md)。

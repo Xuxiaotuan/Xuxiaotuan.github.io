@@ -310,3 +310,5 @@ T/J/D 关系可重读
 - [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)
 
 多表实验证明表级 Graph 可以共享捕获层，同时保持各自的 Journal、cursor 和 ACK。跨 JVM 重启和 Savepoint 协调仍未纳入这轮证据。详见[多表 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/a7c48a7/docs/experiments/2026-11-20-table-graph-multi/README.md)。
+
+单表 Graph 现在已有 Journal 恢复证据。恢复许可来自持久化的 `deltaAfter` 和 `batchSequence`，不是进程内的最后 cursor。多表同时恢复协调和 Savepoint 仍未验证。详见[Graph Journal 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/56b1daf/docs/experiments/2026-11-20-table-graph-restart/README.md)。

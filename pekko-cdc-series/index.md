@@ -307,3 +307,5 @@ stateDiagram-v2
 [源码实验报告](https://github.com/Xuxiaotuan/pekko-reference/blob/1ab1acf/docs/experiments/2026-11-12-runtime-gc/README.md) · [L GC 逐项证据](https://github.com/Xuxiaotuan/pekko-reference/tree/0b571796858d14f46f7d81196139f677192a812b/docs/experiments/2026-11-12-capture-gc)
 
 随后在同一个 SharedMySQLCapture 上同时运行 `a`、`b` 两个独立 Graph，逐字段对账通过。该结果把“单表可 materialize”推进到“同一 Reader 可承载多表 Graph”，但仍未覆盖 Graph 重启恢复、跨 JVM 和 70 万物理表容量。详见[多表 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/a7c48a7/docs/experiments/2026-11-20-table-graph-multi/README.md)。
+
+单表 Graph 的 Journal 重启恢复也已通过真实 MySQL 故障验证。新 JVM 从持久化 cursor 继续消费 L，逐字段对账通过。详见[Graph Journal 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/56b1daf/docs/experiments/2026-11-20-table-graph-restart/README.md)。
