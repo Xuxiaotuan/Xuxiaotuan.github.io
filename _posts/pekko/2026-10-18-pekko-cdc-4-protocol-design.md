@@ -48,6 +48,9 @@ sequenceDiagram
 
 这条时序说明了两个方向：表级 Checkpoint 先于 Savepoint 存在，Savepoint 不能替代它；新增表或取消表也不会修改其他表的 Checkpoint。
 
+本轮真实验证覆盖了这条时序的故障窗口。7 个表级 Checkpoint 场景在重启后均完成目标逐字段对账；自动恢复中 5 个负例保留为 SAFE_BLOCK，R4 与两个 Journal 拒绝探针没有进入注入点。LOW/HIGH/F 的协议推演不能因此扩展为 Runtime Savepoint 已经完成跨 JVM 端到端恢复。详见[Checkpoint 恢复材料](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。
+
+
 
 ## 0 先固定一张表的时间线
 

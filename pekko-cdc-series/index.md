@@ -43,6 +43,13 @@ flowchart TB
 
 Checkpoint 是批转流和故障恢复的主线，Savepoint 是建立在表级 Checkpoint 之上的可选封装。系列后文的每一张状态机，都应先看表级 Checkpoint，再看 Runtime Savepoint。
 
+### 当前源码与真实验证的补充边界
+
+当前生产源码没有名为 TableActor 的单一类。TableActor 是架构角色，实际由 CdcTaskStore、BootstrapRunner、BootstrapJournal 和有界 Runtime worker 共同实现。Pekko Streams 已用于 BatchSourceSession、SnapshotSplitExecutor 和 MySQLSinkNode 的数据段，但 SharedMySQLCapture 的回调、L、Journal 和调度仍是 Actor/Future/worker 模型。
+
+本轮真实 Checkpoint 恢复报告记录了 7/7 表级窗口对账、9 个自动恢复 PASS、5 个 SAFE_BLOCK，以及 3 个故障注入未建立的失败材料。它补强的是表级 Checkpoint 的真实证据，不把 Runtime Savepoint 或 70 万物理表容量写成已完成。详见[Checkpoint 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。
+
+
 
 2026-10-27 的修订把持久任务索引、有界步骤和平台入口接回原来的五篇主线：目标与执行资源 → 分页/LOW/HIGH/B→F 源码 → 真实实验与反例 → 恢复状态与确认协议 → 与 Flink CDC 的具体取舍。源码变化、当前实测和历史材料分别标识；Actor 机制、旧 T/J/D 推导及失败仍保留在独立[技术附录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/README.md)。文章更新不自动改变旧实验的版本或结果。
 

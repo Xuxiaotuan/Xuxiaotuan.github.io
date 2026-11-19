@@ -44,7 +44,14 @@ L = ACK head 7110，parent chain 可读取
 
 如果只看目标表，程序会认为 7110 已经完成。如果只看 D，程序会把 7110 当成可以跳过的前缀。两种判断都缺少执行身份。正确动作是先隔离旧 owner，再用同一组 identity 读回目标 ledger、Journal receipt 和 ACK ancestry。ledger 返回 `AlreadyCommitted` 后，Journal 才能补写 7110 的 receipt。
 
-真实 I16 材料验证了这个固定窗口。重启日志显示同一页从 `new=true` 变成 `new=false`，最终目标 64 行、384 个字段逐字段相等。这个结果支持指定窗口的幂等重放，不等价于任意 Sink 的 exactly-once 保证。
+真实 I16 材料验证了这个固定窗口。重启日志显示同一页从 `new=true` 变成 `new=false`，最终目标 64 行、384 个字段逐字段相等。
+
+### 0.1 本轮 Checkpoint 故障矩阵
+
+在同一套隔离 MySQL、Actor Journal 和 MySQL Sink 上，表级 Checkpoint 窗口 7/7 完成逐字段对账。自动恢复的 9 个 PASS 场景覆盖提交、回滚、主键变更、Journal 等待和重启；R3、R5、R6、R7-PK、R7-D 按协议进入 SAFE_BLOCK。R4、REJECT-J、REJECT-J-RETRY 的探针没有产生预期的故障事件，保留为失败证据，不被计入成功。材料见[Checkpoint 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。
+
+这次结果把“Checkpoint 能重放”与“所有故障注入都已建立”分开。前者由真实 T/J/D 和逐字段结果支持，后者仍有三项待重做的探针边界。
+这个结果支持指定窗口的幂等重放，不等价于任意 Sink 的 exactly-once 保证。
 
 ## 1 T、J、D 各自记录什么
 

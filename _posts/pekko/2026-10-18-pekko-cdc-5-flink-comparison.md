@@ -49,6 +49,9 @@ Flink CDC 把快照 Split、binlog Split、Split 分配状态、Reader 状态和
 
 这张表也解释了本文的边界：Pekko 的“很多轻量 Actor”是表级状态组织方式，Pekko 的“表级 Checkpoint”才是异常恢复主线，Runtime Savepoint 是可选的运维封装。不能拿首版 Savepoint 的本地测试替代真实 MySQL、Journal、Sink 的跨 JVM 恢复证据。
 
+本轮真实 Checkpoint 材料进一步说明两套语义的差别。Pekko 的表级 Checkpoint 在真实 MySQL、JDBC Actor Journal 和事务 Sink 上完成了 7/7 指定窗口的逐字段对账；这不是 Runtime Savepoint 的跨表恢复证明，也不是 Flink Checkpoint 的性能对比。当前 Pekko 源码中 Streams 主要包住批次读取、分片并发和 Sink 边界，Actor Journal 与 Runtime worker 池仍负责控制和恢复。材料见[Checkpoint 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)，源码入口固定为[472e809](https://github.com/Xuxiaotuan/pekko-reference/tree/472e809)。
+
+
 
 这不是性能结论。当前材料没有同负载 Flink benchmark，也没有 70 万真实物理表的长期容量曲线。
 

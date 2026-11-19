@@ -62,6 +62,15 @@ flowchart TB
 
 本文先建立资源模型，再把模型落到 `orders_06` 的订阅、初始化和事件处理。70 万张表是目录规模，不是 70 万个常驻 Reader。
 
+### 0.2 架构角色与当前实现的对应关系
+
+“TableActor”是本文的架构角色名，当前生产源码没有一个同名的 TableActor 类。实际对应关系是：冷表由 CdcTaskStore 的持久索引表示，活动表由 BootstrapRunner 驱动步骤，由 BootstrapJournal 的 EventSourcedBehavior 保存表级顺序。表级状态可以很多，JDBC、快照读视图和 Sink worker 仍由 CdcPlatformRuntime 的有界池控制。
+
+Pekko Streams 也已经出现在源和 Sink 的边界上：BatchSourceSession 使用 Source.unfoldResourceAsync，MySQLSinkNode 使用 Sink.lazyFutureSink，快照分片使用 mapAsync。但 SharedMySQLCapture 的 Debezium 回调、L 追加、Journal 交接和平台调度仍由 Future、Actor Journal 与固定 worker 池完成。当前实现是“Streams 承担数据段，Actor/Runtime 承担控制段”，还不是一张把 Reader、每表 Actor 和 Sink 全部 materialize 成同一 Graph 的实现。
+
+这次真实 Checkpoint 恢复材料见[验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。表级恢复窗口 7/7 逐字段对账通过，自动恢复另有 5 项按预期安全暂停，3 项故障注入探针未建立，不能把角色图直接写成完整端到端容量证明。
+
+
 ## 0 结论
 
 这个问题首先是资源模型问题，其次才是 Actor API 问题。当前实现把三个数量分开：

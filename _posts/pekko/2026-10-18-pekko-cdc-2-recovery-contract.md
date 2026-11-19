@@ -38,6 +38,9 @@ SharedMySQLCapture
 ```
 
 因此，同一个 captureEpoch 下可以存在不同的表级 J、D 和回放位置。Savepoint 不能把它们压成一个全局 offset，Checkpoint 也不能替代 L 的事件身份。
+
+本轮真实 Checkpoint 恢复把这条关系落到了 MySQL、JDBC Actor Journal 和事务 Sink。N0、J1、J2、C0、C1、K1、K2 共 7 个窗口都记录了 T、J、D、原始重放批次和逐字段比较。自动恢复套件中，提交未知、延迟提交、延迟回滚和重启窗口完成，明确拒绝与 Journal 回复保持 evidence_incomplete，因为故障注入没有进入预期事件。完整材料见[Checkpoint 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。
+
 提交未知、长 ACK proof 和 owner 接管的完整恢复推理放到第三篇。为统一案例名，`orders_06` 是系列中的业务表名，实验材料中的真实 task、execution 和 offset 仍以各自快照为准。
 
 ## 0 先固定问题：接受不是一个回调返回值
