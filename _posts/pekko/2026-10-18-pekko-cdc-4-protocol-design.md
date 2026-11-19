@@ -308,3 +308,5 @@ T/J/D 关系可重读
 - [跨重启分页反例](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-29-proof-cursor-snapshot/README.md)
 - [动态订阅和共享 Reader 材料](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-28-ab-matrix/README.md)
 - [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)
+
+多表实验证明表级 Graph 可以共享捕获层，同时保持各自的 Journal、cursor 和 ACK。跨 JVM 重启和 Savepoint 协调仍未纳入这轮证据。详见[多表 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/a7c48a7/docs/experiments/2026-11-20-table-graph-multi/README.md)。

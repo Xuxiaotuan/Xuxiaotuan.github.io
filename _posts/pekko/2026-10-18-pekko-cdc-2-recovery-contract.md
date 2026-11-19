@@ -416,3 +416,5 @@ SourceRecord(id=4, binlog.000017:325166188,row=3)
 * [Reader 身份、同事务多行与主键修改实验](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-28-ab-matrix/README.md)：R08 的 SourceRecord、ACK 顺序和逐字段结果。
 * [初始化与重启故障矩阵](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-25-bootstrap/README.md)：I16 的目标提交、Journal 滞后和恢复证据。
 * [最终 acceptance](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)：当前运行版本的 Source/Sink 对账与边界。
+
+多表 Graph 验证确认 ACK 顺序仍然按表隔离。`a` 的 Journal 和 ACK 不依赖 `b` 的提交完成，详见[多表 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/a7c48a7/docs/experiments/2026-11-20-table-graph-multi/README.md)。

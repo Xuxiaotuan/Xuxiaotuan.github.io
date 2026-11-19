@@ -275,3 +275,5 @@ Pekko 的优势来自表级生命周期、资源准入和 captureEpoch Savepoint
 - [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala)
 - [集群闭环与逐字段对账](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
 - [真实失败证据](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-29-proof-cursor-snapshot/README.md)
+
+与单表结果相比，多表 GRAPH-MULTI 验证了 Pekko 表级 Graph 可以在一个 Reader 上独立 materialize。这个结果仍然不是 70 万物理表容量或 Flink 性能对比。详见[多表 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/a7c48a7/docs/experiments/2026-11-20-table-graph-multi/README.md)。
