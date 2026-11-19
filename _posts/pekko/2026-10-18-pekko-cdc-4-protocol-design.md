@@ -48,7 +48,10 @@ sequenceDiagram
 
 这条时序说明了两个方向：表级 Checkpoint 先于 Savepoint 存在，Savepoint 不能替代它；新增表或取消表也不会修改其他表的 Checkpoint。
 
-本轮真实验证覆盖了这条时序的故障窗口。7 个表级 Checkpoint 场景在重启后均完成目标逐字段对账；自动恢复中 5 个负例保留为 SAFE_BLOCK，R4 与两个 Journal 拒绝探针没有进入注入点。LOW/HIGH/F 的协议推演不能因此扩展为 Runtime Savepoint 已经完成跨 JVM 端到端恢复。详见[Checkpoint 恢复材料](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。
+本轮真实验证覆盖了这条时序的故障窗口。
+
+在真实 GRAPH 场景中，LOW/HIGH/F 之外的持续流部分由独立 materialized Graph 承担。表级 Checkpoint 持久化完成后，Graph 才让 SharedMySQLCapture 推进该表的 consumer。这个闭环已经在单表上运行通过，多表 Graph 的冻结与切换仍需单独验证。详见[独立 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/4fe23bf/docs/experiments/2026-11-19-table-graph/README.md)。
+7 个表级 Checkpoint 场景在重启后均完成目标逐字段对账；自动恢复中 5 个负例保留为 SAFE_BLOCK，R4 与两个 Journal 拒绝探针没有进入注入点。LOW/HIGH/F 的协议推演不能因此扩展为 Runtime Savepoint 已经完成跨 JVM 端到端恢复。详见[Checkpoint 恢复材料](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。
 
 
 

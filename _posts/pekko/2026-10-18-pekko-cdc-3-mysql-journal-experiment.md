@@ -50,7 +50,10 @@ L = ACK head 7110，parent chain 可读取
 
 在同一套隔离 MySQL、Actor Journal 和 MySQL Sink 上，表级 Checkpoint 窗口 7/7 完成逐字段对账。自动恢复的 9 个 PASS 场景覆盖提交、回滚、主键变更、Journal 等待和重启；R3、R5、R6、R7-PK、R7-D 按协议进入 SAFE_BLOCK。R4、REJECT-J、REJECT-J-RETRY 的探针没有产生预期的故障事件，保留为失败证据，不被计入成功。材料见[Checkpoint 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。
 
-这次结果把“Checkpoint 能重放”与“所有故障注入都已建立”分开。前者由真实 T/J/D 和逐字段结果支持，后者仍有三项待重做的探针边界。
+这次结果把“Checkpoint 能重放”与“所有故障注入都已建立”分开。
+
+单表 Graph 的真实运行又验证了另一条顺序：Graph 不是把 Sink Future 当成完成，而是等待 MySQL 事务结果、Actor Journal revision 和 L projection 按顺序完成。它补充的是正常 materialized Graph 的提交边界，不能替代跨 JVM Graph 重启故障。详见[独立 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/4fe23bf/docs/experiments/2026-11-19-table-graph/README.md)。
+前者由真实 T/J/D 和逐字段结果支持，后者仍有三项待重做的探针边界。
 这个结果支持指定窗口的幂等重放，不等价于任意 Sink 的 exactly-once 保证。
 
 ## 1 T、J、D 各自记录什么

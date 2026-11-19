@@ -68,7 +68,15 @@ flowchart TB
 
 Pekko Streams 也已经出现在源和 Sink 的边界上：BatchSourceSession 使用 Source.unfoldResourceAsync，MySQLSinkNode 使用 Sink.lazyFutureSink，快照分片使用 mapAsync。但 SharedMySQLCapture 的 Debezium 回调、L 追加、Journal 交接和平台调度仍由 Future、Actor Journal 与固定 worker 池完成。当前实现是“Streams 承担数据段，Actor/Runtime 承担控制段”，还不是一张把 Reader、每表 Actor 和 Sink 全部 materialize 成同一 Graph 的实现。
 
-这次真实 Checkpoint 恢复材料见[验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。表级恢复窗口 7/7 逐字段对账通过，自动恢复另有 5 项按预期安全暂停，3 项故障注入探针未建立，不能把角色图直接写成完整端到端容量证明。
+这次真实 Checkpoint 恢复材料见[验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。
+
+表级恢复窗口 7/7 逐字段对账通过，自动恢复另有 5 项按预期安全暂停，3 项故障注入探针未建立，不能把角色图直接写成完整端到端容量证明。
+
+### 0.3 单表 Graph 的真实闭环
+
+在真实 MySQL、JDBC Actor Journal 和 MySQL Sink 上，GRAPH 场景已经把上述四层 materialize 成一条独立流：SharedMySQLCapture 从 L 提供持续 Source，TableActor 只持有该表 Graph 的生命周期，MySQLTableGraphSink 复用目标 ledger，BootstrapJournalTableGraph 先持久化 Checkpoint，capture 再推进 consumer ACK。源表和目标表逐字段一致，Graph 停止后连接和 worker 释放。
+
+这证明了单表 Graph 的执行边界。多表并行 Graph、Graph 从 Journal Checkpoint 重启恢复、Runtime Savepoint 冻结多个 Graph 仍未验证。完整材料见[独立 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/4fe23bf/docs/experiments/2026-11-19-table-graph/README.md)。实现提交为 [`4fe23bf`](https://github.com/Xuxiaotuan/pekko-reference/tree/4fe23bf)。
 
 
 ## 0 结论
