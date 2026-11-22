@@ -20,7 +20,7 @@ last_modified_at: 2026-11-22
 
 ## 2026-11-22 运行时基线更新
 
-本系列当前以 `pekko-reference` 的 `master` 分支为唯一 CDC 基线。生产部署拆成两个模块：`pekko-cdc-capture` 和 `pekko-cdc-worker`。Capture 运行一个副本并持有 `SharedMySQLCapture`。Worker 至少运行两个副本，通过 `TaskLease` 创建独立的 `TableActor` 和 materialized `TableCdcGraph`，不复制源端 Reader。
+本系列当前以 `pekko-reference` 的 `main` 分支为唯一 CDC 基线。生产部署拆成两个模块：`pekko-cdc-capture` 和 `pekko-cdc-worker`。Capture 运行一个副本并持有 `SharedMySQLCapture`。Worker 至少运行两个副本，通过 `TaskLease` 创建独立的 `TableActor` 和 materialized `TableCdcGraph`，不复制源端 Reader。
 
 ```mermaid
 flowchart LR
@@ -84,7 +84,7 @@ Flink CDC 把快照 Split、binlog Split、Split 分配状态、Reader 状态和
 本轮真实 Checkpoint 材料进一步说明两套语义的差别。
 
 本轮新增的单表 GRAPH 场景说明 Pekko 的可编程边界已经落到实际 materialization：每张表可以独立拥有 Source、Sink、Journal handoff 和 KillSwitch。Flink 的 SourceReader/Checkpoint 由 Job 运行时统一协调，Pekko 当前实现则把表级 Graph 生命周期交给 TableActor。该场景只覆盖单表，不是两套系统的性能比较。详见[独立 Graph 验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/0371c3f/docs/experiments/2026-11-19-table-graph/README.md)。
-Pekko 的表级 Checkpoint 在真实 MySQL、JDBC Actor Journal 和事务 Sink 上完成了 7/7 指定窗口的逐字段对账；这不是 Runtime Savepoint 的跨表恢复证明，也不是 Flink Checkpoint 的性能对比。当前 Pekko 源码中 Streams 主要包住批次读取、分片并发和 Sink 边界，Actor Journal 与 Runtime worker 池仍负责控制和恢复。材料见[Checkpoint 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)，既有恢复协议的源码入口固定为[472e809](https://github.com/Xuxiaotuan/pekko-reference/tree/master)，独立 Graph 的实现提交为[4fe23bf](https://github.com/Xuxiaotuan/pekko-reference/tree/ed06259)。
+Pekko 的表级 Checkpoint 在真实 MySQL、JDBC Actor Journal 和事务 Sink 上完成了 7/7 指定窗口的逐字段对账；这不是 Runtime Savepoint 的跨表恢复证明，也不是 Flink Checkpoint 的性能对比。当前 Pekko 源码中 Streams 主要包住批次读取、分片并发和 Sink 边界，Actor Journal 与 Runtime worker 池仍负责控制和恢复。材料见[Checkpoint 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)，既有恢复协议的源码入口固定为[472e809](https://github.com/Xuxiaotuan/pekko-reference/tree/main)，独立 Graph 的实现提交为[4fe23bf](https://github.com/Xuxiaotuan/pekko-reference/tree/ed06259)。
 
 
 
@@ -301,10 +301,10 @@ Pekko 的优势来自表级生命周期、资源准入和 captureEpoch Savepoint
 
 ## 附录：Pekko 源码与实验入口
 
-- [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)
-- [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala)
-- [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala)
-- [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala)
+- [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/main/common/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala)
+- [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/main/common/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala)
+- [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/main/common/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala)
+- [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/main/common/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala)
 - [集群闭环与逐字段对账](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/)
 - [真实失败证据](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/docs/experiments/2026-10-29-proof-cursor-snapshot/README.md)
 

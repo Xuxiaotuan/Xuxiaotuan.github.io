@@ -20,7 +20,7 @@ last_modified_at: 2026-11-22
 
 ## 2026-11-22 运行时基线更新
 
-本系列当前以 `pekko-reference` 的 `master` 分支为唯一 CDC 基线。生产部署拆成两个模块：`pekko-cdc-capture` 和 `pekko-cdc-worker`。Capture 运行一个副本并持有 `SharedMySQLCapture`。Worker 至少运行两个副本，通过 `TaskLease` 创建独立的 `TableActor` 和 materialized `TableCdcGraph`，不复制源端 Reader。
+本系列当前以 `pekko-reference` 的 `main` 分支为唯一 CDC 基线。生产部署拆成两个模块：`pekko-cdc-capture` 和 `pekko-cdc-worker`。Capture 运行一个副本并持有 `SharedMySQLCapture`。Worker 至少运行两个副本，通过 `TaskLease` 创建独立的 `TableActor` 和 materialized `TableCdcGraph`，不复制源端 Reader。
 
 ```mermaid
 flowchart LR
@@ -37,7 +37,7 @@ flowchart LR
 
 [系列导读](/pekko-cdc-series/) · [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) · [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) · [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) · [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/)
 
-> **源码基线**：当前 `master` 分支源码；历史实验仍按各自材料冻结的提交、版本和切点解释。
+> **源码基线**：当前 `main` 分支源码；历史实验仍按各自材料冻结的提交、版本和切点解释。
 
 上一篇把 `orders_06.id=4` 的 UPDATE 追到了目标事务和 Journal。现在把同一条案例线停在最危险的位置。目标事务可能已经提交，Journal 还没有写入，Source offset 也可能已经向前。恢复程序凭什么决定重放、继续还是暂停？
 
@@ -237,10 +237,10 @@ CdcManagedRecovery.recover
 
 源码入口：
 
-- [`CdcManagedRecovery.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcManagedRecovery.scala)
-- [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala)
-- [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala)
-- [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala)
+- [`CdcManagedRecovery.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/main/common/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcManagedRecovery.scala)
+- [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/main/common/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala)
+- [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/main/common/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala)
+- [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/main/common/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala)
 
 ## 4 7110 个 ACK 为什么要分页
 
