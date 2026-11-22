@@ -61,6 +61,29 @@ N0、J1、J2、C0、C1、K1、K2 共 7 个窗口都记录了 T、J、D、原始�
 
 提交未知、长 ACK proof 和 owner 接管的完整恢复推理放到第三篇。为统一案例名，`orders_06` 是系列中的业务表名，实验材料中的真实 task、execution 和 offset 仍以各自快照为准。
 
+
+## 2026-11-22 跨 Chunk 与跨重启修订
+
+本篇当前源码基线固定为 [`644d8bd`](https://github.com/Xuxiaotuan/pekko-reference/tree/644d8bdcc6d9721e7a08232b935793f05d70dac5)。之前的漏行风险来自一个错误前提：把持久化游标当作旧 Repeatable Read 读视图的证明。跨 JVM 重启后，旧 Chunk 即使已经写入 spool，也不能证明仍属于同一个源端读视图。
+
+```mermaid
+flowchart TD
+    Q["新 Runner 无 continuation"] --> P["pre-F 状态检查"]
+    P -->|"有计划、窗口或已完成 Chunk"| X["resetForRescan"]
+    X --> S["清理旧 spool 与独占目标"]
+    S --> V["Journal revision + 1"]
+    V --> N["重新建立 LOW/HIGH"]
+    N --> F["回放到 F"]
+    F --> A["T/J/D 校验后 STREAMING"]
+    P -->|"同 owner continuation"| K["保留 sealed Chunk"]
+    K --> R["只替换未封口窗口"]
+    R --> A
+```
+
+新的窗口 ID 使用 `bootstrapId + journalRevision + chunkIndex + attempt`。无 continuation 的重启会清理旧 material，并发出 `BASELINE_RESET_AFTER_RESTART`。这个基线重建不额外消耗 recovery budget，逻辑 executionId 保持不变，revision/epoch 负责隔离新旧读视图。
+
+真实证据见[跨 Chunk 与跨重启验证材料](https://github.com/Xuxiaotuan/pekko-reference/blob/644d8bdcc6d9721e7a08232b935793f05d70dac5/support/docs/experiments/2026-11-22-cross-chunk-restart/README.md)。同 owner continuation 和 full rescan 均通过，目标表与源表的差异、缺失和额外字段均为 0。材料中保留了修正断言前的失败输出，完整分页实际为 5 页、full rescan 不应要求旧窗口产生 `ABANDONED`，这两项没有被通过结果覆盖。
+
 ## 0 先固定问题：接受不是一个回调返回值
 
 一次 MySQL UPDATE 至少要经过四个边界：源事件已经被识别，事件组已经写入 L，目标事务 T 已经有可核验的 ledger，Journal J 和源 offset D 之间建立了可重读的交接。把 `markProcessedAndFinished()`、目标 `COMMIT` 或当前行值单独当成“接受”，都会把不同存储域的事实混在一起。

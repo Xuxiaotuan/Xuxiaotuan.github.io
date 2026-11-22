@@ -39,9 +39,26 @@ flowchart LR
 
 前四篇已经把 Pekko CDC 的资源、事件身份、恢复证明和 LOW/HIGH 状态机拆开。最后一篇不再问“哪个框架更好”，而是把同一张新增表放进两套运行时，比较每一条责任由谁承载。
 
-> **源码基线**：`472e809`。Pekko 源码调用链按该提交阅读，Flink CDC 对照固定 `release-3.6.0`；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
+> **源码基线**：`644d8bd`。Pekko 源码调用链按该提交阅读，Flink CDC 对照固定 `release-3.6.0`；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
 
 案例仍然是 `orders_06`。它在一个已经运行的 MySQL capture 中加入，先完成快照，快照期间继续发生写入，再追到一个可以发布的边界。比较对象固定为 Pekko 当前实现和 Flink CDC 3.6.0 的 MySQL Source 源码。本文没有在同一机器、同一 Sink 和同一故障点重跑 Flink，因此结论只讨论状态归属、恢复路径和资源模型。
+
+
+## 2026-11-22 跨 Chunk 与跨重启修订
+
+Pekko 当前源码基线是 [`644d8bd`](https://github.com/Xuxiaotuan/pekko-reference/tree/644d8bdcc6d9721e7a08232b935793f05d70dac5)，Flink CDC 对照仍固定 `release-3.6.0`。本轮新增的事实是 Pekko 已经把跨 Chunk、读视图回滚和跨 JVM full rescan 接到表级 Checkpoint 主路径，但 `TableCdcGraphRuntime` 仍是 façade，不能把它写成已经拥有 Flink SourceReader 同等的统一 materialized Graph 运行时。
+
+```mermaid
+flowchart LR
+    P["Pekko：Shared Reader + TableActor"] --> PC["表级 Checkpoint / Journal"]
+    PC --> PR["无 continuation 时重建 pre-F baseline"]
+    F["Flink CDC：SplitEnumerator + SourceReader"] --> FC["Checkpoint state"]
+    FC --> FR["失败 Split 重新分配"]
+    PR -. "本文已验证单表，已有二表共享 Reader 材料" .-> E["逐字段对账"]
+    FR -. "源码对照，不是本轮同环境实测" .-> E
+```
+
+比较结论只到运行时责任边界。Pekko 目前有真实单表跨重启证据和已有两表共享 Reader 材料，足以讨论动态表级生命周期；这不是 70 万物理表容量证明，也不是与 Flink CDC 的同负载性能基准。source fence v2、L floor 跨进程恢复和长期容量曲线仍单独列为未验证范围。
 
 ## 0 先给出结论
 

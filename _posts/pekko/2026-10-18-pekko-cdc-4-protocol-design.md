@@ -41,7 +41,7 @@ flowchart LR
 
 本文围绕一张新增表 `orders_06` 展开。读者会看到一组具体的 `B、K、LOW、HIGH、F` 数值如何变化，`BootstrapRunner` 如何按窗口推进，以及为什么 `STREAMING` 必须是最后一个状态。
 
-> **源码基线**：`472e809`。Pekko 源码调用链按该提交阅读，Flink CDC 对照固定 `release-3.6.0`；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
+> **源码基线**：`644d8bd`。Pekko 源码调用链按该提交阅读，Flink CDC 对照固定 `release-3.6.0`；后续提交只改变文档或验证材料，不改变本文涉及的生产实现。
 
 历史 I01—I24 只按各自冻结版本和切点解释，当前代码阅读和历史实验不会自动互相升级。
 
@@ -69,6 +69,25 @@ sequenceDiagram
 7 个表级 Checkpoint 场景在重启后均完成目标逐字段对账；自动恢复中 5 个负例保留为 SAFE_BLOCK，R4 与两个 Journal 拒绝探针没有进入注入点。LOW/HIGH/F 的协议推演不能因此扩展为 Runtime Savepoint 已经完成跨 JVM 端到端恢复。详见[Checkpoint 恢复材料](https://github.com/Xuxiaotuan/pekko-reference/blob/228dba6/docs/experiments/2026-11-19-checkpoint-recovery/README.md)。
 
 
+
+
+## 2026-11-22 跨 Chunk 与跨重启修订
+
+本篇当前源码基线为 [`644d8bd`](https://github.com/Xuxiaotuan/pekko-reference/tree/644d8bdcc6d9721e7a08232b935793f05d70dac5)。LOW/HIGH/F 的协议现在与跨重启重建路径对齐：LOW/HIGH 只对当前 revision 的读视图有效，F 只有在目标、Journal 和 ACK 证据完成交接后才能激活。
+
+```mermaid
+stateDiagram-v2
+    [*] --> SCANNING
+    SCANNING --> SCANNING: pre-F restart / new revision
+    SCANNING --> REPLAYING: HIGH sealed
+    REPLAYING --> ACTIVATING: F reached
+    ACTIVATING --> STREAMING: T/J/D verified
+    SCANNING --> PAUSED: source or view proof unknown
+    REPLAYING --> PAUSED: Journal / target proof unknown
+    STREAMING --> [*]
+```
+
+这次实验证明的是固定 Chunk 和固定窗口下的正确恢复。它没有证明 source fence v2 已经完成独立 guardian 隔离、遗留事务排空和多 owner 接管，也没有把 L floor 的跨进程 GC 验证混入这次结果。未知 source fence 或 L floor 证据时，协议继续安全暂停。
 
 ## 0 先固定一张表的时间线
 

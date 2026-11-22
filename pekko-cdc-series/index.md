@@ -3,7 +3,7 @@ layout: page
 title: "从 Flink CDC 到 Pekko：共享捕获、全量转流与恢复协议"
 description: "五篇源码与实验文章：共享 Reader、Split 分页、LOW/HIGH、B 到 F、T/J/D 恢复、captureEpoch Savepoint 及 Flink CDC 比较。"
 permalink: /pekko-cdc-series/
-last_modified_at: 2026-11-19
+last_modified_at: 2026-11-22
 mermaid: true
 ---
 
@@ -56,7 +56,7 @@ Checkpoint 是批转流和故障恢复的主线，Savepoint 是建立在表级 C
 
 2026-10-27 的修订把持久任务索引、有界步骤和平台入口接回原来的五篇主线：目标与执行资源 → 分页/LOW/HIGH/B→F 源码 → 真实实验与反例 → 恢复状态与确认协议 → 与 Flink CDC 的具体取舍。源码变化、当前实测和历史材料分别标识；Actor 机制、旧 T/J/D 推导及失败仍保留在独立[技术附录](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/articles/cdc-design/appendices/README.md)。文章更新不自动改变旧实验的版本或结果。
 
-> **历史链接说明**：首页中标注为 `f6313c0`、`74b6d9a`、`55fad0c`、`0157b07` 等的 GitHub 链接，都是历史源码或历史实验快照，用于复算当时材料；当前五篇正文的源码阅读基线统一为 `472e809a2393769d468d1e385bf1373a1f453ec3`。此前的 `0157b07`、`6ce4e15`、`04ff73d` 和 `e043a81` 仍保留为文章演进历史，不再作为当前源码入口。
+> **历史链接说明**：首页中标注为 `f6313c0`、`74b6d9a`、`55fad0c`、`0157b07` 等的 GitHub 链接，都是历史源码或历史实验快照，用于复算当时材料；当前五篇正文的源码阅读基线统一为 `644d8bdcc6d9721e7a08232b935793f05d70dac5`。此前的 `0157b07`、`6ce4e15`、`04ff73d` 和 `e043a81` 仍保留为文章演进历史，不再作为当前源码入口。
 
 ## 独立 Runtime 的当前边界（2026-11-13）
 
@@ -74,6 +74,41 @@ Checkpoint 是批转流和故障恢复的主线，Savepoint 是建立在表级 C
 最终 acceptance 使用真实 MySQL、Actor Journal、Debezium JDBC offset/history 和 MySQL Sink：全量 B/F、实时更新/插入/删除、GC proof、owner STOPPED→ACTIVE 重启和逐字段对账均有材料。早期 ClusterIP、非 PID1、wildcard writer、namespace 摘要和权限失败没有覆盖；详见 [最终 acceptance 材料](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809a2393769d468d1e385bf1373a1f453ec3/docs/experiments/2026-11-12-runtime-gc/cluster-live-20261113/final/README.md)。
 
 [历史源码与实验材料快照（f6313c0）](https://github.com/Xuxiaotuan/pekko-reference/blob/f6313c0/docs/experiments/2026-11-08-cdc-standalone-entry/retire-workflow-runtime-20261111/README.md)固定运行范围。以下各历史报告仍按原版本解释，不因目录调整重标通过。
+
+
+## 2026-11-22 当前实现与验证口径
+
+当前源码基线为 [`644d8bd`](https://github.com/Xuxiaotuan/pekko-reference/tree/644d8bdcc6d9721e7a08232b935793f05d70dac5)。生产部署只保留 `pekko-cdc-capture` 和 `pekko-cdc-worker` 两个角色：一个 Capture 持有 `SharedMySQLCapture`，Worker 至少两个副本承载表级活动任务。`TableCdcGraphRuntime` 是 Kernel 的统一 per-table façade，内部仍委托 `BootstrapRunner`。
+
+```mermaid
+flowchart TB
+    DB["一个 MySQL 实例"] --> C["pekko-cdc-capture x1"]
+    C --> R["SharedMySQLCapture"]
+    R --> L["持久日志 L"]
+    L --> W["pekko-cdc-worker >= 2"]
+    W --> A["轻量 TableActor"]
+    A --> G["TableCdcGraphRuntime"]
+    G --> Q["表级 Checkpoint"]
+    Q --> T["T/J/D 与目标 ledger"]
+```
+
+```mermaid
+flowchart LR
+    B["B / K"] --> S["Schema + LOW"]
+    S --> H["RR 分页 Chunk + HIGH"]
+    H --> F["回放到 F"]
+    F --> J["T/J/D 交接"]
+    J --> ST["STREAMING"]
+    R["跨 JVM 无 continuation"] --> X["清理旧 spool 与独占目标"]
+    X --> S
+    U["source fence 或 L floor 证据不足"] --> P["PAUSED"]
+```
+
+本轮真实验证使用 MySQL 8.0.36、Debezium 3.6.1、JDBC Actor Journal 和 MySQL Sink。跨 Chunk 与跨重启材料包含同 owner continuation 和无 continuation full rescan，两条路径均完成源表/目标表逐字段对账，差异、缺失和额外字段均为 0。[完整材料](https://github.com/Xuxiaotuan/pekko-reference/blob/644d8bdcc6d9721e7a08232b935793f05d70dac5/support/docs/experiments/2026-11-22-cross-chunk-restart/README.md)
+
+机制级验收不要求构造七十万张真实物理表。已有两表共享 Reader Graph 材料，加上本轮单表跨重启证据，足以验证“共享 Reader、表级状态、独立恢复”的主流程。七十万仍是目录规模和资源模型背景，真实活跃表容量、长期 churn 和吞吐曲线另行验证。
+
+当前仍明确保留三条边界：source fence v2 尚未在独立 guardian、observer/controller 账号和多 owner 进程环境完成端到端接管；L floor 尚未在本轮单独完成跨进程恢复矩阵；`TableCdcGraphRuntime` 仍是 façade，不是完整独立 materialized Graph 重写。证据不足时保持安全暂停。
 
 ## 阅读顺序
 
@@ -162,7 +197,7 @@ stateDiagram-v2
     FAILED --> [*]
 ```
 
-本次已完成并提交的源码为 [`472e809`](https://github.com/Xuxiaotuan/pekko-reference/tree/472e809)：模型、控制库三层 Manifest、Shared Reader epoch、Runtime 冻结、分页摘要校验、创建/读取入口和 focused tests 已通过 Java 17 构建与回归。相关源码入口是 [`CdcSavepointModels.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/savepoint/CdcSavepointModels.scala)、[`CdcSavepointStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/savepoint/CdcSavepointStore.scala)、[`CdcSavepointCoordinator.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/savepoint/CdcSavepointCoordinator.scala)。
+Runtime Savepoint 的历史设计材料来自 [`472e809`](https://github.com/Xuxiaotuan/pekko-reference/tree/472e809)。当前主线源码已经前进到 [`644d8bd`](https://github.com/Xuxiaotuan/pekko-reference/tree/644d8bd)，本轮新增的是跨 Chunk 与跨 JVM pre-F 基线重建，Savepoint 仍按下方边界解释。相关源码入口是 [`CdcSavepointModels.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/savepoint/CdcSavepointModels.scala)、[`CdcSavepointStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/savepoint/CdcSavepointStore.scala)、[`CdcSavepointCoordinator.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/savepoint/CdcSavepointCoordinator.scala)。
 
 这不是 Flink 风格的跨表目标事务 barrier。表级 Checkpoint 仍负责单表故障恢复，Runtime Savepoint 只绑定同一 captureEpoch 下的表级恢复引用；新增表、取消表和不同表的 T/J/D 进度都保持独立。
 

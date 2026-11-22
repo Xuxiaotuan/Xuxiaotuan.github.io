@@ -39,6 +39,27 @@ flowchart LR
 > **源码基线**：当前 `master` 分支源码；历史实验仍按各自材料冻结的提交、版本和切点解释。
 
 
+
+## 2026-11-22 跨 Chunk 与跨重启修订
+
+本篇的当前源码基线是 [`644d8bd`](https://github.com/Xuxiaotuan/pekko-reference/tree/644d8bdcc6d9721e7a08232b935793f05d70dac5)。这次修订把“一个 Reader、很多表级状态、有限执行槽位”落到一个明确的主路径。`TableCdcGraphRuntime` 已成为 Kernel 的统一 per-table façade，内部仍委托 `BootstrapRunner`。它统一了入口和 GC/Checkpoint 调用面，尚未把 Reader、Actor、Sink 全部改写成一张独立 materialized Graph。
+
+```mermaid
+flowchart LR
+    DB["一个 MySQL 实例"] --> C["pekko-cdc-capture x1"]
+    C --> R["SharedMySQLCapture"]
+    R --> L["持久日志 L"]
+    L --> W["pekko-cdc-worker >= 2"]
+    W --> A["表级 TableActor"]
+    A --> G["TableCdcGraphRuntime façade"]
+    G --> J["Checkpoint / Journal"]
+    G --> T["目标事务与 ledger"]
+```
+
+本轮真实恢复材料使用 MySQL 8.0.36、Debezium 3.6.1、JDBC Actor Journal 和 MySQL Sink。它验证了同 owner continuation 和无 continuation 的跨 JVM full rescan，源表与目标表最终逐字段一致。已有的双表 Graph 材料证明同一个 Shared Reader 可以承载两张表的独立 Graph，因此机制级验收以两三张表为边界，不把七十万张真实物理表作为本轮必要条件。
+
+当前结论是资源模型已经清晰，跨 Chunk 读视图恢复已经有真实单表证据，二表共享 Reader 也有独立材料。七十万仍然是目录规模和资源模型的背景，不能从这些样本外推长期吞吐、连接斜率或物理表容量。
+
 ## 这套系统的四层中心结构
 
 本文后面的 LOW/HIGH/F、L、T/J/D 和恢复许可，都建立在下面这条资源分层上：

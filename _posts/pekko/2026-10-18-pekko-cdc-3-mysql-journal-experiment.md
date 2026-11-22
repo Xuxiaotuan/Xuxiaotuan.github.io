@@ -46,6 +46,28 @@ flowchart LR
 这里需要先区分两种恢复材料。异常退出时真正自动推进的是**表级 Checkpoint**：它包含某张表最近的 Split/窗口阶段、可重放的 L 引用以及 T/J/D 交接摘要。Runtime Savepoint 不是必经的故障恢复前提，它只在运维需要固定一组表的 captureEpoch 观察面时提供额外定位。即使 Savepoint 标记为 SEALED，恢复程序仍必须按表读取 Checkpoint，并重新验证 T、J、D、ACK ancestry 和 owner fence。
 
 
+
+## 2026-11-22 跨 Chunk 与跨重启修订
+
+本篇当前源码基线为 [`644d8bd`](https://github.com/Xuxiaotuan/pekko-reference/tree/644d8bdcc6d9721e7a08232b935793f05d70dac5)。表级 Checkpoint 的恢复入口现在明确区分两条路径：同 owner continuation 只替换没有 seal 的当前窗口；新 JVM 没有 continuation 时，pre-F 的完整基线必须重建。
+
+```mermaid
+sequenceDiagram
+    participant R as 新 Runner
+    participant J as Actor Journal
+    participant S as Spool / Target
+    participant L as Shared Reader L
+    R->>J: 读取 durable progress
+    R->>J: 无 continuation，写 BASELINE_RESET
+    R->>S: 清理未发布 baseline
+    R->>L: 重新建立 LOW / HIGH
+    L-->>S: 分页 Chunk 与目标 ledger
+    S-->>J: T 后写 Journal checkpoint
+    J-->>L: 仅在证明成立后推进 D / ACK
+```
+
+真实 MySQL、Actor Journal 和 MySQL Sink 验证了这条顺序。单表场景完成跨 Chunk、读视图故障、同 owner 恢复和无 continuation full rescan，最终逐字段对账通过。source fence v2 的独立 guardian、observer/controller 账号和多 owner 接管仍没有在本轮端到端运行。L floor 也没有在本轮单独完成跨进程矩阵，因此文章不会把“Checkpoint 通过”写成“source fencing 与 GC 全链路已经证明”。
+
 ## 0 一个具体故障
 
 案例任务 `orders_06` 在 `execution=17` 中处理第 7110 个 ACK。这里沿用系列案例名，实验材料中的真实 task 标识仍以快照为准。目标 Sink 已提交该组事件，客户端在 `COMMIT` 返回前断开，Journal 仍停在旧 revision。系统留下了下面的状态：
