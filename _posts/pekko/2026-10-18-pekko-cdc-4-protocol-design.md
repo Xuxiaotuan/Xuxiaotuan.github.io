@@ -363,3 +363,8 @@ T/J/D 关系可重读
 
 L floor 的两表跨进程 GC 复跑已创建真实 MySQL、`a`/`b` 两张表和真实 Debezium Reader。首轮暴露 GC 账号缺少 `pekko_capture_epochs_v1` 权限，第二轮已进入 streaming，但 `a` 在固定窗口内未进入最终 `STREAMING`，因此这轮保留为 `evidence_incomplete`，材料见 [L floor 复跑记录](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-22-graph-fence-v2/l-floor-followup-20261122)。这条边界不能被 C1 的单表恢复通过覆盖。
 
+## LOW/HIGH/F 之后的维护边界
+
+LOW/HIGH/F 的初始化和转流路径已经在真实单表流程中跑通，计划停止后的 STREAMING 进度也能重新进入调度。L floor 的安全回收还需要额外满足实际 D、ACK proof 分页、慢表 pin 和 GC operation 的联合条件。当前两表探针已经验证 namespace inventory 和阻断保护，但没有把删除超时解释成成功。
+
+因此，协议可以描述“何时允许回收”，不能在缺少 GROUP deletion 证据时声称“已经完成回收”。

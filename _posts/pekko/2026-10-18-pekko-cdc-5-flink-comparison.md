@@ -328,3 +328,8 @@ Pekko 的表级生命周期已经覆盖独立新增、Journal 重启恢复和运
 
 L floor 的两表跨进程 GC 复跑已创建真实 MySQL、`a`/`b` 两张表和真实 Debezium Reader。首轮暴露 GC 账号缺少 `pekko_capture_epochs_v1` 权限，第二轮已进入 streaming，但 `a` 在固定窗口内未进入最终 `STREAMING`，因此这轮保留为 `evidence_incomplete`，材料见 [L floor 复跑记录](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-22-graph-fence-v2/l-floor-followup-20261122)。这条边界不能被 C1 的单表恢复通过覆盖。
 
+## 对比的证据范围
+
+本轮改动让合并入口与 worker-only 入口的职责边界更清楚：前者依赖本地 SharedMySQLCapture 的 admission evidence，后者依赖 CaptureRuntime projection；计划停止只释放尚未执行的 grant，未知结果仍进入保守恢复路径。
+
+与 Flink CDC 的比较仍以已经跑通的批转流、恢复和逐字段对账为基础。L floor 跨进程 GC 的 GROUP 删除尚未通过，本文不把 namespace ready、测试回归或单表一致性扩大为完整高可用保证。

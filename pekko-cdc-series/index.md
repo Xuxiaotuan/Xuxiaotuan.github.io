@@ -362,3 +362,9 @@ flowchart LR
 ```
 
 `pekko-server` 是共享兼容库和历史测试入口，不是第三个生产部署模块。历史源码链接和实验版本仍按原报告解释，不能用当前模块结构改写旧实验结论。
+
+## 2026-11-22 复跑校正
+
+本轮源码提交为 [`281ea99`](https://github.com/Xuxiaotuan/pekko-reference/tree/281ea99)。它修正了 standalone Capture 的 ready 时序、合并入口误用 worker lease、停止期间 grant 抢占，以及计划停止后 STREAMING 进度被错误置 PAUSED 的问题。509 项非外部测试全部通过。
+
+真实两表 RG01 复跑已经观察到 namespace inventory 完成、LOW/HIGH/F 初始化和逐字段目标对账路径，但 L floor 的 GROUP deletion 没有形成通过证据。一次复跑因 ACK 分页表权限阻断，补齐权限后又出现重启窗口 HTTP 超时。相关失败材料已经放入 [RG01 最终复跑证据](https://github.com/Xuxiaotuan/pekko-reference/tree/281ea99/support/docs/experiments/2026-11-22-graph-fence-v2/l-floor-followup-20261122)。因此首页早期材料中“GC 已完成”的表述只代表当时版本和当时窗口，不能替代本轮独立矩阵结论。

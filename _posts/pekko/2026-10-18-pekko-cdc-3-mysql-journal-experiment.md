@@ -363,3 +363,8 @@ sequenceDiagram
 
 L floor 的两表跨进程 GC 复跑已创建真实 MySQL、`a`/`b` 两张表和真实 Debezium Reader。首轮暴露 GC 账号缺少 `pekko_capture_epochs_v1` 权限，第二轮已进入 streaming，但 `a` 在固定窗口内未进入最终 `STREAMING`，因此这轮保留为 `evidence_incomplete`，材料见 [L floor 复跑记录](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-22-graph-fence-v2/l-floor-followup-20261122)。这条边界不能被 C1 的单表恢复通过覆盖。
 
+## ACK proof 的真实边界
+
+GC namespace 的账号清单现在按真实 MySQL 的 `mysql.user` inventory 校验，临时实验中的 bootstrap 账号、producer 和 GC writer 都必须显式出现在配置里。复跑先捕获了缺少 `actual_d` 和 ACK 分页表写权限的阻断，补齐后 namespace 可以到达 `COMPLETE`，说明账号和受保护表边界被真正执行。
+
+但 namespace 完成只代表可以开始维护，不代表已经删除了一个安全 GROUP。最终两表实验仍在删除窗口超时，材料中保留了 GC 状态、pins、L、D 和失败日志。

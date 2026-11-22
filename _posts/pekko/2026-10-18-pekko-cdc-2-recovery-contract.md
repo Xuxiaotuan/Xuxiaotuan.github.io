@@ -475,3 +475,8 @@ Graph 重启实验把 `Journal persist → 新 JVM read → L ACK` 的恢复顺�
 
 L floor 的两表跨进程 GC 复跑已创建真实 MySQL、`a`/`b` 两张表和真实 Debezium Reader。首轮暴露 GC 账号缺少 `pekko_capture_epochs_v1` 权限，第二轮已进入 streaming，但 `a` 在固定窗口内未进入最终 `STREAMING`，因此这轮保留为 `evidence_incomplete`，材料见 [L floor 复跑记录](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-22-graph-fence-v2/l-floor-followup-20261122)。这条边界不能被 C1 的单表恢复通过覆盖。
 
+## 计划停止与未知结果必须分开
+
+恢复协议中有一条边界不能混淆。任务在计划停止时如果尚未进入 Graph 执行，可以释放 grant 并保留原有 `STREAMING` 进度，下一次启动继续调度。只有提交结果未知、guardian 丢失或资源释放无法证明时，才应该写入 `UNKNOWN` 并暂停。当前实现为计划停止增加了专用释放路径，避免正常重启消耗恢复预算。
+
+这条路径已经通过静态编译和 509 项非外部回归。真实两表 RG01 在快照、回填、F 激活和逐字段对账阶段均进入过实际运行路径，但跨重启后的 GC 删除仍未通过，不能把正常停止释放等同于 L floor 已被证明。

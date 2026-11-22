@@ -532,3 +532,8 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 
 L floor 的两表跨进程 GC 复跑已创建真实 MySQL、`a`/`b` 两张表和真实 Debezium Reader。首轮暴露 GC 账号缺少 `pekko_capture_epochs_v1` 权限，第二轮已进入 streaming，但 `a` 在固定窗口内未进入最终 `STREAMING`，因此这轮保留为 `evidence_incomplete`，材料见 [L floor 复跑记录](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-22-graph-fence-v2/l-floor-followup-20261122)。这条边界不能被 C1 的单表恢复通过覆盖。
 
+## 运行时边界：ready 必须晚于 Reader 证据
+
+这次复跑暴露了一个容易被忽略的启动时序。Debezium 接受启动请求，只说明引擎创建成功，不能说明共享 Reader 已经具备可调度条件。当前实现把 `ADMISSION_READY` 绑定到持久化 L/D 证据和真实 binlog 连接同时成立，合并入口也不再错误地要求 worker-only 的 Capture projection。这样，表任务不会在 Reader 仍处于启动阶段时进入调度队列。
+
+独立测试回归通过 509 项。两表 GC 复跑已经完成 namespace inventory 和账号边界检查，但 GROUP 删除仍未形成通过证据。实验材料保留了 namespace 已完成、GC 阻断和 HTTP 超时的完整状态。
