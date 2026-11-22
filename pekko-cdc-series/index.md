@@ -371,6 +371,6 @@ flowchart LR
 
 ## 2026-11-23 L floor 复跑
 
-代码基线为 [`b5dfa87`](https://github.com/Xuxiaotuan/pekko-reference/tree/b5dfa87)。RG01 已通过真实 MySQL、Actor Journal、Sink 和跨重启 GROUP deletion 验证。GC ledger trigger 已显式绑定配置中的 `ledgerDefiner`，GROUP deletion 的验收改为检查持久化 operation 的 `to_exclusive > from_seq`，不再要求删除后仍有 frames。
+代码基线为 [`2b793fb`](https://github.com/Xuxiaotuan/pekko-reference/tree/2b793fb)。RG01 已通过真实 MySQL、Actor Journal、Sink 和跨重启 GROUP deletion 验证。GC ledger trigger 已显式绑定配置中的 `ledgerDefiner`，GROUP deletion 的验收改为检查持久化 operation 的 `to_exclusive > from_seq`，不再要求删除后仍有 frames。
 
-RG02 慢表保护仍失败并保留 `actual D proof pending` 与 `local_release_unconfirmed` 证据。RG07 尚未独立复跑，LG01—LG16 当前仍是历史材料，DDL、多 owner 自动接管、完整 source fence v2 和 `TableCdcGraphRuntime` façade 重写仍未完成。
+RG02 慢表保护仍失败并保留 `actual D proof pending` 与 `local_release_unconfirmed` 证据。RG07 独立异常重启窗口已通过，LG01—LG16 当前仍是历史材料，DDL、多 owner 自动接管、完整 source fence v2 和 `TableCdcGraphRuntime` façade 重写仍未完成。
