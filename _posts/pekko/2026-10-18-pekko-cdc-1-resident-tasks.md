@@ -537,3 +537,9 @@ L floor 的两表跨进程 GC 复跑已创建真实 MySQL、`a`/`b` 两张表和
 这次复跑暴露了一个容易被忽略的启动时序。Debezium 接受启动请求，只说明引擎创建成功，不能说明共享 Reader 已经具备可调度条件。当前实现把 `ADMISSION_READY` 绑定到持久化 L/D 证据和真实 binlog 连接同时成立，合并入口也不再错误地要求 worker-only 的 Capture projection。这样，表任务不会在 Reader 仍处于启动阶段时进入调度队列。
 
 独立测试回归通过 509 项。两表 GC 复跑已经完成 namespace inventory 和账号边界检查，但 GROUP 删除仍未形成通过证据。实验材料保留了 namespace 已完成、GC 阻断和 HTTP 超时的完整状态。
+
+## 2026-11-23 L floor 复跑结果
+
+RG01 已在真实 MySQL、Actor Journal 和 MySQL Sink 上通过。GC namespace 达到 `COMPLETE`，operation 达到 `DONE`，`to_exclusive > from_seq`，重启后的任务回到 `STREAMING`，源表与目标表逐字段一致。
+
+RG02 的慢表窗口仍未通过。真实运行进入 `actual D proof pending`，随后出现 `local_release_unconfirmed`，材料保留在 `pekko-reference` 的 `support/docs/experiments/2026-11-22-graph-fence-v2/l-floor-followup-20261122/RG02-failure-20261123/`。RG07 尚未形成独立通过证据。LG01—LG16 的历史 final/verified3 材料仍按原版本解释，不能替代当前版本复跑。

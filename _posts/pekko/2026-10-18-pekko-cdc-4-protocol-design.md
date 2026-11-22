@@ -368,3 +368,9 @@ L floor 的两表跨进程 GC 复跑已创建真实 MySQL、`a`/`b` 两张表和
 LOW/HIGH/F 的初始化和转流路径已经在真实单表流程中跑通，计划停止后的 STREAMING 进度也能重新进入调度。L floor 的安全回收还需要额外满足实际 D、ACK proof 分页、慢表 pin 和 GC operation 的联合条件。当前两表探针已经验证 namespace inventory 和阻断保护，但没有把删除超时解释成成功。
 
 因此，协议可以描述“何时允许回收”，不能在缺少 GROUP deletion 证据时声称“已经完成回收”。
+
+## 2026-11-23 L floor 复跑结果
+
+RG01 已在真实 MySQL、Actor Journal 和 MySQL Sink 上通过。GC namespace 达到 `COMPLETE`，operation 达到 `DONE`，`to_exclusive > from_seq`，重启后的任务回到 `STREAMING`，源表与目标表逐字段一致。
+
+RG02 的慢表窗口仍未通过。真实运行进入 `actual D proof pending`，随后出现 `local_release_unconfirmed`，材料保留在 `pekko-reference` 的 `support/docs/experiments/2026-11-22-graph-fence-v2/l-floor-followup-20261122/RG02-failure-20261123/`。RG07 尚未形成独立通过证据。LG01—LG16 的历史 final/verified3 材料仍按原版本解释，不能替代当前版本复跑。

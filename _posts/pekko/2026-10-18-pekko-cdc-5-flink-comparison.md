@@ -333,3 +333,9 @@ L floor 的两表跨进程 GC 复跑已创建真实 MySQL、`a`/`b` 两张表和
 本轮改动让合并入口与 worker-only 入口的职责边界更清楚：前者依赖本地 SharedMySQLCapture 的 admission evidence，后者依赖 CaptureRuntime projection；计划停止只释放尚未执行的 grant，未知结果仍进入保守恢复路径。
 
 与 Flink CDC 的比较仍以已经跑通的批转流、恢复和逐字段对账为基础。L floor 跨进程 GC 的 GROUP 删除尚未通过，本文不把 namespace ready、测试回归或单表一致性扩大为完整高可用保证。
+
+## 2026-11-23 L floor 复跑结果
+
+RG01 已在真实 MySQL、Actor Journal 和 MySQL Sink 上通过。GC namespace 达到 `COMPLETE`，operation 达到 `DONE`，`to_exclusive > from_seq`，重启后的任务回到 `STREAMING`，源表与目标表逐字段一致。
+
+RG02 的慢表窗口仍未通过。真实运行进入 `actual D proof pending`，随后出现 `local_release_unconfirmed`，材料保留在 `pekko-reference` 的 `support/docs/experiments/2026-11-22-graph-fence-v2/l-floor-followup-20261122/RG02-failure-20261123/`。RG07 尚未形成独立通过证据。LG01—LG16 的历史 final/verified3 材料仍按原版本解释，不能替代当前版本复跑。

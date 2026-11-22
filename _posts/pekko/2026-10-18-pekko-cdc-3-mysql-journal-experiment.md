@@ -368,3 +368,9 @@ L floor 的两表跨进程 GC 复跑已创建真实 MySQL、`a`/`b` 两张表和
 GC namespace 的账号清单现在按真实 MySQL 的 `mysql.user` inventory 校验，临时实验中的 bootstrap 账号、producer 和 GC writer 都必须显式出现在配置里。复跑先捕获了缺少 `actual_d` 和 ACK 分页表写权限的阻断，补齐后 namespace 可以到达 `COMPLETE`，说明账号和受保护表边界被真正执行。
 
 但 namespace 完成只代表可以开始维护，不代表已经删除了一个安全 GROUP。最终两表实验仍在删除窗口超时，材料中保留了 GC 状态、pins、L、D 和失败日志。
+
+## 2026-11-23 L floor 复跑结果
+
+RG01 已在真实 MySQL、Actor Journal 和 MySQL Sink 上通过。GC namespace 达到 `COMPLETE`，operation 达到 `DONE`，`to_exclusive > from_seq`，重启后的任务回到 `STREAMING`，源表与目标表逐字段一致。
+
+RG02 的慢表窗口仍未通过。真实运行进入 `actual D proof pending`，随后出现 `local_release_unconfirmed`，材料保留在 `pekko-reference` 的 `support/docs/experiments/2026-11-22-graph-fence-v2/l-floor-followup-20261122/RG02-failure-20261123/`。RG07 尚未形成独立通过证据。LG01—LG16 的历史 final/verified3 材料仍按原版本解释，不能替代当前版本复跑。
