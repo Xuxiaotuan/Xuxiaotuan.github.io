@@ -311,3 +311,19 @@ stateDiagram-v2
 单表 Graph 的 Journal 重启恢复也已通过真实 MySQL 故障验证。新 JVM 从持久化 cursor 继续消费 L，逐字段对账通过。详见[Graph Journal 恢复报告](https://github.com/Xuxiaotuan/pekko-reference/blob/56b1daf/docs/experiments/2026-11-20-table-graph-restart/README.md)。
 
 运行中取消也已通过真实验证。停止一张表不会停止共享 Reader 或其他表 Graph，被取消表的差异被保留为预期结果。详见[Graph 取消验证报告](https://github.com/Xuxiaotuan/pekko-reference/blob/299c954/docs/experiments/2026-11-20-table-graph-cancel/README.md)。
+
+
+## 2026-11-22 运行时基线更新
+
+本系列当前以 `pekko-reference` 的 `master` 分支为唯一 CDC 基线。生产部署拆成两个模块：`pekko-cdc-capture` 和 `pekko-cdc-worker`。Capture 运行一个副本并持有 `SharedMySQLCapture`。Worker 至少运行两个副本，通过 `TaskLease` 创建独立的 `TableActor` 和 materialized `TableCdcGraph`，不复制源端 Reader。
+
+```mermaid
+flowchart LR
+  C[pekko-cdc-capture x1] --> L[capture_owner lease]
+  L --> R[SharedMySQLCapture]
+  R --> W[pekko-cdc-worker]
+  W --> G[TableActor + TableCdcGraph]
+  G --> T[T/J/D]
+```
+
+`pekko-server` 是共享兼容库和历史测试入口，不是第三个生产部署模块。历史源码链接和实验版本仍按原报告解释，不能用当前模块结构改写旧实验结论。

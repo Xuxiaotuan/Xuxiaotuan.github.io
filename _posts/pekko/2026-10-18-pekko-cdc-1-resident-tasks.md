@@ -13,15 +13,30 @@ tags:
   - 源码分析
 mermaid: true
 math: true
-last_modified_at: 2026-11-19
+last_modified_at: 2026-11-22
 ---
+
+## 2026-11-22 运行时基线更新
+
+本系列当前以 `pekko-reference` 的 `master` 分支为唯一 CDC 基线。生产部署拆成两个模块：`pekko-cdc-capture` 和 `pekko-cdc-worker`。Capture 运行一个副本并持有 `SharedMySQLCapture`。Worker 至少运行两个副本，通过 `TaskLease` 创建独立的 `TableActor` 和 materialized `TableCdcGraph`，不复制源端 Reader。
+
+```mermaid
+flowchart LR
+  C[pekko-cdc-capture x1] --> L[capture_owner lease]
+  L --> R[SharedMySQLCapture]
+  R --> W[pekko-cdc-worker]
+  W --> G[TableActor + TableCdcGraph]
+  G --> T[T/J/D]
+```
+
+`pekko-server` 是共享兼容库和历史测试入口，不是第三个生产部署模块。历史源码链接和实验版本仍按原报告解释，不能用当前模块结构改写旧实验结论。
 
 作者：xuyinyin
 [系列导读](/pekko-cdc-series/) · [Pekko CDC 深入解析（一）](/2026/10/18/pekko-cdc-1-resident-tasks/) · [Pekko CDC 深入解析（二）](/2026/10/18/pekko-cdc-2-recovery-contract/) · [Pekko CDC 深入解析（三）](/2026/10/18/pekko-cdc-3-mysql-journal-experiment/) · [Pekko CDC 深入解析（四）](/2026/10/18/pekko-cdc-4-protocol-design/) · [Pekko CDC 深入解析（五）](/2026/10/18/pekko-cdc-5-flink-comparison/)
 
 > **本篇入口**：一个 MySQL 实例已经由 `orders_01` 到 `orders_05` 共用 Shared Reader。10:00 新增 `orders_06`，本文先回答 70 万条目录记录如何与有限的 Reader、快照和尾部执行资源分离；后续四篇都沿这张表继续。
 >
-> **源码基线**：`472e809`。本文的源码调用链按该提交阅读，后续提交只改变文档或验证材料，不改变本文涉及的生产实现；历史实验仍按各自材料冻结的版本和切点解释。
+> **源码基线**：当前 `master` 分支源码；历史实验仍按各自材料冻结的提交、版本和切点解释。
 
 
 ## 这套系统的四层中心结构
@@ -465,14 +480,14 @@ KubeSphere 运行时实验使用真实 MySQL、Journal 和 MySQL Sink。重启�
 
 | 责任 | 当前源码 |
 |---|---|
-| capture 组装、Reader 生命周期、任务 session | [`CdcBootstrapKernel.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala) |
-| 共享 Debezium Reader、原始回调、ACK 前缀、marker | [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
-| 任务 grant、双池调度、owner 状态、恢复 | [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
-| 持久化任务索引、grant 与 continuation | [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala) |
-| Journal 顺序与恢复 receipt | [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
-| 表级 Checkpoint 模型与旧类型迁移 | [CheckpointModels.scala](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/checkpoint/CheckpointModels.scala)、[BootstrapProtocol.scala](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapProtocol.scala) |
-| ACK proof 分页与安全 GC | [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
-| GC 保留策略与实际 D | [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/472e809/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
+| capture 组装、Reader 生命周期、任务 session | [`CdcBootstrapKernel.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcBootstrapKernel.scala) |
+| 共享 Debezium Reader、原始回调、ACK 前缀、marker | [`SharedMySQLCapture.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/SharedMySQLCapture.scala) |
+| 任务 grant、双池调度、owner 状态、恢复 | [`CdcPlatformRuntime.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcPlatformRuntime.scala) |
+| 持久化任务索引、grant 与 continuation | [`CdcTaskStore.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/cdc/platform/CdcTaskStore.scala) |
+| Journal 顺序与恢复 receipt | [`BootstrapJournal.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapJournal.scala) |
+| 表级 Checkpoint 模型与旧类型迁移 | [CheckpointModels.scala](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/cdc/checkpoint/CheckpointModels.scala)、[BootstrapProtocol.scala](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/cdc/bootstrap/BootstrapProtocol.scala) |
+| ACK proof 分页与安全 GC | [`CaptureAckPaging.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureAckPaging.scala) |
+| GC 保留策略与实际 D | [`CaptureGcRetention.scala`](https://github.com/Xuxiaotuan/pekko-reference/blob/master/server/src/main/scala/cn/xuyinyin/magic/connectors/mysql/source/capture/CaptureGcRetention.scala) |
 
 最终判断应保持克制：当前实现已经具备“一个 capture 共享 Reader、表级可恢复执行、有界调度和保守释放”的源码结构，也有指定真实环境下的逐字段闭环；但它还没有把 70 万张真实活跃表的连接、吞吐、长期稳定性和全部故障窗口证明完。这个差距不是文章措辞可以消除的，必须用下一轮容量与端到端实验补齐。
 
