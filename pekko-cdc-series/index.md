@@ -108,11 +108,11 @@ flowchart LR
 
 机制级验收不要求构造七十万张真实物理表。已有两表共享 Reader Graph 材料，加上本轮单表跨重启证据，足以验证“共享 Reader、表级状态、独立恢复”的主流程。七十万仍是目录规模和资源模型背景，真实活跃表容量、长期 churn 和吞吐曲线另行验证。
 
-当前仍明确保留三条边界：source fence v2 尚未在独立 guardian、observer/controller 账号和多 owner 进程环境完成端到端接管；L floor 尚未在本轮单独完成跨进程恢复矩阵；`TableCdcGraphRuntime` 仍是 façade，不是完整独立 materialized Graph 重写。证据不足时保持安全暂停。
+当前仍明确保留三条边界：source fence v2 尚未在独立 guardian、observer/controller 账号和多 owner 进程环境完成端到端接管；L floor 尚未在本轮单独完成跨进程恢复矩阵；`TableCdcGraphRuntime` 已移除对 `BootstrapRunner` 的公开委托，快照阶段仍通过兼容适配器复用旧 Runner，Streaming 阶段由 materialized Graph 持有 Source、Sink、Journal 和 ACK 顺序。证据不足时保持安全暂停。
 
 ## 2026-11-23 当前 RG02/LG 验证更新
 
-当前代码基线为 [`56fea1c`](https://github.com/Xuxiaotuan/pekko-reference/commit/56fea1c)。在真实 MySQL、Actor Journal 和 MySQL Sink 上，RG01、RG07 已在该提交复跑通过。RG01 的 GC、正常重启和两表逐字段对账通过。RG07 保持异常重启安全暂停并恢复对账。RG02 已在前一提交 `1a0a0e4` 通过慢表目标锁窗口，Graph capability 重构没有改变 Reader、Sink、Journal 或 L 顺序。
+当前代码基线为 [`fe718eb`](https://github.com/Xuxiaotuan/pekko-reference/commit/fe718eb)。在真实 MySQL、Actor Journal 和 MySQL Sink 上，RG02 的慢表目标锁窗口、GC partial/final、正常重启和两张表逐字段对账通过。RG01、RG07 的通过证据来自 `56fea1c`。本次修复了 Streaming Graph 推进 Journal 后旧 continuation 被全量比较的竞态。
 
 这轮修复了 materialized Graph 的 JDBC 执行上下文、STREAMING Journal 会话生命周期和 ACK 后的 proof 投影顺序。历史 RG02 失败材料仍保留在 [`当前版本 RG02/LG 材料`](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-23-rg02-lg-current)。LG01—LG16 尚未形成当前版本逐项证据，不能把历史 LG 报告写成当前通过，也不能把两表故障矩阵写成 70 万物理表容量证明。
 
@@ -379,4 +379,4 @@ flowchart LR
 
 代码基线为 [`2b793fb`](https://github.com/Xuxiaotuan/pekko-reference/tree/2b793fb)。RG01 已通过真实 MySQL、Actor Journal、Sink 和跨重启 GROUP deletion 验证。GC ledger trigger 已显式绑定配置中的 `ledgerDefiner`，GROUP deletion 的验收改为检查持久化 operation 的 `to_exclusive > from_seq`，不再要求删除后仍有 frames。
 
-RG02 慢表窗口在当前版本仍未通过。两个执行槽下仍出现 Journal ask 超时和 `local_release_unconfirmed` 安全暂停。RG07 独立异常重启窗口已通过，LG01—LG16 当前仍是历史材料，DDL、多 owner 自动接管、完整 source fence v2 和 `TableCdcGraphRuntime` façade 重写仍未完成。
+RG02 当前版本已经通过真实慢表窗口与重启对账。此前 Journal ask 超时、`local_release_unconfirmed` 和 continuation 误判材料仍保留。LG01—LG16 仍未在本轮逐项复跑，DDL、多 owner 自动接管和完整 source fence v2 仍不在本次验收范围。

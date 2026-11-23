@@ -141,6 +141,6 @@ H 先跑 50,000 条 pilot，按实际磁盘增长与剩余空间确认预算，�
 
 ## Runtime GC（2026-11-12）
 
-独立 CDC Runtime 已接入 L 安全 GC、旧 namespace 清点和持久化小批次调度。本轮当前版本复跑中，RG01 与 RG07 已通过，RG02 慢表窗口仍安全阻挡；LG01—LG16 只有历史材料，尚未在本轮当前版本重新跑完。未知 B、异常重启、慢表和危险权限继续保留安全暂停边界。远端 amd64 acceptance 已验证镜像、Deployment Ready、API port-forward 和 Source binlog 启动；完整集群 Sink 对账仍未收敛。
+独立 CDC Runtime 已接入 L 安全 GC、旧 namespace 清点和持久化小批次调度。`fe718eb` 复跑的 RG02 慢表窗口、GC partial/final、正常重启和两张表逐字段对账通过，RG01 与 RG07 的通过材料来自 `56fea1c`。LG01—LG16 只有历史材料，尚未在本轮当前版本逐项复跑。未知 B、异常重启、慢表和危险权限继续保留安全暂停边界。远端 amd64 acceptance 已验证镜像、Deployment Ready、API port-forward 和 Source binlog 启动；完整集群 Sink 对账仍未收敛。
 
 [源码实验报告](https://github.com/Xuxiaotuan/pekko-reference/blob/1ab1acf/docs/experiments/2026-11-12-runtime-gc/README.md) · [L GC 逐项证据](https://github.com/Xuxiaotuan/pekko-reference/tree/0b571796858d14f46f7d81196139f677192a812b/docs/experiments/2026-11-12-capture-gc)

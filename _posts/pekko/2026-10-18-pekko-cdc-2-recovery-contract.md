@@ -17,9 +17,9 @@ last_modified_at: 2026-11-23
 ---
 ## 2026-11-23 当前版本 RG01、RG02、RG07 验证
 
-本轮当前提交 [`56fea1c`](https://github.com/Xuxiaotuan/pekko-reference/commit/56fea1c) 在真实 MySQL 8.0.36、Debezium、Actor Journal 和 MySQL Sink 上复跑 RG01、RG07。RG01 的 GC、正常重启和两表逐字段对账通过。RG07 的异常重启保持安全暂停，随后恢复并完成两表逐字段对账。RG02 已在前一提交 `1a0a0e4` 通过慢表目标锁窗口，Graph capability 重构没有改变 Reader、Sink、Journal 或 L 顺序。
+本轮最终修复提交 [`fe718eb`](https://github.com/Xuxiaotuan/pekko-reference/commit/fe718eb) 在真实 MySQL 8.0.36、Debezium、Actor Journal 和 MySQL Sink 上复跑 RG02，并保留此前 `56fea1c` 的 RG01、RG07 通过证据。RG02 的慢表目标锁窗口、GC partial/final、正常重启和两张表逐字段对账均通过。失败版本中 Streaming Graph 推进 Journal 后旧 continuation 被全量比较的竞态已修复。
 
-这轮修复了三个实现边界。materialized graph 的 JDBC 读写移到有界 blocking executor。进入 `STREAMING` 后保留该表的 Journal 会话，直到 graph 停止或故障释放。Reader 更新 `observed_floor` 后才执行 Journal receipt 的 GC proof projection。历史 RG02 的 ask 超时、`local_release_unconfirmed` 和不一致证据仍保留在 [`2026-11-23-rg02-lg-current`](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-23-rg02-lg-current)，不能用当前通过结果覆盖。
+本轮修复了 materialized Graph 的 JDBC 执行上下文、STREAMING Journal 会话生命周期、ACK 后的 proof 投影顺序，以及 Graph 推进 Journal 时的 continuation 匹配。Continuation 只接受同一 STREAMING 身份下 `deltaAfter` 和 `batchSequence` 的单调推进，仍拒绝执行身份、定义、页、GC proof 或游标回退。历史 RG02 的 ask 超时、`local_release_unconfirmed`、Journal continuation 误判和不一致证据仍保留在 [`2026-11-23-rg02-lg-current`](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-23-rg02-lg-current)，不能用当前通过结果覆盖。
 
 当前版本的 LG01—LG16 完整矩阵尚未重新执行。本文涉及的 RG 结果只覆盖两张表和固定故障窗口，不能外推为 70 万物理表容量或所有 Sink 的 exactly-once 保证。
 
@@ -493,4 +493,4 @@ L floor 的两表跨进程 GC 复跑已创建真实 MySQL、`a`/`b` 两张表和
 
 RG01 已在真实 MySQL、Actor Journal 和 MySQL Sink 上通过。GC namespace 达到 `COMPLETE`，operation 达到 `DONE`，`to_exclusive > from_seq`，重启后的任务回到 `STREAMING`，源表与目标表逐字段一致。
 
-RG02 的历史失败窗口仍保留在当前版本材料中。修复后已在 `1a0a0e4` 通过慢表目标锁窗口，A 表继续追平，B 表解锁后恢复。RG01、RG07 已在 `56fea1c` 复跑通过。LG01—LG16 的历史 final/verified3 材料仍按原版本解释，不能替代当前版本复跑。
+RG02 的失败窗口和修复后通过材料均保留在当前版本目录中。`fe718eb` 的真实复跑覆盖慢表目标锁、GC partial/final、重启和两张表逐字段对账。RG01、RG07 的通过材料来自 `56fea1c`。LG01—LG16 的历史 final/verified3 材料仍按原版本解释，不能替代当前版本逐项复跑。
