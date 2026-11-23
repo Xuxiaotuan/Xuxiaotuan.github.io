@@ -112,7 +112,7 @@ flowchart LR
 
 ## 2026-11-23 当前 RG02/LG 验证更新
 
-当前代码基线为 [`1a0a0e4`](https://github.com/Xuxiaotuan/pekko-reference/commit/1a0a0e4)。在真实 MySQL、Actor Journal 和 MySQL Sink 上，RG02 已在该提交复跑通过。RG02 固定 B 表目标锁窗口，A 表继续追平，B 表解锁后恢复，GC pin 未被越过，重启后两张表完成逐字段对账。RG01 的通过证据来自近邻提交 `3bf35ed`，RG07 的通过证据来自近邻提交 `b9c1111`，两项尚未在 `1a0a0e4` 重新复跑。
+当前代码基线为 [`56fea1c`](https://github.com/Xuxiaotuan/pekko-reference/commit/56fea1c)。在真实 MySQL、Actor Journal 和 MySQL Sink 上，RG01、RG07 已在该提交复跑通过。RG01 的 GC、正常重启和两表逐字段对账通过。RG07 保持异常重启安全暂停并恢复对账。RG02 已在前一提交 `1a0a0e4` 通过慢表目标锁窗口，Graph capability 重构没有改变 Reader、Sink、Journal 或 L 顺序。
 
 这轮修复了 materialized Graph 的 JDBC 执行上下文、STREAMING Journal 会话生命周期和 ACK 后的 proof 投影顺序。历史 RG02 失败材料仍保留在 [`当前版本 RG02/LG 材料`](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-23-rg02-lg-current)。LG01—LG16 尚未形成当前版本逐项证据，不能把历史 LG 报告写成当前通过，也不能把两表故障矩阵写成 70 万物理表容量证明。
 
