@@ -3,7 +3,7 @@ layout: page
 title: "从 Flink CDC 到 Pekko：共享捕获、全量转流与恢复协议"
 description: "五篇源码与实验文章：共享 Reader、Split 分页、LOW/HIGH、B 到 F、T/J/D 恢复、captureEpoch Savepoint 及 Flink CDC 比较。"
 permalink: /pekko-cdc-series/
-last_modified_at: 2026-11-22
+last_modified_at: 2026-11-23
 mermaid: true
 ---
 
@@ -109,6 +109,12 @@ flowchart LR
 机制级验收不要求构造七十万张真实物理表。已有两表共享 Reader Graph 材料，加上本轮单表跨重启证据，足以验证“共享 Reader、表级状态、独立恢复”的主流程。七十万仍是目录规模和资源模型背景，真实活跃表容量、长期 churn 和吞吐曲线另行验证。
 
 当前仍明确保留三条边界：source fence v2 尚未在独立 guardian、observer/controller 账号和多 owner 进程环境完成端到端接管；L floor 尚未在本轮单独完成跨进程恢复矩阵；`TableCdcGraphRuntime` 仍是 façade，不是完整独立 materialized Graph 重写。证据不足时保持安全暂停。
+
+## 2026-11-23 当前 RG02/LG 验证更新
+
+当前代码基线为 [`1a0a0e4`](https://github.com/Xuxiaotuan/pekko-reference/commit/1a0a0e4)。在真实 MySQL、Actor Journal 和 MySQL Sink 上，RG01、RG02、RG07 已通过。RG02 固定 B 表目标锁窗口，A 表继续追平，B 表解锁后恢复，GC pin 未被越过，重启后两张表完成逐字段对账。RG07 保持异常重启安全暂停并恢复对账。
+
+这轮修复了 materialized Graph 的 JDBC 执行上下文、STREAMING Journal 会话生命周期和 ACK 后的 proof 投影顺序。历史 RG02 失败材料仍保留在 [`当前版本 RG02/LG 材料`](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-23-rg02-lg-current)。LG01—LG16 尚未形成当前版本逐项证据，不能把历史 LG 报告写成当前通过，也不能把两表故障矩阵写成 70 万物理表容量证明。
 
 ## 阅读顺序
 
