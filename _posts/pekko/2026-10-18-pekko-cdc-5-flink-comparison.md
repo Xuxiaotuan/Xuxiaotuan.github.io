@@ -19,7 +19,7 @@ last_modified_at: 2026-11-23
 ---
 ## 2026-11-23 当前版本 RG01、RG02、RG07 验证
 
-本次复跑使用 `pekko-reference` `main` 的提交 [`1a0a0e4`](https://github.com/Xuxiaotuan/pekko-reference/commit/1a0a0e4)，真实 MySQL 8.0.36、Debezium、Actor Journal 和 MySQL Sink。RG02 固定 B 表目标行锁窗口，同时向 A 表写入四次更新。A 表在 B 锁住期间继续追平，B 表解锁后恢复，GC 的 `to_exclusive` 没有越过 pin，运行时重启后两张表均通过主键和全部字段逐项对账。RG07 的异常重启保持安全暂停，随后恢复并完成对账。
+本轮当前提交 [`1a0a0e4`](https://github.com/Xuxiaotuan/pekko-reference/commit/1a0a0e4) 在真实 MySQL 8.0.36、Debezium、Actor Journal 和 MySQL Sink 上复跑 RG02。测试固定 B 表目标行锁窗口，同时向 A 表写入四次更新。A 表在 B 锁住期间继续追平，B 表解锁后恢复，GC 的 `to_exclusive` 没有越过 pin，运行时重启后两张表均通过主键和全部字段逐项对账。RG01 的通过证据来自近邻提交 `3bf35ed`，RG07 的通过证据来自近邻提交 `b9c1111`，两项尚未在 `1a0a0e4` 重新复跑。
 
 这轮修复了三个实现边界。materialized graph 的 JDBC 读写移到有界 blocking executor。进入 `STREAMING` 后保留该表的 Journal 会话，直到 graph 停止或故障释放。Reader 更新 `observed_floor` 后才执行 Journal receipt 的 GC proof projection。历史 RG02 的 ask 超时、`local_release_unconfirmed` 和不一致证据仍保留在 [`2026-11-23-rg02-lg-current`](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-23-rg02-lg-current)，不能用当前通过结果覆盖。
 
