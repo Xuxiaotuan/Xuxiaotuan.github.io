@@ -17,11 +17,11 @@ last_modified_at: 2026-11-23
 ---
 ## 2026-11-23 当前版本 RG01、RG02、RG07 验证
 
-本轮最终修复提交 [`fe718eb`](https://github.com/Xuxiaotuan/pekko-reference/commit/fe718eb) 在真实 MySQL 8.0.36、Debezium、Actor Journal 和 MySQL Sink 上复跑 RG02，并保留此前 `56fea1c` 的 RG01、RG07 通过证据。RG02 的慢表目标锁窗口、GC partial/final、正常重启和两张表逐字段对账均通过。失败版本中 Streaming Graph 推进 Journal 后旧 continuation 被全量比较的竞态已修复。
+本轮最终修复提交 [`14476fe`](https://github.com/Xuxiaotuan/pekko-reference/commit/14476fe) 在真实 MySQL 8.0.36、Debezium、Actor Journal 和 MySQL Sink 上复跑 RG02，并保留此前 `56fea1c` 的 RG01、RG07 通过证据。RG02 的慢表目标锁窗口、GC partial/final、正常重启和两张表逐字段对账均通过。失败版本中 Streaming Graph 推进 Journal 后旧 continuation 被全量比较的竞态已修复。
 
 本轮修复了 materialized Graph 的 JDBC 执行上下文、STREAMING Journal 会话生命周期、ACK 后的 proof 投影顺序，以及 Graph 推进 Journal 时的 continuation 匹配。Continuation 只接受同一 STREAMING 身份下 `deltaAfter` 和 `batchSequence` 的单调推进，仍拒绝执行身份、定义、页、GC proof 或游标回退。历史 RG02 的 ask 超时、`local_release_unconfirmed`、Journal continuation 误判和不一致证据仍保留在 [`2026-11-23-rg02-lg-current`](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-23-rg02-lg-current)，不能用当前通过结果覆盖。
 
-当前版本的 LG01—LG16 完整矩阵尚未重新执行。本文涉及的 RG 结果只覆盖两张表和固定故障窗口，不能外推为 70 万物理表容量或所有 Sink 的 exactly-once 保证。
+当前版本已经在真实 MySQL 8.0.36、Debezium、独立 Worker JVM、Actor Journal 和 MySQL Sink 上完成 LG01—LG16 共 17 个场景。LG01—LG16 的逐项材料位于 [`LG-current-20261123`](https://github.com/Xuxiaotuan/pekko-reference/tree/main/support/docs/experiments/2026-11-23-rg02-lg-current/LG-current-20261123)。LG16-capacity 的结果是安全暂停，容量故障窗口中的目标未追平属于预期证据。RG 结果和 LG 结果仍只覆盖固定的单表或少量表故障窗口，不能外推为 70 万物理表容量或所有 Sink 的 exactly-once 保证。
 
 
 ## 2026-11-22 运行时基线更新
@@ -550,4 +550,4 @@ L floor 的两表跨进程 GC 复跑已创建真实 MySQL、`a`/`b` 两张表和
 
 RG01 已在真实 MySQL、Actor Journal 和 MySQL Sink 上通过。GC namespace 达到 `COMPLETE`，operation 达到 `DONE`，`to_exclusive > from_seq`，重启后的任务回到 `STREAMING`，源表与目标表逐字段一致。
 
-RG02 的失败窗口和修复后通过材料均保留在当前版本目录中。`fe718eb` 的真实复跑覆盖慢表目标锁、GC partial/final、重启和两张表逐字段对账。RG01、RG07 的通过材料来自 `56fea1c`。LG01—LG16 的历史 final/verified3 材料仍按原版本解释，不能替代当前版本逐项复跑。
+RG02 的失败窗口和修复后通过材料均保留在当前版本目录中。`14476fe` 的真实复跑覆盖慢表目标锁、GC partial/final、重启和两张表逐字段对账。RG01、RG07 的通过材料来自 `56fea1c`。当前版本 LG01—LG16 的 17 个 acceptance 证据已归档在 `LG-current-20261123/`。历史 final/verified3 材料仍按原版本解释，失败材料继续保留。
